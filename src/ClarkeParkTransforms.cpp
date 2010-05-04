@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 //   TumanakoVC - Electric Vehicle and Motor control software
-//   Copyright (C) 2009 Philip Court <philip@greenstage.co.nz>
+//   Copyright (C) 2010 Graeme Bell <graemeb@users.sourceforge.net>
 //
 //   This file is part of TumanakoVC.
 //
