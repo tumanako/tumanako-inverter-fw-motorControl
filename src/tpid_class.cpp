@@ -35,41 +35,27 @@
 
 #include "tpid_class.h"
 
-inline float _pid::getsp(){ return this->sp; }
-inline void _pid::setsp(float sp){ this->sp = sp; }
-
-inline float _pid::getthissp(){ return this->this_sp; }
-inline void _pid::setthissp(float tsp){ this->this_sp = tsp; }
-
-inline float _pid::getnextsp(){ return this->next_sp; }
-inline void _pid::setnextsp(float nsp){ this->next_sp = nsp; }
-
-inline float _pid::getlastsp(){ return this->last_sp; }
-inline void _pid::setlastsp(float lsp){ this->last_sp = lsp; }
-
-inline float _pid::getpp(){ return this->pp; }
-inline void _pid::setpp(float pp){ this->pp = pp; }
-
-inline float _pid::getlastpp(){ return this->last_pp; }
-inline void _pid::setlastpp(float lpp){ this->last_pp = lpp; }
-
-inline float _pid::getaccel(){ return this->accel; }
-inline void _pid::setaccel(float acc){ this->accel = acc; }
-
-inline float _pid::getmin(){ return this->min_val; }
-inline void _pid::setmin(float min){ this->min_val = min; }
-
-inline float _pid::getmax(){ return this->max_val; }
-inline void _pid::setmax(float max){ this->max_val = max; }
-
-inline float _pid::getresult(){ return this->result; }
-inline void _pid::setresult(float sr){ this->result = sr; }
-
-inline float _pid::getlastresult(){ return this->last_result; }
-inline void _pid::setlastresult(float lr){ this->last_result = lr; }
-
-inline float _pid::geterr(){ return this->err; }
-
+// Constructor
+_pid::_pid()
+{
+ this->pg_ = 0.0;					
+ this->ig_ = 0.0;					
+ this->dg_ = 0.0;					
+ this->acceleration_limit_ = 0.0;	
+ this->setpoint_ = 0.0;				
+ this->minimum_pid_ = -100.0;			
+ this->maximum_pid_ = 100.0;		
+ this->current_err_ = 0.0;			
+ this->last_err_ = 0.0;			
+ this->i_ = 0.0;					
+ this->last_process_point_ = 0.0;    
+ this->process_point_ = 0.0;        
+ this->next_setpoint_ = 0.0;		
+ this->this_setpoint_ = 0.0;		
+ this->last_setpoint_ = 0.0;			
+ this->pid_result_ = 0.0;			  
+ this->last_pid_result_ = 0.0;	
+};
 
 /*------------------------------------------------------------------------
  // INIT_pid
@@ -78,49 +64,24 @@ inline float _pid::geterr(){ return this->err; }
  // outputs: none
  // process: sets up pid variables before starting to control
  //------------------------------------------------------------------------*/
-inline void _pid::init_pid(int pp, int sp, float min, float max, float accel)
+void _pid::init_pid(int pp, int sp, float min, float max, float accel)
 {
-	this->last_err = 0.0;
-	this->err = 0.0;
-	this->min_val = min;
-	this->max_val = max;
-	this->pp = pp;
-	this->last_pp = pp;
-	this->last_result = pp;
-	this->result = pp;
-	this->sp = sp;
-	this->next_sp = sp;
-	this->this_sp = sp;
-	this->last_sp = sp;
-	this->accel = accel;
-	this->i = 0.0;
+	this->last_err_ = 0.0;
+	this->current_err_ = 0.0;
+	this->minimum_pid_ = min;
+	this->maximum_pid_ = max;
+	this->process_point_ = pp;
+	this->last_process_point_ = pp;
+	this->last_pid_result_ = pp;
+	this->pid_result_ = pp;
+	this->setpoint_ = sp;
+	this->next_setpoint_ = sp;
+	this->this_setpoint_ = sp;
+	this->last_setpoint_ = sp;
+	this->acceleration_limit_ = accel;
+	this->i_ = 0.0;
 }
 
-/*------------------------------------------------------------------------
- // TUNE_PID
- // inputs: proportional gain, integral gain, derivitive gain
- // outputs: none
- // process: Updates variables in _pid class with new values, used for tuning
- //------------------------------------------------------------------------*/
-inline void _pid::tune_pid(float p_g, float i_g, float d_g)
-{
-	this->pg = p_g;
-	this->ig = i_g;
-	this->dg = d_g;
-}
-
-/*------------------------------------------------------------------------
- // PID_SETINTEGRAL
- // inputs:  New integral value
- // outputs: none
- // process: Sets integral to input value, resets last error to zero
- // usage: Use to reset pid control when starting up
- //------------------------------------------------------------------------*/
-inline void _pid::pid_setintegral(float ni)
-{
-	this->i = ni;
-	this->last_err = 0.0;
-}
 
 /*------------------------------------------------------------------------
  // CALC_PID
@@ -129,62 +90,63 @@ inline void _pid::pid_setintegral(float ni)
  // process: Calculates PID point based on setpoint & process value
  // usage: Get instantaneous PID control point
  //------------------------------------------------------------------------*/
-inline float _pid::calc_pid()
+float _pid::calc_pid()
 {
-    // Derivitive
-    float d;
+
+  // Derivitive
+  float d;
 	
-    // Set the target for this loop
-    this->this_sp = this->next_sp;
+  // Set the target for this loop
+  this->this_setpoint_ = this->next_setpoint_;
 	
-    // If acceleration limiting is on - note, need to move this to it's own
+  // If acceleration limiting is on - note, need to move this to it's own
 	// function, not needed in normal operation so we can cut the overhead out.
-    if (this->accel > 0.0 && this->this_sp != this->sp){
-        // If we're below the user sp
-        if (this->this_sp < this->sp){
-            this->next_sp += this->accel;
-            if (this->next_sp > this->sp) {
-			this->next_sp = this->sp; }
+  if (this->acceleration_limit_ > 0.0 && this->this_setpoint_ != this->setpoint_){
+    // If we're below the user sp
+    if (this->this_setpoint_ < this->setpoint_){
+      this->next_setpoint_ += this->acceleration_limit_;
+      if (this->next_setpoint_ > this->setpoint_) {
+        this->next_setpoint_ = this->setpoint_; }
+      }
+      else {
+        // we're above the user sp
+        // next_target -= params.accel;
+        this->next_setpoint_ -= this->acceleration_limit_;
+        if (this->next_setpoint_ < this->setpoint_) {
+          this->next_setpoint_ = this->setpoint_;}
         }
-        else {
-            // we're above the user sp
-            // next_target -= params.accel;
-            this->next_sp -= this->accel;
-            if (this->next_sp < this->sp) {
-			this->next_sp = this->sp;}
-        }
-    }
-    else {
-        /* No acceleration limit so go for it */
-	this->next_sp = this->sp; }
+  }
+  else {
+    // No acceleration limit so go for it 
+    this->next_setpoint_ = this->setpoint_; }
 	
-    // Rest error for this loop
-    this->err = this->this_sp - this->pp;
+  // Rest error for this loop
+  this->current_err_ = this->this_setpoint_ - this->process_point_;
     
-    // derive current loops error rate
-    d = this->err - this->last_err;
+  // derive current loops error rate
+  d = this->current_err_ - this->last_err_;
 	
-    // increment the integral by the error amount
-    this->i += this->next_sp - this->pp;
+  // increment the integral by the error amount
+  this->i_ += this->next_setpoint_ - this->process_point_;
 	
-    // Calculate the resulting PID output
-    this->result = this->pg * this->err
-	+ this->ig * this->i
-	+ this->dg * d;
+  // Calculate the resulting PID output
+  this->pid_result_ = this->pg_ * this->current_err_
+	+ this->ig_ * this->i_
+	+ this->dg_ * d;
 	
-    // set the last error to the current error for next
-    // Loop iteration
-    this->last_err = this->err;
+  // set the last error to the current error for next
+  // Loop iteration
+  this->last_err_ = this->current_err_;
 	
-    /* Check whether we're in the process limits */
-    if (this->result < this->min_val) {
-		this->result = this->min_val; }
-    else if (this->result > this->max_val){
-		this->result = this->max_val; }
+  // Check whether we're in the process limits
+  if (this->pid_result_ < this->minimum_pid_) {
+		this->pid_result_ = this->minimum_pid_; }
+  else if (this->pid_result_ > this->maximum_pid_){
+		this->pid_result_ = this->maximum_pid_; }
 	
-    // store the result for next iteration and return the
-    // output value
-    return this->last_result = this->result;
+  // store the result for next iteration and return the
+  // output value
+  return this->last_pid_result_ = this->pid_result_;
 }
 
 
