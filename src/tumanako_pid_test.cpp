@@ -36,17 +36,16 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-//#include "tumanako_pid.h"
-#include "tpid_class.cpp"
+#include "tpid_class.h"
 
 // structure to hold test inputs
 struct _test_data{
-    float efficiency;   // Process efficiency
-    float lag;          // Process lag for testing
-    float accum;        // weighted accumulator for testing
-    float delay;        // Delay time between cycles
-    int hold;           // hold to test cycle hold
-    int cycles;         // number of cycles to test
+  float efficiency;   // Process efficiency
+  float lag;          // Process lag for testing
+  float accum;        // weighted accumulator for testing
+  float delay;        // Delay time between cycles
+  int hold;           // hold to test cycle hold
+  int cycles;         // number of cycles to test
 };
 
 // Flesh out structure
@@ -66,57 +65,55 @@ void init_test(struct _test_data *tdata)
 	test_data->delay = 0.03;
 }
 
-/*------------------------------------------------------------------------
+ //------------------------------------------------------------------------
  // GET_PP
  // inputs: pointer to run structure
  // outputs: Slowed PV value
  // process:    Simulates the effect of the PID output on a device with
- *              lag provided by test_data->lag & test_data->efficiency.
+ //              lag provided by test_data->lag & test_data->efficiency.
  // usage: Used for testing PID loop
- //------------------------------------------------------------------------*/
+ //------------------------------------------------------------------------
 float get_pp(float result, struct _test_data *test_data)
 {
-    // Equipment response to PID input
-    float laggedOP;
+  // Equipment response to PID input
+  float laggedOP;
 	
-    // Weighted accummulated PID ouput
-    test_data->accum += result;
+  // Weighted accummulated PID ouput
+  test_data->accum += result;
 	
-    // Accummulated output * lag ratio * efficiency
-    laggedOP = test_data->accum * (1 - test_data->lag) * test_data->efficiency;
-	
-    // Reset accum to the base lag times the last accum to emulate
-    // lag over last loop iteration.
-    test_data->accum *= test_data->lag;
-    return laggedOP;
+  // Accummulated output * lag ratio * efficiency
+  laggedOP = test_data->accum * (1 - test_data->lag) * test_data->efficiency;
+
+  // Reset accum to the base lag times the last accum to emulate
+  // lag over last loop iteration.
+  test_data->accum *= test_data->lag;
+  return laggedOP;
 }
 
-/*------------------------------------------------------------------------
+ //------------------------------------------------------------------------
  // MAIN
  // inputs: command line
  // outputs: returns 0
  // process: Creates a pid structure, runs a loop to test functionality
  // usage: Run from command line or debugger
- //------------------------------------------------------------------------*/
+ //------------------------------------------------------------------------
 int main(int argc, char **argv)
 {
 	
-	test_data = &testd;  // pointer to PID parameters
-	_pid pclass;
-	int pv = 0;      // current process value
-	int sp = -20;    // desired setpoint
-	int i;
-	char input;
-	bool runme = true;
+	test_data = &testd; // pointer to PID parameters
+	_pid pclass;        // _pid classs
+	int pv = 0;         // current process value
+	int sp = -20;       // desired setpoint
+	int i;              // loop counter
+	char input;         // char input for command line
+	bool runme = true;  // run flag
 	
 	p_g = 1.0;       // proportional gain
 	i_g = 0.2;       // integral gain
 	d_g = 0.01;      // derivitive gain
-	
 	accel = 0.0;     // Acceleration limit
 	min = -100;      // Minimum PID output
 	max = 100;       // Maximum PID output
-	
 	
 	// setup the PID
 	pclass.tune_pid(p_g,i_g,d_g);
@@ -128,9 +125,9 @@ int main(int argc, char **argv)
 	init_test(&testd);
 	
 	/* if there is no acceleration limit set then set sps */
-	if (0.0 == pclass.getaccel()) {
-		pclass.setnextsp(pclass.getsp());
-		pclass.setthissp(pclass.getsp());
+	if (0.0 == pclass.get_acceleration_limit()) {
+		pclass.set_next_setpoint(pclass.get_setpoint());
+		pclass.set_this_setpoint(pclass.get_setpoint());
 	}
 	
 	// Set hold here if required
@@ -148,35 +145,35 @@ int main(int argc, char **argv)
 				// reduce the hold
 				--test_data->hold;
 				// hold the PId output
-				pclass.setresult(pclass.getlastresult());
+				pclass.set_pid_result(pclass.get_last_pid_result());
 				// hold the process variable
-				pclass.setpp(pclass.getlastpp());
+				pclass.set_process_point(pclass.get_last_process_point());
 				// reset the integral before restarting
 				if(test_data->hold == 0)
 				{
-					pclass.pid_setintegral(0.1);
+					pclass.pid_set_integral(0.1);
 				}
 			}
-			else if (pclass.getresult() != pclass.getlastresult())
+			else if (pclass.get_pid_result() != pclass.get_last_pid_result())
 			{
 				// else if there was some kind of error or missed loop
 				test_data->hold = (unsigned long)floor(test_data->hold);
-				pclass.setlastresult(pclass.getresult());
-				pclass.setlastpp(pclass.getpp());
-				pclass.pid_setintegral(0.1);
+				pclass.set_last_pid_result(pclass.get_pid_result());
+				pclass.set_last_process_point(pclass.get_process_point());
+				pclass.pid_set_integral(0.1);
 			}
 			else
 			{
 				// get pv and pid output
-				pclass.setlastpp(pclass.getpp());
-				pclass.setpp(get_pp(pclass.getresult(),&testd));
-				pclass.setresult(pclass.calc_pid());
+				pclass.set_last_process_point(pclass.get_process_point());
+				pclass.set_process_point(get_pp(pclass.get_last_pid_result(),&testd));
+				pclass.set_pid_result(pclass.calc_pid());
 			}
 			
 			// Show this loops results
 			printf("%5lu: SP: %7.2f PP: %7.2f Out: %7.2f \n",
-				   ++i, pclass.getthissp(), pclass.getpp(),
-				   pclass.getresult());
+				   ++i, pclass.get_this_setpoint(), pclass.get_process_point(),
+				   pclass.get_pid_result());
 			
 			
 			// Delay loop - NOTE this is NOT cross compiler friendly
@@ -187,7 +184,7 @@ int main(int argc, char **argv)
 				start_time = clock();
 				while((clock() - start_time) < (test_data->delay * CLOCKS_PER_SEC));
 			}
-        }
+    }
 		
 		printf ("Enter a [S] for a new setpoint or [Q] to exit: ");
 		scanf("%c",&input);
