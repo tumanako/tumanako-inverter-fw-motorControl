@@ -32,8 +32,8 @@
 #include <libopenstm32/timer.h>
 #include <libopenstm32/nvic.h>
 #include <libopenstm32/scb.h>
-#include <STM32MCU.h>
-#include <stm32_sine.h>
+#include "stm32_sine.h"
+#include "stm32_timsched.h"
 
 static const u16 SinTab[] = { SINTAB };/* sine LUT */
 static       u16 analog_data;  			/* used to set inverter frequency */
@@ -46,6 +46,9 @@ static       u16 analog_data;  			/* used to set inverter frequency */
 #define PWM_MAX         (1 << PWM_DIGITS)
 #define PHASE_SHIFT120  ((u32)(65535 / 3))
 #define PHASE_SHIFT240  ((u32)(2 * (65535 / 3)))
+
+#define	red_led		GPIO12	/* PC12 */
+#define	blue_led	GPIO6	/* PD6 */
 
 /* TODO: add defines for timers used to make this program more generic */
 
@@ -72,18 +75,6 @@ u16 MultiplyAmplitude(u16 Amplitude, u16 Baseval)
     Temp >>= (SINTAB_DIGITS - 1);
     /* Match to PWM resolution */
     return Temp >> (SINTAB_DIGITS - PWM_DIGITS);
-}
-
-/* Toggle lifesign LED and read ADC */
-void tim3_isr(void)
-{
-    /* Clear interrupt pending flag */
-    TIM3_SR &= ~TIM_SR_CC1IF;
-	gpio_toggle(GPIOC, red_led);	/* LED on/off */
-
-	adc_on(ADC1);	/* If the ADC_CR2_ON bit is already set -> setting it another time starts the conversion */
-	while (!(ADC_SR(ADC1) & ADC_SR_EOC));	/* Waiting for end of conversion */
-	analog_data = ADC_DR(ADC1) & 0xFFF;		/* read adc data */
 }
 
 /* Calculate dutycycles */
@@ -179,9 +170,7 @@ void output_digit(int num)
 /* Enable timer interrupts */
 void nvic_setup(void)
 {
-    nvic_enable_irq(NVIC_TIM3_IRQ);
     nvic_enable_irq(NVIC_TIM4_IRQ);
-    nvic_set_priority(NVIC_TIM3_IRQ, 1);
     nvic_set_priority(NVIC_TIM4_IRQ, 0);
 }
 
@@ -208,16 +197,6 @@ void tim_setup(void)
     TIM4_CCR3 = PWM_MAX / 2;
     /* Enable timer */
     TIM4_CR1 |= TIM_CR1_CEN;
-
-    /* Set up blinking Led timer */
-    TIM3_CR1 = TIM_CR1_DIR_DOWN | TIM_CR1_ARPE;
-    TIM3_CCMR1 = TIM_CCMR1_OC1M_ACTIVE | TIM_CCMR1_OC1PE;
-    TIM3_EGR = TIM_EGR_UG;
-    TIM3_PSC = 0x4000;
-    TIM3_ARR = 500;
-    TIM3_CCR1 = 0;
-    TIM3_DIER = TIM_DIER_CC1IE;
-    TIM3_CR1 |=  TIM_CR1_CEN;
 }
 
 void adc_setup(void)
@@ -281,6 +260,18 @@ u8 adcchfromport(int command_port, int command_bit)
 	return 16;
 }
 
+/* Toggle lifesign LED and read ADC */
+void ToggleLed(void)
+{
+	gpio_toggle(GPIOC, red_led);	/* LED on/off */
+}
+
+void ReadAdc(void)
+{
+	adc_on(ADC1);	/* If the ADC_CR2_ON bit is already set -> setting it another time starts the conversion */
+	while (!(ADC_SR(ADC1) & ADC_SR_EOC));	/* Waiting for end of conversion */
+	analog_data = ADC_DR(ADC1) & 0xFFF;		/* read adc data */
+}
 
 int main(void)
 {
@@ -292,10 +283,14 @@ int main(void)
 	adc_setup();		/* todo: check setup of analog peripheral*/
 	nvic_setup();
 	tim_setup();
+	init_timsched();
 
 	gpio_set_mode(GPIOC, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, GPIO3);
     channel_array[0] = adcchfromport(2,3);
 	adc_set_regular_sequence(ADC1, 1, channel_array);
+
+	create_task(ReadAdc,   PRIO_GRP1, 0, 250);
+	create_task(ToggleLed, PRIO_GRP2, 0, 500);
 
 	while (1) {
    		while (!(USART1_SR & USART_SR_RXNE));

@@ -30,7 +30,7 @@ CFLAGS		= -O0 -g -Wall -Wextra -Iinclude -fno-common \
 		  -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles
-OBJS		= $(BINARY).o
+OBJS		= $(BINARY).o stm32_timsched.o
 
 
 OPENOCD_BASE	= /usr
