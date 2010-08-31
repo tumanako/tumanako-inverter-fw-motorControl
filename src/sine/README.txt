@@ -23,7 +23,25 @@ the table boundaries.
 
 We call the function SineLookup(Arg)
 
-2. Sine wave scaling
+2. Space Vector modulation
+--------------------------
+Sine wave modulation can never use the full DC-bus voltage, because when one
+of the three sine waves reaches its maximum, neither of the other two sine
+waves reach their minimum. This wastes around 15% of the DC voltage.
+To use the full voltage of the DC-bus, we allow amplitudes greater than 1,
+namely amplitudes up to 1.15. Now, when one sine wave, say L1, reaches an
+amplitude of 1, we start offsetting the virtual neutral potential in a way
+that L1 never exceeds 1. Since we apply this offset to all three phases,
+the phase-to-phase voltage stays the same.
+It all comes down to the formular
+Offset = 1/2 * (min{a,b,c} + max{a,b,c})
+where a,b,c in [-1,1] represent the three phases.
+In the source code it is explained how we apply this calculation to the
+[0,65535] value range.
+
+We call the function SVPWMOfs
+
+3. Sine wave scaling
 --------------------
 to scale the result of our lookup, we use a simple integer mulitplication
 We map zero amplitude to 0 and full amplitude to 32767. With values larger
@@ -45,10 +63,13 @@ L1 = a * sin(x         )
 L2 = a * sin(x +   Pi/3)
 L3 = a * sin(x + 2xPi/3)
 
-With the scaling introduced above this comes to (arg=0..65535, amp=0..32767)
-Dutycycle L1 = MultAmp(amp, SineLookup( arg                        ))
-Dutycycle L2 = MultAmp(amp, SineLookup((arg +     65535/3) & 0xFFFF))
-Dutycycle L3 = MultAmp(amp, SineLookup((arg + 2 * 65535/3) & 0xFFFF))
+With SVPWM:
+Ofs = SVPWMOfs(L1, L2, L3)
+
+With the scaling introduced above this comes to (arg=0..65535, amp=0..37550)
+Dutycycle L1 = MultAmp(amp, SineLookup( arg                        ) - Ofs)
+Dutycycle L2 = MultAmp(amp, SineLookup((arg +     65535/3) & 0xFFFF) - Ofs)
+Dutycycle L3 = MultAmp(amp, SineLookup((arg + 2 * 65535/3) & 0xFFFF) - Ofs)
 
 The addition arg + 65535/3 is done in u32 and then masked to u16, because
 you never know what the compiler does in case of overflow.
@@ -59,8 +80,9 @@ The frequency is increased by skipping over the lookup table faster. Thus, after
 every calculation of the dutycycles we add a certain amount to the argument.
 What frequency that comes down to depends on the PWM frequency.
 
-In the program we add the result of the ADC (0..4095) divided by 16. With the
-current settings this maps to a range of 0 to around 50Hz.
+In the program we add the result of the ADC (0..4095) offset by 2048 and 
+divided by 8. That way we can skip over the sine wave table backward and
+forward and thus spin the motor in both directions.
 
 5. Timer ISR
 ------------

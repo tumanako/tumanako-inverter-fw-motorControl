@@ -41,14 +41,23 @@ static       u16 analog_data;  			/* used to set inverter frequency */
 
 #define SINTAB_ARGDIGITS 8
 #define SINTAB_ENTRIES  (1 << SINTAB_ARGDIGITS)
+/* Value range of sine lookup table */
 #define SINTAB_DIGITS    16
+#define SINTAB_MAX      (1 << SINTAB_DIGITS)
+/* Domain of lookup function */
+#define SINLU_ARGDIGITS  16
+#define SINLU_ONEREV    (1 << SINLU_ARGDIGITS)
 #define PWM_DIGITS       12
 #define PWM_MAX         (1 << PWM_DIGITS)
-#define PHASE_SHIFT120  ((u32)(65535 / 3))
-#define PHASE_SHIFT240  ((u32)(2 * (65535 / 3)))
+#define PHASE_SHIFT120  ((u32)(     SINLU_ONEREV / 3))
+#define PHASE_SHIFT240  ((u32)(2 * (SINLU_ONEREV / 3)))
 
 #define	red_led		GPIO12	/* PC12 */
 #define	blue_led	GPIO6	/* PD6 */
+
+#define max(a,b,c) (a>b && a>c)?a:(b>a && b>c)?b:c
+
+#define min(a,b,c) (a<b && a<c)?a:(b<a && b<c)?b:c
 
 /* TODO: add defines for timers used to make this program more generic */
 
@@ -61,7 +70,7 @@ u16 SineLookup(u16 Arg)
     /* No interpolation for now */
     /* We divide arg by 2^(SINTAB_ARGDIGITS) */
     /* No we can directly address the lookup table */
-    Arg >>= SINTAB_DIGITS - SINTAB_ARGDIGITS;
+    Arg >>= SINLU_ARGDIGITS - SINTAB_ARGDIGITS;
     return SinTab[Arg];
 }
 
@@ -71,35 +80,65 @@ u16 MultiplyAmplitude(u16 Amplitude, u16 Baseval)
     u32 Temp;
     Temp = (u32)Amplitude * (u32)Baseval;
     /* Divide by 32768 */
-    /* -> Allow overmodulation, maybe useful? */
+    /* -> Allow overmodulation, for SVPWM or FTPWM */
     Temp >>= (SINTAB_DIGITS - 1);
     /* Match to PWM resolution */
-    return Temp >> (SINTAB_DIGITS - PWM_DIGITS);
+    Temp >>= (SINTAB_DIGITS - PWM_DIGITS);
+    return Temp;
+}
+
+s16 CalcSVPWMOffset(u16 a, u16 b, u16 c)
+{
+    /* Formular for svpwm:
+       Offset = 1/2 * (min{a,b,c} + max{a,b,c}) */
+    /* this is valid only for a,b,c in [-32768,32767] */
+    /* we calculate from [0, 65535], thus we need to subtract 32768 to be symmetric */
+    s16 acor = a - (SINTAB_MAX >> 1);
+    s16 bcor = b - (SINTAB_MAX >> 1);
+    s16 ccor = c - (SINTAB_MAX >> 1);
+
+    s16 Minimum = min(acor, bcor, ccor);
+    s16 Maximum = max(acor, bcor, ccor);
+    s16 Offset = Minimum + Maximum;
+
+    return Offset >> 1;
 }
 
 /* Calculate dutycycles */
 void tim4_isr(void)
 {
-	static u16 Arg = 0;
-           u16 Amp = 32767; /* Full amplitude for now */
+	static   u16 Arg = 0;
+             u16 Amp = 37550; /* Full amplitude for now, 15% extra with SVPWM */
+             s16 Ofs;
+             u8  Idx;
+    volatile u32 *pTimCcr = &TIM4_CCR1;
 
-
+    /* 1. Calculate sine */
     DutyCycle[0] = SineLookup(Arg);
-    DutyCycle[0] = MultiplyAmplitude(Amp, DutyCycle[0]);
-    /* The CCR must never be zero, otherwise no interrupts occur anymore */
-	/* TODO: check this for UIF */
-    TIM4_CCR1 = DutyCycle[0] + 1;
     DutyCycle[1] = SineLookup((u16)(((u32)Arg + PHASE_SHIFT120) & 0xFFFF));
-    DutyCycle[1] = MultiplyAmplitude(Amp, DutyCycle[1]);
-    TIM4_CCR2 = DutyCycle[1] + 1;
     DutyCycle[2] = SineLookup((u16)(((u32)Arg + PHASE_SHIFT240) & 0xFFFF));
-    DutyCycle[2] = MultiplyAmplitude(Amp, DutyCycle[2]);
-    TIM4_CCR3 = DutyCycle[2] + 1;
+
+    /* 2. Calculate the offset of SVPWM */
+    Ofs = CalcSVPWMOffset(DutyCycle[0], DutyCycle[1], DutyCycle[2]);
+
+    for (Idx = 0; Idx < 3; Idx++, pTimCcr++)
+    {
+        /* 3. subtract it from all 3 phases -> no difference in phase-to-phase voltage */
+        DutyCycle[Idx] -= Ofs;
+        /* 4. Set desired amplitude and match to PWM resolution */
+        DutyCycle[Idx] = MultiplyAmplitude(Amp, DutyCycle[Idx]);
+        /* 5. Write to compare registers */
+        *pTimCcr = DutyCycle[Idx];
+    }
 
     /* Clear interrupt pending flag */
     TIM4_SR &= ~TIM_SR_UIF;
     /* Increase sine arg */
-    Arg += analog_data >> 4;
+    /* midval means 0 Hz */
+    /* values below midval makes us run through the sine lookup backwards
+       -> motor spins the other direction */
+    Arg += ((s16)analog_data - 2048) >> 2;
+    /* "lifesign" */
 	gpio_toggle(GPIOD, blue_led);	/* LED on/off */
 }
 
