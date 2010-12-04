@@ -25,6 +25,8 @@
  * Added sine wave generation, removed testing code
  */
 
+#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
+
 #include <libopenstm32/rcc.h>
 #include <libopenstm32/gpio.h>
 #include <libopenstm32/usart.h>
@@ -52,16 +54,77 @@ static       u16 analog_data;  			/* used to set inverter frequency */
 #define PHASE_SHIFT120  ((u32)(     SINLU_ONEREV / 3))
 #define PHASE_SHIFT240  ((u32)(2 * (SINLU_ONEREV / 3)))
 
-#define	red_led		GPIO12	/* PC12 */
-#define	blue_led	GPIO6	/* PD6 */
+#ifdef TUMANAKO_KIWIAC  //i.e. TIM1 alternate function
+
+#define	red_led_port  GPIOC
+#define	red_led_bit   GPIO6
+#define	blue_led_port GPIOC
+#define	blue_led_bit  GPIO7
+
+#define TUMANAKO_PWM_TIM_CCR1 TIM1_CCR1
+#define TUMANAKO_PWM_TIM_CCR2 TIM1_CCR2
+#define TUMANAKO_PWM_TIM_CCR3 TIM1_CCR3
+
+#define TUMANAKO_TIMX_SR TIM1_SR
+
+#define	TUMANAKO_PWM_RCC_APBXENR RCC_APB2ENR
+#define	TUMANAKO_PWM_RCC_APBXENR_TIMXEN (RCC_APB2ENR_TIM1EN | RCC_APB2ENR_AFIOEN)
+
+#define TUMANAKO_PWM_TIM_PORT GPIOE
+#define TUMANAKO_PWM_TIM_CHANNELS (GPIO_TIM1_CH1_REMAP | GPIO_TIM1_CH2_REMAP | GPIO_TIM1_CH3_REMAP | GPIO_TIM1_CH1N_REMAP | GPIO_TIM1_CH2N_REMAP | GPIO_TIM1_CH3N_REMAP)
+
+#define TUMANAKO_NVIC_PWM_IRQ NVIC_TIM1_UP_IRQ
+
+#define TUMANAKO_PWM_TIM_EGR TIM1_EGR
+#define TUMANAKO_PWM_TIM_DIER TIM1_DIER
+
+#define TUMANAKO_PWM_CR1 TIM1_CR1
+#define TUMANAKO_PWM_CCMR1 TIM1_CCMR1
+#define TUMANAKO_PWM_CCMR2 TIM1_CCMR2
+#define TUMANAKO_PWM_CCER TIM1_CCER
+
+#define TUMANAKO_PWM_PSC TIM1_PSC
+#define TUMANAKO_PWM_ARR TIM1_ARR
+
+#else  //TIM4 (e.g. olimex board)
+
+#define	red_led_port  GPIOC
+#define	red_led_bit   GPIO12
+#define	blue_led_port GPIOD
+#define	blue_led_bit  GPIO6
+
+#define TUMANAKO_PWM_TIM_CCR1 TIM4_CCR1
+#define TUMANAKO_PWM_TIM_CCR2 TIM4_CCR2
+#define TUMANAKO_PWM_TIM_CCR3 TIM4_CCR3
+
+#define TUMANAKO_TIMX_SR TIM4_SR
+
+#define	TUMANAKO_PWM_RCC_APBXENR RCC_APB1ENR
+#define	TUMANAKO_PWM_RCC_APBXENR_TIMXEN RCC_APB1ENR_TIM4EN
+
+#define TUMANAKO_PWM_TIM_PORT GPIOB
+#define TUMANAKO_PWM_TIM_CHANNELS (GPIO_TIM4_CH1 | GPIO_TIM4_CH2 | GPIO_TIM4_CH3) 
+
+#define TUMANAKO_NVIC_PWM_IRQ NVIC_TIM4_IRQ
+
+#define TUMANAKO_PWM_TIM_EGR TIM4_EGR
+#define TUMANAKO_PWM_TIM_DIER TIM4_DIER
+
+#define TUMANAKO_PWM_CR1 TIM4_CR1
+#define TUMANAKO_PWM_CCMR1 TIM4_CCMR1
+#define TUMANAKO_PWM_CCMR2 TIM4_CCMR2
+#define TUMANAKO_PWM_CCER TIM4_CCER
+
+#define TUMANAKO_PWM_PSC TIM4_PSC
+#define TUMANAKO_PWM_ARR TIM4_ARR
+
+#endif
 
 #define max(a,b,c) (a>b && a>c)?a:(b>a && b>c)?b:c
 
 #define min(a,b,c) (a<b && a<c)?a:(b<a && b<c)?b:c
 
-/* TODO: add defines for timers used to make this program more generic */
-
-void output_digit(int num);
+void output_digit(u16 num);
 
 /* Performs a lookup in the sine table */
 /* 0 = 0, 2Pi = 65535 */
@@ -104,14 +167,27 @@ s16 CalcSVPWMOffset(u16 a, u16 b, u16 c)
     return Offset >> 1;
 }
 
+void tim1_brk_isr(void)
+{
+    gpio_set(blue_led_port, blue_led_bit); /* BLUE LED on */
+    gpio_set(red_led_port, red_led_bit); /* RED LED on */
+}
+
 /* Calculate dutycycles */
+#ifdef TUMANAKO_KIWIAC
+void tim1_up_isr(void)
+#else
 void tim4_isr(void)
+#endif
 {
 	static   u16 Arg = 0;
              u16 Amp = 37550; /* Full amplitude for now, 15% extra with SVPWM */
              s16 Ofs;
              u8  Idx;
-    volatile u32 *pTimCcr = &TIM4_CCR1;
+    volatile u32 *pTimCcr = &TUMANAKO_PWM_TIM_CCR1;
+
+    /* Clear interrupt pending flag - do this at the start of the routine */
+    TUMANAKO_TIMX_SR &= ~TIM_SR_UIF;
 
     /* 1. Calculate sine */
     DutyCycle[0] = SineLookup(Arg);
@@ -131,15 +207,14 @@ void tim4_isr(void)
         *pTimCcr = DutyCycle[Idx];
     }
 
-    /* Clear interrupt pending flag */
-    TIM4_SR &= ~TIM_SR_UIF;
     /* Increase sine arg */
     /* midval means 0 Hz */
     /* values below midval makes us run through the sine lookup backwards
        -> motor spins the other direction */
-    Arg += ((s16)analog_data - 2048) >> 2;
+    //Arg += ((s16)analog_data - 2048) >> 2;  //control speed and direction with pot
+    Arg += ((s16)300) >> 2;  //hard code slow rotation (test without pot connected)
     /* "lifesign" */
-	gpio_toggle(GPIOD, blue_led);	/* LED on/off */
+	  gpio_toggle(blue_led_port, blue_led_bit);	/* LED on/off */
 }
 
 void clock_setup(void)
@@ -159,8 +234,8 @@ void clock_setup(void)
 	/* Enable TIM3 clock */
 	rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN);
 
-	/* Enable TIM4 clock */
-	rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN);
+	/* Enable PWM TIM clock (TIM1 or TIM4 depending on KiwiAC or not defined above) */
+	rcc_peripheral_enable_clock(&TUMANAKO_PWM_RCC_APBXENR, TUMANAKO_PWM_RCC_APBXENR_TIMXEN);
 }
 
 void usart_setup(void)
@@ -183,59 +258,87 @@ void usart_setup(void)
 
 void gpio_setup(void)
 {
+#ifdef TUMANAKO_KIWIAC
+  AFIO_MAPR |= AFIO_MAPR_TIM1_REMAP_FULL_REMAP;
+#endif
+
 	/* Set LEDs (in GPIO port C) to 'output push-pull'. */
-	gpio_set_mode(GPIOC, GPIO_MODE_OUTPUT_2_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, red_led);
-	gpio_set_mode(GPIOD, GPIO_MODE_OUTPUT_2_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, blue_led);
-    /* Timer 4 Ch 1,2,3 GPIO */
-    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ,
-                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_TIM4_CH1 | GPIO_TIM4_CH2 | GPIO_TIM4_CH3);
+	gpio_set_mode(red_led_port, GPIO_MODE_OUTPUT_2_MHZ,
+		      GPIO_CNF_OUTPUT_PUSHPULL, red_led_bit);
+	gpio_set_mode(blue_led_port, GPIO_MODE_OUTPUT_2_MHZ,
+		      GPIO_CNF_OUTPUT_PUSHPULL, blue_led_bit);
+    /* Timer Ch GPIO */
+    gpio_set_mode(TUMANAKO_PWM_TIM_PORT, GPIO_MODE_OUTPUT_50_MHZ,
+                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TUMANAKO_PWM_TIM_CHANNELS);
 
 }
 
-void output_digit(int num)
+void output_digit(u16 num)
 {
-	if(num > 1000)	usart_send(USART1, num/1000 + '0');
-	else usart_send(USART1, ' ');
-	num -= ((u8) (num/1000)) * 1000;
-	usart_send(USART1, num/100 + '0');
-	num -= ((u8) (num/100))  * 100;
-	usart_send(USART1, num/10 + '0');
-	num -= ((u8) (num/10))   * 10;
-	usart_send(USART1, num + '0');
-}
+  if(num > 10000) usart_send(USART1, num/10000 + '0');
+  else usart_send(USART1, ' ');
+  num -= ((u8) (num/10000)) * 10000;
+  if(num > 1000)  usart_send(USART1, num/1000 + '0');
+  else usart_send(USART1, ' ');
+  num -= ((u8) (num/1000)) * 1000;
+  usart_send(USART1, num/100 + '0');
+  num -= ((u8) (num/100))  * 100;
+  usart_send(USART1, num/10 + '0');
+  num -= ((u8) (num/10))   * 10;
+  usart_send(USART1, num + '0');
+}   
 
 /* Enable timer interrupts */
 void nvic_setup(void)
 {
-    nvic_enable_irq(NVIC_TIM4_IRQ);
-    nvic_set_priority(NVIC_TIM4_IRQ, 0);
+    nvic_enable_irq(TUMANAKO_NVIC_PWM_IRQ);
+    nvic_set_priority(TUMANAKO_NVIC_PWM_IRQ, 0);
 }
 
 void tim_setup(void)
 {
-    /* Center aligned PWM */
-    TIM4_CR1 = TIM_CR1_CMS_CENTER_1 | TIM_CR1_ARPE;
-    /* PWM mode 1 and preload enable */
-    TIM4_CCMR1 = TIM_CCMR1_OC1M_PWM1 | TIM_CCMR1_OC1PE | TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
-    TIM4_CCMR2 = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
+    /* Center aligned PWM - control register 1 */
+    TUMANAKO_PWM_CR1 = TIM_CR1_CMS_CENTER_1 | TIM_CR1_ARPE;
+    /* PWM mode 1 and preload enable - capture compare mode register 1 and 2 */
+    TUMANAKO_PWM_CCMR1 = TIM_CCMR1_OC1M_PWM1 | TIM_CCMR1_OC1PE | TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
+    TUMANAKO_PWM_CCMR2 = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
     /* Output enable */
-    TIM4_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E;
+#ifdef TUMANAKO_KIWIAC
+
+  //clear CC1P (capture compare enable register, active high)
+  TIM1_CCER &= (uint16_t)~TIM_CCER_CC1P;
+
+    TUMANAKO_PWM_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC1NE | TIM_CCER_CC2NE | TIM_CCER_CC3NE;
+    //Deadtime = 28 ~ 800ns
+    TIM1_BDTR = (TIM_BDTR_OSSR | TIM_BDTR_OSSI | 28 ) & ~TIM_BDTR_BKP & ~TIM_BDTR_AOE;
+
+    TIM1_CR2 &= (uint16_t)~(TIM_CR2_OIS1 || TIM_CR2_OIS1N || TIM_CR2_OIS2 || TIM_CR2_OIS2N || TIM_CR2_OIS3 || TIM_CR2_OIS3N);
+
+#else
+    TUMANAKO_PWM_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E;
+#endif
     /* Enable update generation */
-    TIM4_EGR = TIM_EGR_UG;
+    TUMANAKO_PWM_TIM_EGR = TIM_EGR_UG;
     /* Enable update event interrupt */
-    TIM4_DIER = TIM_DIER_UIE;
+    TUMANAKO_PWM_TIM_DIER = TIM_DIER_UIE;
     /* Prescaler */
-    TIM4_PSC = 0x1;
+    TUMANAKO_PWM_PSC = 0x1;
     /* PWM frequency */
-    TIM4_ARR = PWM_MAX;
-    /* start out with 50:50 duty cycle */
-    TIM4_CCR1 = PWM_MAX / 2;
-    TIM4_CCR2 = PWM_MAX / 2;
-    TIM4_CCR3 = PWM_MAX / 2;
+    TUMANAKO_PWM_ARR = PWM_MAX; //4096 
+
+    TIM1_RCR = 1;  //set rep_rate
+
+    /* start out with 50:50 duty cycle (does NOT handle rolling starts!!!)*/
+    TUMANAKO_PWM_TIM_CCR1 = PWM_MAX / 2;
+    TUMANAKO_PWM_TIM_CCR2 = PWM_MAX / 2;
+    TUMANAKO_PWM_TIM_CCR3 = PWM_MAX / 2;
     /* Enable timer */
-    TIM4_CR1 |= TIM_CR1_CEN;
+    TUMANAKO_PWM_CR1 |= TIM_CR1_CEN;
+
+#ifdef TUMANAKO_KIWIAC
+    TIM1_BDTR |= TIM_BDTR_MOE; //enable TIM1 main outputs
+#endif
+
 }
 
 void adc_setup(void)
@@ -243,7 +346,7 @@ void adc_setup(void)
 	int i;
 	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_ADC1EN);
 
-	/* make shure it didnt run during config */
+	/* make sure it didnt run during config */
 	adc_off(ADC1);
 
 	/* we configure everything for one single conversion */
@@ -300,9 +403,9 @@ u8 adcchfromport(int command_port, int command_bit)
 }
 
 /* Toggle lifesign LED and read ADC */
-void ToggleLed(void)
+void ToggleRedLed(void)
 {
-	gpio_toggle(GPIOC, red_led);	/* LED on/off */
+	gpio_toggle(red_led_port, red_led_bit);	/* LED on/off */
 }
 
 void ReadAdc(void)
@@ -329,7 +432,7 @@ int main(void)
 	adc_set_regular_sequence(ADC1, 1, channel_array);
 
 	create_task(ReadAdc,   PRIO_GRP1, 0, 250);
-	create_task(ToggleLed, PRIO_GRP2, 0, 500);
+	create_task(ToggleRedLed, PRIO_GRP2, 0, 500);
 
 	while (1) {
    		while (!(USART1_SR & USART_SR_RXNE));
@@ -342,7 +445,50 @@ int main(void)
         output_digit(DutyCycle[2]);
         usart_send(USART1, ' ');
         output_digit(analog_data);
-		usart_send(USART1, '\r');
+
+        //output various register data (useful for debug of timer setup and behaviour)
+        usart_send(USART1, ' - ');
+        output_digit(TIM1_CR1);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CR2);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_SMCR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_DIER);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_SR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_EGR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCMR1);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCMR2);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCER);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CNT);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_PSC);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_ARR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_RCR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCR1);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCR2);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCR3);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_CCR4);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_BDTR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_DCR);
+        usart_send(USART1, ' ');
+        output_digit(TIM1_DMAR);
+
+		    usart_send(USART1, '\r');
 	}
 	return 0;
 }
