@@ -1,0 +1,46 @@
+Test Instructions (AC Motor, KiwiAC and SKiiP)
+----------------------------------------------
+These instructions detail how to run an AC induction motor
+using a KiwiAC control board (STM32MCU) with stm32_sine software
+connected to a SKiiP module.  This currenlty has no controlls
+and simply runs the motor at constant speed until the power is
+turned off.
+
+1. Wiring
+---------
+
+See wiring diagram here: http://sourceforge.net/apps/mediawiki/tumanako/index.php?title=Motor_Control_Sine
+
+a) Connect 26 strand ribbon cable from KiwiAC to SKiiP
+b) Provide 24V to the KiwiAC (powers SKiiP via ribbon cable)
+c) Provide 12V to KiwiAC (powers KiwiAC)
+
+And don't forget to wire your motor and DC bus power supply to the power stage (SKiiP).
+
+2. Install the program
+----------------------
+Connect the KiwiAC USART0 port to your development PC with a serial cable.  Suggest you
+create a cable with the following modification so it is easy to put the board into Bootloader
+mode (http://sourceforge.net/apps/mediawiki/tumanako/index.php?title=STM32MCU_Flashing#Automatic_Reset).
+
+With the board powered up in boot loader mode, run the following command to upload the program
+(stm32_sine_test.bin is a pre built and tested  binary which has been committed to SVN, but you can also 
+build your from source if desired):
+
+$ stm32loader.py -ewv stm32_sine_test.bin
+
+
+3. Power Up
+-----------
+
+Power up your DC bus to the power stage (24V is enough on a test rig).  Power up the 24V supply to the
+STM32MCU so that the SKiiP can power itself up.  Finally, turn the 12V power to the STM32MCU on, you should 
+instantly see the blue light, followed by the red light flashing (for some reason this 
+sometimes takes about 30 seconds to start flashing?).  The motor should also start 
+running straight away.
+
+4. Power Down
+-------------
+Turn the power off to stop the motor
+
+
