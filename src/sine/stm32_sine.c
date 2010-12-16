@@ -212,7 +212,7 @@ void tim4_isr(void)
     /* values below midval makes us run through the sine lookup backwards
        -> motor spins the other direction */
     //Arg += ((s16)analog_data - 2048) >> 2;  //control speed and direction with pot
-    Arg += ((s16)300) >> 2;  //hard code slow rotation (test without pot connected)
+    Arg += ((s16)1300) >> 2;  //hard code slow rotation (test without pot connected)
     /* "lifesign" */
 	  gpio_toggle(blue_led_port, blue_led_bit);	/* LED on/off */
 }
@@ -447,7 +447,7 @@ int main(void)
         output_digit(analog_data);
 
         //output various register data (useful for debug of timer setup and behaviour)
-        usart_send(USART1, ' - ');
+        usart_send(USART1, '-');
         output_digit(TIM1_CR1);
         usart_send(USART1, ' ');
         output_digit(TIM1_CR2);
