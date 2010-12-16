@@ -1,7 +1,8 @@
-Test Instructions (AC Motor, KiwiAC and SKiiP)
-----------------------------------------------
+Test Instructions (AC Motor, STM32MCU and SKiiP)
+------------------------------------------------
 These instructions detail how to run an AC induction motor
-using a KiwiAC control board (STM32MCU) with stm32_sine software
+using a STM32MCU control board (e.g the KiwiAC control board is
+an STM32MCU manufactured by Greenstage) with stm32_sine software
 connected to a SKiiP module.  This currenlty has no controlls
 and simply runs the motor at constant speed until the power is
 turned off.
@@ -10,22 +11,25 @@ turned off.
 ---------
 
 See wiring diagram here: http://sourceforge.net/apps/mediawiki/tumanako/index.php?title=Motor_Control_Sine
+The full STM32MCU pin out is available from SVN in inverter/hw/STM32MCU/STM32MCUsch.pdf
+A mapping of STM32MCU IO to STM32 pins is available from SVN in inverter/hw/STM32MCU_IO.ods
 
-a) Connect 26 strand ribbon cable from KiwiAC to SKiiP
-b) Provide 24V to the KiwiAC (powers SKiiP via ribbon cable)
-c) Provide 12V to KiwiAC (powers KiwiAC)
+a) Connect 26 strand ribbon cable from STM32MCU to SKiiP
+b) Provide 24V to the STM32MCU (powers SKiiP via ribbon cable)
+c) Provide 12V to STM32MCU (powers STM32MCU)
 
 And don't forget to wire your motor and DC bus power supply to the power stage (SKiiP).
 
 2. Install the program
 ----------------------
-Connect the KiwiAC USART0 port to your development PC with a serial cable.  Suggest you
-create a cable with the following modification so it is easy to put the board into Bootloader
-mode (http://sourceforge.net/apps/mediawiki/tumanako/index.php?title=STM32MCU_Flashing#Automatic_Reset).
+Connect the STM32MCU USART0 port to your development PC with a serial cable.  Suggest you
+create a boot loader serial cable so it is easy to put the board into Bootloader
+mode, or alternatively bridge pin 1 and 2 of j105.  Instructions for both options are
+available here: http://sourceforge.net/apps/mediawiki/tumanako/index.php?title=STM32MCU_Flashing
 
 With the board powered up in boot loader mode, run the following command to upload the program
-(stm32_sine_test.bin is a pre built and tested  binary which has been committed to SVN, but you can also 
-build your from source if desired):
+(stm32_sine_test.bin is a pre built and tested binary which has been committed to SVN, but you can also 
+build your own from source if desired, just type 'make', although this also requires libopenstm32):
 
 $ stm32loader.py -ewv stm32_sine_test.bin
 
