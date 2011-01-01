@@ -34,6 +34,9 @@
 #include <libopenstm32/timer.h>
 #include <libopenstm32/nvic.h>
 #include <libopenstm32/scb.h>
+
+#include <stdio.h>
+
 #include "stm32_sine.h"
 #include "stm32_timsched.h"
 
@@ -123,8 +126,6 @@ static       u16 analog_data;  			/* used to set inverter frequency */
 #define max(a,b,c) (a>b && a>c)?a:(b>a && b>c)?b:c
 
 #define min(a,b,c) (a<b && a<c)?a:(b<a && b<c)?b:c
-
-void output_digit(u16 num);
 
 /* Performs a lookup in the sine table */
 /* 0 = 0, 2Pi = 65535 */
@@ -256,6 +257,19 @@ void usart_setup(void)
 	usart_enable(USART1);
 }
 
+/* UART1 only write syscall, untimately called by printf()  */
+int _write(int fd, const u8 *buf, int len)
+{
+	int i;
+
+	(void)fd;
+
+	for(i = 0; i < len; i++) 
+		usart_send(USART1, buf[i]);
+
+	return len;
+}
+
 void gpio_setup(void)
 {
 #ifdef TUMANAKO_KIWIAC
@@ -272,21 +286,6 @@ void gpio_setup(void)
                 GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TUMANAKO_PWM_TIM_CHANNELS);
 
 }
-
-void output_digit(u16 num)
-{
-  if(num > 10000) usart_send(USART1, num/10000 + '0');
-  else usart_send(USART1, ' ');
-  num -= ((u8) (num/10000)) * 10000;
-  if(num > 1000)  usart_send(USART1, num/1000 + '0');
-  else usart_send(USART1, ' ');
-  num -= ((u8) (num/1000)) * 1000;
-  usart_send(USART1, num/100 + '0');
-  num -= ((u8) (num/100))  * 100;
-  usart_send(USART1, num/10 + '0');
-  num -= ((u8) (num/10))   * 10;
-  usart_send(USART1, num + '0');
-}   
 
 /* Enable timer interrupts */
 void nvic_setup(void)
@@ -438,57 +437,20 @@ int main(void)
    		while (!(USART1_SR & USART_SR_RXNE));
         usart_recv(USART1);
 
-        output_digit(DutyCycle[0]);
-        usart_send(USART1, ' ');
-        output_digit(DutyCycle[1]);
-        usart_send(USART1, ' ');
-        output_digit(DutyCycle[2]);
-        usart_send(USART1, ' ');
-        output_digit(analog_data);
+        printf("%d %d %d %d - ", DutyCycle[0], DutyCycle[1],
+          DutyCycle[2], analog_data);
 
         //output various register data (useful for debug of timer setup and behaviour)
-        usart_send(USART1, '-');
-        output_digit(TIM1_CR1);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CR2);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_SMCR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_DIER);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_SR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_EGR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCMR1);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCMR2);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCER);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CNT);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_PSC);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_ARR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_RCR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCR1);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCR2);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCR3);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_CCR4);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_BDTR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_DCR);
-        usart_send(USART1, ' ');
-        output_digit(TIM1_DMAR);
+       /* Do we really print bitfields in decimal format? */
+        printf("%lu %lu %lu %lu  %lu %lu %lu %lu  %lu %lu %lu %lu  "
+           "%lu %lu %lu %lu  %lu %lu %lu %lu\r",
+           TIM1_CR1, TIM1_CR2, TIM1_SMCR, TIM1_DIER,
+           TIM1_SR, TIM1_EGR, TIM1_CCMR1, TIM1_CCMR2,
+           TIM1_CCER, TIM1_CNT, TIM1_PSC, TIM1_ARR,
+           TIM1_RCR, TIM1_CCR1, TIM1_CCR2, TIM1_CCR3,
+           TIM1_CCR4, TIM1_BDTR, TIM1_DCR, TIM1_DMAR);
+        fflush(stdout);
 
-		    usart_send(USART1, '\r');
 	}
 	return 0;
 }

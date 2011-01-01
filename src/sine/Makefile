@@ -22,14 +22,15 @@ BINARY		= stm32_sine
 PREFIX		?= arm-none-eabi
 #PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
-LD		= $(PREFIX)-ld
+LD		= $(PREFIX)-gcc
 OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR = `dirname \`which $(CC)\``/../$(PREFIX)
 CFLAGS		= -O0 -g -Wall -Wextra -Iinclude -fno-common \
 		  -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
-LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles
+LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles \
+      -Wl,--defsym,_stack=0x20005000
 OBJS		= $(BINARY).o stm32_timsched.o
 
 
@@ -59,7 +60,7 @@ images: $(BINARY)
 
 $(BINARY): $(OBJS) $(LDSCRIPT)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopenstm32
+	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopenstm32 -lc -lnosys
 
 %.o: %.c Makefile
 	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
