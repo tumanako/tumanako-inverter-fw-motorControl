@@ -45,7 +45,7 @@ const u32 GrpToRCC[] = { PRIORITY_GROUPS };
 #undef PRIOGRP_ENTRY
 
 /* return CCRc of TIMt */
-#define TIM_CCR(t,c) (*(volatile u32 *)(&TIM_CCR1(t) + ((c) << 2)))
+#define TIM_CCR(t,c) (*(volatile u32 *)(&TIM_CCR1(t) + (c)))
 
 /* We use preprocessor code generation instead of actual functions
    to have less function calls in the ISRs */
@@ -128,13 +128,16 @@ s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 
     /* Disable timer */
     TIM_CR1  (GrpToTimer[PrioGrp])&= ~TIM_CR1_CEN;
     *CCMR                         |= CCMRFlag;
-    *CCR                           = Period;
+    *CCR                           = Period >> 1;
     /* Enable interrupt for that channel */
     TIM_DIER (GrpToTimer[PrioGrp])|= TIM_DIER_CC1IE << PrioInGrp;
 
     /* Assign task function and period */
     Functions[FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Function;
-    Periods  [FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period;
+    Periods  [FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period << 1;
+
+    /* Reset counter */
+    TIM_CNT (GrpToTimer[PrioGrp]) = 0;
 
     /* Enable timer */
     TIM_CR1  (GrpToTimer[PrioGrp])|= TIM_CR1_CEN;
@@ -158,7 +161,7 @@ void init_timsched(void)
         nvic_set_priority(GrpToNvic[PrioGrp], PrioGrp + 1);
         /* Setup timers upcounting and auto preload enable */
         TIM_CR1  (GrpToTimer[PrioGrp]) = TIM_CR1_DIR_UP | TIM_CR1_ARPE;
-        /* Set prescaler to count at 1 kHz = 36 MHz/36000 */
+        /* Set prescaler to count at 2 kHz = 72 MHz/36000 */
         TIM_PSC  (GrpToTimer[PrioGrp]) = 36000;
         /* Maximum counter value */
         TIM_ARR  (GrpToTimer[PrioGrp]) = 0xFFFF;
