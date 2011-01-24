@@ -84,6 +84,15 @@ In the program we add the result of the ADC (0..4095) offset by 2048 and
 divided by 8. That way we can skip over the sine wave table backward and
 forward and thus spin the motor in both directions.
 
+With the current setup, the PWM base frequency equal
+
+36 MHz
+------ = 8789 kHz
+4096
+
+Thus, when frq = 1 we yield an inverter frequency of 8789/65536 = 0.13411 Hz.
+This gives us a scaling ratio of 7.4565 digit/Hz.
+
 5. Timer ISR
 ------------
 The timer interrupt handler calculates the new dutycycle as described above,
@@ -111,3 +120,44 @@ i) Enable the update interrupt UIE in TIMx_DIER
 j) Set the prescaler TIMx_PSC (haven't yet understood, 1 looked allright)
 k) set the maximum PWM value and thus the frequency in TIMx_ARR
 l) Enable the timer with CEN in TIMx_CR1
+
+7. Speed sensor
+---------------
+To get startet I simply attached a photo sensor to the motor with a toothed wheel
+running through it. This gives us 32 pulses/rev. The pulses a counted by a timer
+(TIM1 in my case) with a heavily filtered trigger input. Without filtering, all
+the EMI spikes are counted as well
+I than created a task that polls the timer value every 100ms. So, when the motor
+runs at 1.25 rotations per second (75 rotations per minute) this would give us
+a counter value of 4 every 100ms.
+This gives us a scaling ratio of 3.2 digit/rotation.
+To get the electrical rotor frequency, we have to divide by the number of pole pairs.
+More generally the formular to calculate rotor frequency out of the counter value is
+
+          p * f_task * Cnt
+f_rotor = ----------------
+           n_pulses
+		   
+where p is the number of pole pairs, f_task the timer polling frequency, Cnt the polled
+counter value and n_pulses the number of pulses per rotation.
+
+8. Slip calculation and slip control
+------------------------------------
+With the values for inverter frequency and rotor frequency at hand it is now fairly easy
+to calculate the motors current slip
+
+     f_rotor
+s = -----------
+     f_inv
+	 
+To implement a simple (none-PID) slip control we simply rearrange the formular to
+
+          f_rotor
+f_inv = -----------
+            s
+			
+I have setup the throttle pot to control the slip with values between 
+0.7952 (accelerate) and 1.2048 (brake)
+These values need a lot of fine tuning and also the motor flux should
+somehow be affected by the pot I guess? Implementing U(f) would be a logical
+next step.
