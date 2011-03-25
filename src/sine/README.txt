@@ -100,8 +100,8 @@ increases the argument and clears the interrupt pending flag
 
 6. Timer setup
 --------------
-This is largely hardware dependend, since the timer outputs map to fixed pins.
-The best choice would be TIM1 or TIM8 since the allow for complementary
+This is largely hardware dependendant, since the timer outputs map to fixed pins.
+The best choice would be TIM1 or TIM8 since they allow for complementary
 outputs with dead time generation. Unfortunatly on my hardware the outputs
 are connected to other peripherals and I couldn't start the timer for
 unknown reasons. Thus, I'm using TIM4 with OCC channels 1-3
@@ -123,8 +123,8 @@ l) Enable the timer with CEN in TIMx_CR1
 
 7. Speed sensor
 ---------------
-To get startet I simply attached a photo sensor to the motor with a toothed wheel
-running through it. This gives us 32 pulses/rev. The pulses a counted by a timer
+To get started I simply attached a photo sensor to the motor with a toothed wheel
+running through it. This gives us 32 pulses/rev. The pulses are counted by a timer
 (TIM1 in my case) with a heavily filtered trigger input. Without filtering, all
 the EMI spikes are counted as well
 I than created a task that polls the timer value every 100ms. So, when the motor
