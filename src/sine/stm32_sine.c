@@ -25,16 +25,16 @@
  * Added sine wave generation, removed testing code
  */
 
-#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
+//#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
 #define USE_THROTTLE_POT 1
 
-#include <libopenstm32/rcc.h>
-#include <libopenstm32/gpio.h>
-#include <libopenstm32/usart.h>
-#include <libopenstm32/adc.h>
-#include <libopenstm32/timer.h>
-#include <libopenstm32/nvic.h>
-#include <libopenstm32/scb.h>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/nvic.h>
+#include <libopencm3/stm32/scb.h>
 
 #include <stdio.h>
 
@@ -111,7 +111,7 @@ static       s16 slip;
 #define TUMANAKO_PWM_ARR TIM1_ARR
 
 #define TUMANAKO_ROT_TIM_SCMR //define speed sensor timer here
-#define TUMANAKO_ROT_CR1 
+#define TUMANAKO_ROT_TIM_CR1 
 #define TUMANAKO_ROT_TIM_CNT
 
 #else  //TIM4 (e.g. olimex board)
@@ -344,8 +344,8 @@ void tim_setup(void)
     /* Output enable */
 #ifdef TUMANAKO_KIWIAC
 
-  //clear CC1P (capture compare enable register, active high)
-  TIM1_CCER &= (uint16_t)~TIM_CCER_CC1P;
+    //clear CC1P (capture compare enable register, active high)
+    TIM1_CCER &= (uint16_t)~TIM_CCER_CC1P;
 
     TUMANAKO_PWM_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC1NE | TIM_CCER_CC2NE | TIM_CCER_CC3NE;
     //Deadtime = 28 ~ 800ns

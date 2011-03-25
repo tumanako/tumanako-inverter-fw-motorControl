@@ -17,9 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libopenstm32/timer.h>
-#include <libopenstm32/nvic.h>
-#include <libopenstm32/rcc.h>
+#include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/nvic.h>
+#include <libopencm3/stm32/rcc.h>
 #include "stm32_timsched.h"
 
 void (*Functions[MAX_TASKS]) (void);
