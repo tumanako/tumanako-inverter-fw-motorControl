@@ -25,7 +25,8 @@
  * Added sine wave generation, removed testing code
  */
 
-//#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
+//#define STM32_SINE_TEST  //Uncomment for standalone testing (i.e. without linking to tumanako vehicle control)
+#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
 #define USE_THROTTLE_POT 1
 
 #include <libopencm3/stm32/rcc.h>
@@ -38,12 +39,14 @@
 
 #include <stdio.h>
 
-#include "stm32_sine.h"
+#include "stm32_sine.h"  //contains exports for use as an external module
+#include "stm32_sine_lookup_table.h"
 #include "stm32_timsched.h"
 
 static const u16 SinTab[] = { SINTAB };/* sine LUT */
-static       u16 analog_data;  			/* used to set inverter frequency */
+//static       u16 analog_data;  			/* OLD, was used to set inverter frequency */
              u16 DutyCycle[3]; 			/* global for debugging */
+int16_t STM32_SINE_SineSpeed;        /* global interface used to set inverter frequency, -ve = backwards, 0 = stop, +ve = forward*/
 static       u16 CtrVal;
 static       u8  mode;
 static       s16 frq = 650;
@@ -110,9 +113,9 @@ static       s16 slip;
 #define TUMANAKO_PWM_PSC TIM1_PSC
 #define TUMANAKO_PWM_ARR TIM1_ARR
 
-#define TUMANAKO_ROT_TIM_SCMR //define speed sensor timer here
-#define TUMANAKO_ROT_TIM_CR1 
-#define TUMANAKO_ROT_TIM_CNT
+#define TUMANAKO_ROT_TIM_SCMR         TIM2_SMCR //TODO test new KiwiAC speed sensor timer setup
+#define TUMANAKO_ROT_TIM_CR1          TIM2_CR1
+#define TUMANAKO_ROT_TIM_CNT          TIM2_CNT
 
 #else  //TIM4 (e.g. olimex board)
 
@@ -242,7 +245,7 @@ void tim4_isr(void)
             DutyCycle[Idx] -= Ofs;
             /* 4. Set desired amplitude and match to PWM resolution */
             DutyCycle[Idx] = MultiplyAmplitude(Amp, DutyCycle[Idx]);
-            /* 5. Write to compare registers */
+            /* 5. Write to compare registers (set the PWM Duty Cycle!)*/
             *pTimCcr = DutyCycle[Idx];
         }
 
@@ -375,10 +378,13 @@ void tim_setup(void)
     TUMANAKO_PWM_CR1 |= TIM_CR1_CEN;
 
 #ifdef TUMANAKO_KIWIAC
+#ifdef STM32_SINE_TEST //not needed for library (Tumanako Vehicle Control enables this)
     TIM1_BDTR |= TIM_BDTR_MOE; //enable TIM1 main outputs
+#endif
 #endif
 
 
+    //TODO I suspect this encoder setup needs to be vastly different for the KiwiAC
     /* setup capture timer. Strong filtering for EMI "robustness" */
     TUMANAKO_ROT_TIM_SCMR = TIM_SMCR_ECE | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_16_N_8;
     /* setup capture timer */
@@ -451,7 +457,7 @@ void ToggleRedLed(void)
 {
     static u16 LastCtr = 0;
 #if USE_THROTTLE_POT
-    s16 slip_spnt = 12000 - analog_data;
+    s16 slip_spnt = 12000 - STM32_SINE_SineSpeed;
 #else
     s16 slip_spnt = 9500;
 #endif
@@ -473,38 +479,51 @@ void ReadAdc(void)
 {
 	adc_on(ADC1);	/* If the ADC_CR2_ON bit is already set -> setting it another time starts the conversion */
 	while (!(ADC_SR(ADC1) & ADC_SR_EOC));	/* Waiting for end of conversion */
-	analog_data = ADC_DR(ADC1) & 0xFFF;		/* read adc data */
+	STM32_SINE_SineSpeed = ADC_DR(ADC1) & 0xFFF;		/* read adc data */
 
 #if USE_THROTTLE_POT
 	if (MOD_CTRL == mode)
 	{
-	    frq = (analog_data - 2048) >> 1;
+	    frq = (STM32_SINE_SineSpeed - 2048) >> 1;
 	}
 #endif
 }
 
-int main(void)
+/* Used to initailise the stm32_sine module*/
+void STM32_SINE_Init(void)
 {
     static u8 channel_array[16] = {16,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
-    char c;
 
 	clock_setup();
 	gpio_setup();
+#ifdef STM32_SINE_TEST //Only setup usart and read ADC here if we are running standalone
 	usart_setup();
 	adc_setup();		/* todo: check setup of analog peripheral*/
+#endif
 	nvic_setup();
 	tim_setup();
-	init_timsched();
+	init_timsched(); //Need this with the new slip control TODO check if still causes issues with Vehicle Control setup - PCC
 
 	gpio_set_mode(GPIOC, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, GPIO3);
     channel_array[0] = adcchfromport(2,3);
 	adc_set_regular_sequence(ADC1, 1, channel_array);
 
     mode = MOD_CTRL;
-	
+
+#ifdef STM32_SINE_TEST //Only read ADC here if we are running standalone
     create_task(ReadAdc,   PRIO_GRP1, 0, 250);
+#endif
+
 	/* The timing is still messed up, this gives me 100 ms */
-	create_task(ToggleRedLed, PRIO_GRP1, 1, 200);
+	create_task(ToggleRedLed, PRIO_GRP1, 1, 200);  //as well as toggling leds, this task is essential for slip control logic
+}
+
+
+#ifdef STM32_SINE_TEST //main not needed for library (as used by Tumanako Vehicle Control)
+int main(void)
+{
+  char c;
+  STM32_SINE_Init();
 
 	while (1) {
    		while (!(USART1_SR & USART_SR_RXNE));
@@ -514,7 +533,7 @@ int main(void)
         if ('s' == c) mode = MOD_SLIP;
 
         printf("%d %d %d %d %d %d %d - ", DutyCycle[0], DutyCycle[1],
-          DutyCycle[2], analog_data, slip, (int)(frq * HZ_PER_DIGIT_8) >> 8, /* inverter frequency */
+          DutyCycle[2], STM32_SINE_SineSpeed, slip, (int)(frq * HZ_PER_DIGIT_8) >> 8, /* inverter frequency */
          (int)(POLE_PAIRS * 10 * CtrVal)/NUM_IMPULSE_PER_REV); /* rotor frequency */
 
         //output various register data (useful for debug of timer setup and behaviour)
@@ -531,6 +550,7 @@ int main(void)
 	}
 	return 0;
 }
+#endif
 
 
 

@@ -18,19 +18,22 @@
 ##
 
 BINARY		= stm32_sine
+LIBNAME   = libstm32sine
 
 PREFIX		?= arm-none-eabi
 #PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
 LD		= $(PREFIX)-gcc
+AR    = $(PREFIX)-ar
 OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR = `dirname \`which $(CC)\``/../$(PREFIX)
 CFLAGS		= -O0 -g -Wall -Wextra -Iinclude -fno-common \
-		  -mcpu=cortex-m3 -mthumb
+		  -mcpu=cortex-m3 -mthumb -I/home/pccourt/tmp/johanes/libopenstm32/include
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles \
-      -Wl,--defsym,_stack=0x20005000
+      -Wl,--defsym,_stack=0x20005000 -L/home/pccourt/tmp/johanes/libopenstm32/lib/stm32
+ARFLAGS   = rcs
 OBJS		= $(BINARY).o stm32_timsched.o
 
 
@@ -47,6 +50,10 @@ NULL := 2>/dev/null
 endif
 
 all: images
+
+$(LIBNAME).a: $(OBJS) libopencm3_stm32.a
+	@printf "  AR      $(subst $(shell pwd)/,,$(@))\n"
+	$(AR) $(ARFLAGS) $@ $^
 
 images: $(BINARY)
 	@printf "  OBJCOPY $(BINARY).bin\n"

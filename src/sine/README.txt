@@ -1,6 +1,12 @@
 stm32_sine
 ----------
 
+Build instructions
+-------------------
+Two options:
+a) Type 'make' to build standalone test app
+b) or type 'make libopencm3_stm32.a' to build lib (to be used with Tumanako Vehicle Control)
+
 1. Sine wave lookup
 -------------------
 stm32_sine.h contains a large define for the sine wave LUT. It has basically been
@@ -50,8 +56,8 @@ than that we can generate a double humped or overmodulated SVM later on.
 Scaling now works in 3 steps:
 
 a) Multiply sine lookup value with amplitude with a u32 multiplication
-b) Shift the result 15 (meaning division by 32767)
-c) Shift the result to match the PWM resolution, e.g. by 16 if PWM resolution is 12 bits.
+b) Right shift the result 15 (meaning division by 32767)
+c) Right shift the result to match the PWM resolution, e.g. by 4 (i.e. 16-12, if PWM resolution is 12 bits).
 
 We call the Function MultAmp(amp, base)
 
@@ -66,7 +72,7 @@ L3 = a * sin(x + 2xPi/3)
 With SVPWM:
 Ofs = SVPWMOfs(L1, L2, L3)
 
-With the scaling introduced above this comes to (arg=0..65535, amp=0..37550)
+With the scaling introduced above this comes to (amp=0..37550, arg=0..65535)
 Dutycycle L1 = MultAmp(amp, SineLookup( arg                        ) - Ofs)
 Dutycycle L2 = MultAmp(amp, SineLookup((arg +     65535/3) & 0xFFFF) - Ofs)
 Dutycycle L3 = MultAmp(amp, SineLookup((arg + 2 * 65535/3) & 0xFFFF) - Ofs)
@@ -127,7 +133,7 @@ To get started I simply attached a photo sensor to the motor with a toothed whee
 running through it. This gives us 32 pulses/rev. The pulses are counted by a timer
 (TIM1 in my case) with a heavily filtered trigger input. Without filtering, all
 the EMI spikes are counted as well
-I than created a task that polls the timer value every 100ms. So, when the motor
+I then created a task that polls the timer value every 100ms. So, when the motor
 runs at 1.25 rotations per second (75 rotations per minute) this would give us
 a counter value of 4 every 100ms.
 This gives us a scaling ratio of 3.2 digit/rotation.
