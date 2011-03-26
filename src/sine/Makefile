@@ -29,10 +29,10 @@ OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR = `dirname \`which $(CC)\``/../$(PREFIX)
 CFLAGS		= -O0 -g -Wall -Wextra -Iinclude -fno-common \
-		  -mcpu=cortex-m3 -mthumb -I/home/pccourt/tmp/johanes/libopenstm32/include
+		  -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles \
-      -Wl,--defsym,_stack=0x20005000 -L/home/pccourt/tmp/johanes/libopenstm32/lib/stm32
+      -Wl,--defsym,_stack=0x20005000
 ARFLAGS   = rcs
 OBJS		= $(BINARY).o stm32_timsched.o
 
