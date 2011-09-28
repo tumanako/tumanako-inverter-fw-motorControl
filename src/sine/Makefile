@@ -51,7 +51,7 @@ endif
 
 all: images
 
-$(LIBNAME).a: $(OBJS) libopencm3_stm32.a
+$(LIBNAME).a: $(OBJS)
 	@printf "  AR      $(subst $(shell pwd)/,,$(@))\n"
 	$(AR) $(ARFLAGS) $@ $^
 
