@@ -25,17 +25,19 @@
  * Added sine wave generation, removed testing code
  */
 
+#define STM32F1  //applicable to the STM32F1 series of devices
+
 //#define STM32_SINE_TEST  //Uncomment for standalone testing (i.e. without linking to tumanako vehicle control)
 #define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
 #define USE_THROTTLE_POT 1
 
-#include <libopencm3/stm32/rcc.h>
-#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/f1/rcc.h>
+#include <libopencm3/stm32/f1/gpio.h>
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/f1/adc.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/scb.h>
+#include <libopencm3/stm32/f1/scb.h>
 
 #include <stdio.h>
 
@@ -289,7 +291,7 @@ void usart_setup(void)
                       GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_USART1_TX);
 
 	/* Setup UART parameters. */
-	usart_set_baudrate(USART1, 115200);
+	usart_set_baudrate(USART1, 115200, rcc_ppre2_frequency);
 	usart_set_databits(USART1, 8);
 	usart_set_stopbits(USART1, USART_STOPBITS_1);
 	usart_set_mode(USART1, USART_MODE_TX_RX);

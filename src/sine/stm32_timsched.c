@@ -17,9 +17,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define STM32F1  //applicable to the STM32F1 series of devices
+
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/f1/rcc.h>
 #include "stm32_timsched.h"
 
 void (*Functions[MAX_TASKS]) (void);
