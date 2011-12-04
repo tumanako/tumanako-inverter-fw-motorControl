@@ -49,8 +49,6 @@ Q := @
 NULL := 2>/dev/null
 endif
 
-all: images
-
 $(LIBNAME).a: $(OBJS)
 	@printf "  AR      $(subst $(shell pwd)/,,$(@))\n"
 	$(AR) $(ARFLAGS) $@ $^
