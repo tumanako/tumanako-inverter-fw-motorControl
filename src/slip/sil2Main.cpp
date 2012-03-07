@@ -16,6 +16,7 @@
 #include "Settings.h"
 #include "sil_al.hpp"
 #include "motor_controller.hpp"
+#include "slip_controller.hpp"
 
 //(*InternalHeaders(sil2Frame)
 #include <wx/intl.h>
@@ -60,12 +61,16 @@ BEGIN_EVENT_TABLE(sil2Frame,wxFrame)
 END_EVENT_TABLE()
 SilMotorControlHW *hw;
 SineMotorController *mc;
+SlipController *sc;
+int freq;
 
 sil2Frame::sil2Frame(wxWindow* parent,wxWindowID id)
 {
    Parameters *p = new Parameters();
+   Parameters *ps = new Parameters();
    hw = new SilMotorControlHW(this);
    mc = new SineMotorController(hw, p);
+   sc = new SlipController(hw, ps, mc);
    this->controller = mc;
    PLFLT xmin =-1, ymin=-10, xmax=600, ymax=3000;
    PLINT just=0, axis=0;
@@ -127,6 +132,9 @@ sil2Frame::sil2Frame(wxWindow* parent,wxWindowID id)
 
    settingsDlg = new Settings(this, 0);
 	box->Add( settingsDlg, 1, wxRIGHT | wxEXPAND, 0 );
+
+	silTimer *timer = new silTimer();
+	timer->Start(50);
 }
 
 sil2Frame::~sil2Frame()
@@ -168,4 +176,12 @@ void sil2Frame::OnIdle(wxIdleEvent &event)
 void sil2Frame::OnLeftDClick(wxMouseEvent& event)
 {
    sel = !sel;
+}
+
+void silTimer::Notify()
+{
+   extern float load;
+
+   hw->SetRevTicks(0.98*freq + 0.5 - load/(300.0*300.0) * (freq*freq));
+   sc->Tick();
 }

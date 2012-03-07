@@ -16,6 +16,8 @@ class SlipController : public Configurable
       SineMotorController *_controller;
       MotorControlHal *hw;
       int paramValues[10];
+
+      Parameters *GetParameters();
 };
 
 #endif // SLIP_CONTROLLER_HPP_INCLUDED

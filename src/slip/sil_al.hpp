@@ -23,10 +23,12 @@ class SilMotorControlHW : public MotorControlHal
         virtual void SetTrigger(enum TrigState state);
         void Tick();
         void SetRevTicks(int ticks);
+        void SetThrottle(int val);
 
     private:
       int samples;
       int _revTicks;
+      int _throttle;
       sil2Frame *_sil;
 };
 

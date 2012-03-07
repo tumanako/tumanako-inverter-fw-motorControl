@@ -11,34 +11,48 @@ SlipController::SlipController(MotorControlHal *hal, Parameters *params, SineMot
    paramValues[P_MAXSLIP] = 1 << scalDigits;
    paramValues[P_REVTICKS] = 60;
    paramValues[P_POLEPAIRS] = 2;
+   _params->SetInfo(paramNames, paramValues);
 }
+
+Parameters *SlipController::GetParameters()
+{
+   return _params;
+}
+
 
 float PIRegler(float e)
 {
-   float Kp = 10;
-   float Ki = 0.1;
-   float T = 0.05;
+   float Kp = 80;
+   float Ki = 1.2;
+   float T = 50;
    static float esum = 0;
    //regaus=kp*regdiffp + ki*ta*esum; //Reglergleichung
    esum += e;
-   return Kp * e + Ki * T * esum;
+   if (esum < -10) esum = -10;
+   if (esum > 10) esum = 10;
+   float result = Kp * e + Ki * T * esum;
+   if (result < 10)
+      result = 10;
+   return result;
 }
 
 void SlipController::Tick()
 {
-   float slip_spnt = 0.02; //2% Schlupf
+   float slip_spnt = hw->GetThrottle() - 30;
+   slip_spnt /= 500;
    float e;
    //im Buch n_rotor = n
    float n_rotor = hw->GetRevTicks(); //TODO: filter
    //im Buch n_stator = f1
    float f_stator = _controller->GetCurFrq(); //TODO scale with pwm frq
+   if (f_stator < 10) f_stator = 10;
    //Im Buch f_rotor = f2
    float f_rotor;
    float slip;
-   n_rotor /= paramValues[P_REVTICKS];
-   paramValues[V_ROTORFRQ] = HZ_TO_RPM(n_rotor);
+   //n_rotor /= paramValues[P_REVTICKS];
+   //paramValues[V_ROTORFRQ] = HZ_TO_RPM(n_rotor);
 
-   f_stator /= paramValues[P_POLEPAIRS];
+   //f_stator /= paramValues[P_POLEPAIRS];
 
    f_rotor = f_stator - n_rotor;
 

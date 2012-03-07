@@ -12,6 +12,7 @@
 #include "params.hpp"
 #include <plplot/plplotP.h>
 #include <plplot/wxPLplotwindow.h>
+#include <wx/timer.h>
 
 //(*Headers(sil2Frame)
 #include <wx/sizer.h>
@@ -52,6 +53,12 @@ class sil2Frame: public wxFrame
         //*)
 
         DECLARE_EVENT_TABLE()
+};
+
+class silTimer : public wxTimer
+{
+public:
+   void Notify();
 };
 
 #endif // SIL2MAIN_H

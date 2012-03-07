@@ -15,6 +15,7 @@ SilMotorControlHW::SilMotorControlHW(sil2Frame *sil) :
       x[i] = i;
    }
    samples = 0;
+   _throttle = 0;
 }
 
 
@@ -60,6 +61,7 @@ RegType SilMotorControlHW::GetB6Temp()
 
 RegType SilMotorControlHW::GetThrottle()
 {
+   return _throttle;
 }
 
 RegType SilMotorControlHW::GetBusVoltage()
@@ -88,12 +90,14 @@ void SilMotorControlHW::ToggleLed()
 
 void SilMotorControlHW::SetTrigger(enum TrigState state)
 {
+   extern int freq;
    if (TRIGGER_RISE == state)
    {
       if (samples == 600)
       {
          samples = 0;
-         _sil->settingsDlg->frqSpin->SetValue(_sil->controller->GetParameter("frq"));
+         freq = _sil->controller->GetParameter("frq");
+         _sil->settingsDlg->frqSpin->SetValue(freq);
       }
    }
    else
@@ -110,4 +114,9 @@ void SilMotorControlHW::Tick()
 void SilMotorControlHW::SetRevTicks(int ticks)
 {
    _revTicks = ticks;
+}
+
+void SilMotorControlHW::SetThrottle(int val)
+{
+   _throttle = val;
 }
