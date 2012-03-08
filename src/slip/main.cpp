@@ -2,10 +2,12 @@
 #include "stm32_serialio.hpp"
 #include "terminal.hpp"
 #include "motor_controller.hpp"
+//#include "slip_controller.hpp"
 #include "hwdefs.h"
 #include "terminal_prj.hpp"
 
 static const TerminalCommand *commands[5];
+
 
 int main(void)
 {

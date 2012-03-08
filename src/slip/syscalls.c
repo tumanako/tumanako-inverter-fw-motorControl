@@ -1,48 +1,10 @@
-void __exidx_start(void)
-{
-}
+void *__exidx_start;
 
-void __exidx_end(void)
-{
-}
 
-void _exit(void)
-{
-}
+void *__exidx_end;
 
-void _sbrk(void)
-{
-}
+void *__bss_start__;
 
-void _getpid(void)
-{
-}
+void *__bss_end__;
 
-void _kill(void)
-{
-}
-
-void _write(void)
-{
-}
-
-void _close(void)
-{
-}
-
-void _fstat(void)
-{
-}
-
-void _isatty(void)
-{
-}
-
-void _lseek(void)
-{
-}
-
-void _read(void)
-{
-}
-
+void *__end__;

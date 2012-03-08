@@ -48,7 +48,7 @@ Settings::Settings(wxWindow* parent,wxWindowID id)
    };
 	//(*Initialize(Settings)
 	wxStaticText* StaticText1;
-
+	
 	Create(parent, id, wxDefaultPosition, wxSize(192,374), wxTAB_TRAVERSAL, _T("id"));
 	StaticText1 = new wxStaticText(this, ID_STATICTEXT1, _("Frequency"), wxPoint(8,8), wxDefaultSize, 0, _T("ID_STATICTEXT1"));
 	frqSpin = new wxSpinCtrl(this, ID_SPINCTRL1, _T("100"), wxPoint(96,0), wxDefaultSize, 0, 0, 1000, 100, _T("ID_SPINCTRL1"));
@@ -67,7 +67,7 @@ Settings::Settings(wxWindow* parent,wxWindowID id)
 	StaticText5 = new wxStaticText(this, ID_STATICTEXT5, _("Load"), wxPoint(8,200), wxDefaultSize, 0, _T("ID_STATICTEXT5"));
 	loadSpinCtrl = new wxSpinCtrl(this, ID_SPINCTRL4, _T("0"), wxPoint(96,192), wxDefaultSize, 0, -1000, 1000, 0, _T("ID_SPINCTRL4"));
 	loadSpinCtrl->SetValue(_T("0"));
-
+	
 	Connect(ID_SPINCTRL1,wxEVT_COMMAND_SPINCTRL_UPDATED,(wxObjectEventFunction)&Settings::OnfrqSpinChange);
 	Connect(ID_SPINCTRL2,wxEVT_COMMAND_SPINCTRL_UPDATED,(wxObjectEventFunction)&Settings::OnampSpinChange);
 	Connect(ID_CHOICE1,wxEVT_COMMAND_CHOICE_SELECTED,(wxObjectEventFunction)&Settings::OnpwmChoiceSelect);

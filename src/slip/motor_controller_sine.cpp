@@ -33,7 +33,7 @@ MotorController(params)
    paramValues[P_BOOSTFRQ] = 1;
    paramValues[P_MAXAMP] = 37813;
    paramValues[P_WEAKFRQ] = 120;
-   paramValues[P_SLEWRATE] = 100;
+   paramValues[P_SLEWRATE] = 1;
    _params->SetInfo(paramNames, paramValues);
    frq = 0;
 }

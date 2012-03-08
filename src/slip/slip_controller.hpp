@@ -3,11 +3,12 @@
 #include "params.hpp"
 #include "hal.hpp"
 #include "motor_controller.hpp"
+#include "mediator.hpp"
 
 class SlipController : public Configurable
 {
    public:
-      SlipController(MotorControlHal *hal, Parameters *params, SineMotorController *controller);
+      SlipController(MotorControlHal *hal, Parameters *params, SineMotorController *controller, Mediator<int, 10> *m);
       void Tick();
 
    private:
@@ -15,6 +16,7 @@ class SlipController : public Configurable
       Parameters *_params;
       SineMotorController *_controller;
       MotorControlHal *hw;
+      Mediator<int, 10> *_medianFilter;
       int paramValues[10];
 
       Parameters *GetParameters();

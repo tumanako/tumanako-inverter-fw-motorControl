@@ -68,9 +68,10 @@ sil2Frame::sil2Frame(wxWindow* parent,wxWindowID id)
 {
    Parameters *p = new Parameters();
    Parameters *ps = new Parameters();
+   Mediator<int, 10> *m = new Mediator<int, 10>();
    hw = new SilMotorControlHW(this);
    mc = new SineMotorController(hw, p);
-   sc = new SlipController(hw, ps, mc);
+   sc = new SlipController(hw, ps, mc, m);
    this->controller = mc;
    PLFLT xmin =-1, ymin=-10, xmax=600, ymax=3000;
    PLINT just=0, axis=0;
@@ -181,7 +182,18 @@ void sil2Frame::OnLeftDClick(wxMouseEvent& event)
 void silTimer::Notify()
 {
    extern float load;
+   static int test = 0;
 
-   hw->SetRevTicks(0.98*freq + 0.5 - load/(300.0*300.0) * (freq*freq));
+   test++;
+
+   if (10 == test)
+   {
+      hw->SetRevTicks(freq+60);
+      test = 0;
+   }
+   else
+   {
+      hw->SetRevTicks(0.98*freq + 0.5 - load/(300.0*300.0) * (freq*freq));
+   }
    sc->Tick();
 }
