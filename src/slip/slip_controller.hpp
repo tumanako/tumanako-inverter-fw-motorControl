@@ -12,11 +12,11 @@ class SlipController : public Configurable
       void Tick();
 
    private:
-      const int scalDigits;
+      MotorControlHal *hw;
       Parameters *_params;
       SineMotorController *_controller;
-      MotorControlHal *hw;
       Mediator<int, 10> *_medianFilter;
+      const int scalDigits;
       int paramValues[10];
 
       Parameters *GetParameters();

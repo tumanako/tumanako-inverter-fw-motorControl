@@ -7,7 +7,7 @@ static const char *paramNames[10] = { "maxslip", "revticks", "polepairs", "rotor
 enum { P_MAXSLIP, P_REVTICKS, P_POLEPAIRS, V_ROTORFRQ, V_SLIP };
 
 SlipController::SlipController(MotorControlHal *hal, Parameters *params, SineMotorController *controller, Mediator<int, 10> *m) :
-   hw(hal), _params(params), _controller(controller), scalDigits(16), _medianFilter(m)
+   hw(hal), _params(params), _controller(controller), _medianFilter(m), scalDigits(16)
 {
    paramValues[P_MAXSLIP] = 1 << scalDigits;
    paramValues[P_REVTICKS] = 60;
@@ -21,41 +21,43 @@ Parameters *SlipController::GetParameters()
 }
 
 
-float PIRegler(float e)
+float PIRegler(int e)
 {
-   float windup = 500.0;
-   float Kp = 0;
-   float Ki = 5.0;
-   float T = 1;
-   static float esum = 0;
-   //regaus=kp*regdiffp + ki*ta*esum; //Reglergleichung
+   const int windup = 500;
+   const int Kp = 0;
+   const int Ki = 5;
+   const int T = 1;
+   static int esum = 0;
    esum += e;
    if (esum < -windup) esum = -windup;
    if (esum > windup) esum = windup;
    float result = Kp * e + Ki * T * esum;
-   return result;
+   return result / 1000;
 }
 
 void SlipController::Tick()
 {
    float slip_spnt = hw->GetThrottle();
-   slip_spnt /= 500;
+   slip_spnt /= 1000;
    float e;
    //im Buch n_rotor = n
    _medianFilter->Insert(hw->GetRevTicks());
    float n_rotor = _medianFilter->Median();
    //im Buch n_stator = f1
    float f_stator = _controller->GetCurFrq(); //TODO scale with pwm frq
-   if (0 == slip_spnt)
+   return;
+#if 1
+   if (0.0 == slip_spnt)
    {
       _controller->SetFrqSpnt(5);
       return;
    }
-   if (f_stator < 1)
+   if (f_stator < 1.0)
    {
       _controller->SetFrqSpnt(1);
       return;
    }
+#endif
    //Im Buch f_rotor = f2
    float f_rotor;
    float slip;
@@ -70,7 +72,7 @@ void SlipController::Tick()
    paramValues[V_SLIP] = slip * 1000;
 
    e = slip_spnt - slip;
-   float newfrq = PIRegler(e);
+   float newfrq = PIRegler(e*1000);
 
    _controller->SetFrqSpnt((int)newfrq);
 

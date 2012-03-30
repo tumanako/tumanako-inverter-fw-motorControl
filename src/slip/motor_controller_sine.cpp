@@ -27,13 +27,13 @@ MotorController(params)
    hal->SetTimerHandler(this);
    hw = hal;
    slewCtr = 0;
-   paramValues[P_FRQSPNT] = 50;
+   paramValues[P_FRQSPNT] = 0;
    paramValues[P_PWMMOD] = MOD_SVPWM;
    paramValues[P_BOOSTAMP] = 2000;
    paramValues[P_BOOSTFRQ] = 1;
-   paramValues[P_MAXAMP] = 37813;
+   paramValues[P_MAXAMP] = 37810;
    paramValues[P_WEAKFRQ] = 120;
-   paramValues[P_SLEWRATE] = 1;
+   paramValues[P_SLEWRATE] = 100;
    _params->SetInfo(paramNames, paramValues);
    frq = 0;
 }

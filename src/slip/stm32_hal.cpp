@@ -36,7 +36,8 @@ u16 Stm32MotorControlHW::GetRevTicks()
    u16 curTicks = TIM_CNT(REV_CNT_TIMER);
    u16 tickDiff = curTicks - lastRevTicks;
    lastRevTicks = curTicks;
-   return tickDiff;
+   #warning Hack!
+   return 60;//tickDiff;
 }
 
 u16 Stm32MotorControlHW::GetB6Temp()
@@ -46,7 +47,7 @@ u16 Stm32MotorControlHW::GetB6Temp()
 
 u16 Stm32MotorControlHW::GetThrottle()
 {
-   return 0;
+   return 1024;
 }
 
 u16 Stm32MotorControlHW::GetBusVoltage()
@@ -160,7 +161,7 @@ void Stm32MotorControlHW::gpio_setup(void)
 
 void Stm32MotorControlHW::tim_setup(void)
 {
-   pwmdigits = 11;//(MIN_PWM_DIGITS + parm_Get(PARAM_pwmfrq));
+   pwmdigits = 13;//(MIN_PWM_DIGITS + parm_Get(PARAM_pwmfrq));
    /* disable timer */
    timer_disable_counter(PWM_TIMER);
    /* Center aligned PWM */

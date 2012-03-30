@@ -2,7 +2,8 @@
 #include "stm32_serialio.hpp"
 #include "terminal.hpp"
 #include "motor_controller.hpp"
-//#include "slip_controller.hpp"
+#include "slip_controller.hpp"
+#include "mediator.hpp"
 #include "hwdefs.h"
 #include "terminal_prj.hpp"
 
@@ -12,8 +13,11 @@ static const TerminalCommand *commands[5];
 int main(void)
 {
    Stm32MotorControlHW hw;
-   Parameters p;
-   SineMotorController controller(&hw, &p);
+   Parameters sineParameters;
+   Parameters slipParameters;
+   Mediator<int, 10> m;
+   SineMotorController controller(&hw, &sineParameters);
+   //SlipController slipControl(&hw, &slipParameters, &controller, &m);
    Stm32SerialIO<TERM_USART, USART_BAUDRATE, IRQ_USART1, GPIOA, TERM_USART_TXPIN> serIO;
 
    const TerminalCommandSet set(&controller);
@@ -28,10 +32,12 @@ int main(void)
 
    while (1)
    {
-      int i = 5000000;
+      int i = 1000000;
       while (i > 0)
          i--;
       hw.ToggleLed();
+      //slipControl.Tick();
+
    }
    return 0;
 }
