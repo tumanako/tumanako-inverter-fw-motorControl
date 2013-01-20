@@ -1,6 +1,8 @@
 /*
- * This file is part of the libopenstm32 project.
+ * This file is part of the tumanako_vc project.
  *
+ * Copyright (C) 2010 Johannes Huebner <contact@johanneshuebner.com>
+ * Copyright (C) 2010 Edward Cheeseman <cheesemanedward@gmail.com>
  * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -17,16 +19,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-/* Linker script for Olimex STM32-H103 (STM32F103RBT6, 128K flash, 20K RAM). */
+#ifndef HWINIT_H_INCLUDED
+#define HWINIT_H_INCLUDED
 
-/* Define memory regions. */
-MEMORY
+#ifdef __cplusplus
+extern "C"
 {
-	rom (rx)    : ORIGIN = 0x08001000, LENGTH = 120K
-	ram (rwx)   : ORIGIN = 0x20000000, LENGTH = 20K
+#endif
+
+void clock_setup(void);
+void usart_setup(void);
+void nvic_setup(void);
+u16 tim_setup(u16 pwmdigits, u16 deadtime);
+void adc_setup(void);
+void dma_setup(void *timdata, u16 timdata_size);
+
+#ifdef __cplusplus
 }
+#endif
 
-
-/* Include the common ld script from libopenstm32. */
-INCLUDE libopencm3_stm32f1.ld
-
+#endif // HWINIT_H_INCLUDED

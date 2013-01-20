@@ -16,8 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-#define STM32F1  //applicable to the STM32F1 series of devices
+#define STM32F1
 
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/nvic.h>
@@ -59,8 +58,8 @@ const u32 GrpToRCC[] = { PRIORITY_GROUPS };
      if (TIM_SR(TIM##tn) & (1 << (1+c)))                    \
      {                                                      \
          TIM_SR (TIM##tn)   &= ~(1 << (1+c));               \
-         TIM_CCR(TIM##tn,c) += Periods[FUNCIDX_TIMx(tn,c)]; \
          Functions[FUNCIDX_TIMx(tn,c)]();                   \
+         TIM_CCR(TIM##tn,c) += Periods[FUNCIDX_TIMx(tn,c)]; \
      }
 
 /* Template for 4 channel timer ISR */
@@ -70,20 +69,15 @@ const u32 GrpToRCC[] = { PRIORITY_GROUPS };
     TIM_ISR(tn,2)         \
     TIM_ISR(tn,3)
 
- void tim2_isr(void)
- {
-     TIM_ISR_4CHAN(2)
- }
+void tim2_isr(void)
+{
+  TIM_ISR_4CHAN(2)
+}
 
- void tim3_isr(void)
- {
-     TIM_ISR_4CHAN(3)
- }
-
- void tim5_isr(void)
- {
-     TIM_ISR_4CHAN(5)
- }
+void tim5_isr(void)
+{
+  TIM_ISR_4CHAN(5)
+}
 
 static void nofunc(void)
 {
@@ -113,12 +107,12 @@ s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 
             CCMRFlag =  TIM_CCMR1_OC2M_ACTIVE;
             CCR      = &TIM_CCR2 (GrpToTimer[PrioGrp]);
             break;
-        case 3:
+        case 2:
             CCMR     = &TIM_CCMR2(GrpToTimer[PrioGrp]);
             CCMRFlag =  TIM_CCMR2_OC3M_ACTIVE;
             CCR      = &TIM_CCR3 (GrpToTimer[PrioGrp]);
             break;
-        case 4:
+        case 3:
             CCMR     = &TIM_CCMR2(GrpToTimer[PrioGrp]);
             CCMRFlag =  TIM_CCMR2_OC4M_ACTIVE;
             CCR      = &TIM_CCR4 (GrpToTimer[PrioGrp]);
@@ -130,13 +124,13 @@ s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 
     /* Disable timer */
     TIM_CR1  (GrpToTimer[PrioGrp])&= ~TIM_CR1_CEN;
     *CCMR                         |= CCMRFlag;
-    *CCR                           = Period >> 1;
+    *CCR                           = Period;
     /* Enable interrupt for that channel */
     TIM_DIER (GrpToTimer[PrioGrp])|= TIM_DIER_CC1IE << PrioInGrp;
 
     /* Assign task function and period */
     Functions[FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Function;
-    Periods  [FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period << 1;
+    Periods  [FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period * 10;
 
     /* Reset counter */
     TIM_CNT (GrpToTimer[PrioGrp]) = 0;
@@ -145,6 +139,11 @@ s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 
     TIM_CR1  (GrpToTimer[PrioGrp])|= TIM_CR1_CEN;
 
     return 0;
+}
+
+void change_interval(SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period)
+{
+    Periods[FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period * 10;
 }
 
 void init_timsched(void)
@@ -160,11 +159,11 @@ void init_timsched(void)
         /* Enable interrupt */
         nvic_enable_irq(GrpToNvic[PrioGrp]);
         /* Set priority */
-        nvic_set_priority(GrpToNvic[PrioGrp], PrioGrp + 1);
+        nvic_set_priority(GrpToNvic[PrioGrp], 0xf << 4);
         /* Setup timers upcounting and auto preload enable */
         TIM_CR1  (GrpToTimer[PrioGrp]) = TIM_CR1_DIR_UP | TIM_CR1_ARPE;
-        /* Set prescaler to count at 2 kHz = 72 MHz/36000 */
-        TIM_PSC  (GrpToTimer[PrioGrp]) = 36000;
+        /* Set prescaler to count at 10 kHz = 36 MHz/36000 */
+        TIM_PSC  (GrpToTimer[PrioGrp]) = 3600;
         /* Maximum counter value */
         TIM_ARR  (GrpToTimer[PrioGrp]) = 0xFFFF;
    }

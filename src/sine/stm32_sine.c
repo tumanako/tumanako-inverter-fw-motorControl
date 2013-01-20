@@ -21,539 +21,390 @@
 
 /*
  * History:
- * Example from libopenstm32 expanded to make tumanako arm tester
+ * Example from libopencm3 expanded to make tumanako arm tester
  * Added sine wave generation, removed testing code
  */
-
-#define STM32F1  //applicable to the STM32F1 series of devices
-
-//#define STM32_SINE_TEST  //Uncomment for standalone testing (i.e. without linking to tumanako vehicle control)
-#define TUMANAKO_KIWIAC  //KiwiAC uses TIM1 alternate function (comment out for TIM4)
-#define USE_THROTTLE_POT 1
+#define STM32F1
 
 #include <libopencm3/stm32/f1/rcc.h>
 #include <libopencm3/stm32/f1/gpio.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f1/adc.h>
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/scb.h>
+#include <libopencm3/stm32/f1/dma.h>
 #include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/f1/scb.h>
-
-#include <stdio.h>
-
-#include "stm32_sine.h"  //contains exports for use as an external module
-#include "stm32_sine_lookup_table.h"
+#include "stm32_sine.h"
 #include "stm32_timsched.h"
+#include "terminal.h"
+#include "params.h"
+#include "hwdefs.h"
+#include "digio.h"
+#include "sine_core.h"
+#include "slip_ctl.h"
+#include "fu.h"
+#include "hwinit.h"
+#include "anain.h"
+#include "temp_meas.h"
+#include "param_save.h"
 
-static const u16 SinTab[] = { SINTAB };/* sine LUT */
-//static       u16 analog_data;  			/* OLD, was used to set inverter frequency */
-             u16 DutyCycle[3]; 			/* global for debugging */
-int16_t STM32_SINE_SineSpeed;        /* global interface used to set inverter frequency, -ve = backwards, 0 = stop, +ve = forward*/
-static       u16 CtrVal;
-static       u8  mode;
-static       s16 frq = 650;
-static       s16 slip;
+#define MOD_OFF   0
+#define MOD_SLIP  1
+#define MOD_CTRL  2
+#define MOD_FSPNT 3
 
-/** @todo calculate this instead of using a constant */
-#define PERIPH_CLK      ((u32)36000000)
+//for average
+#define HIS_SIZE 20
 
-#define SINTAB_ARGDIGITS 8
-#define SINTAB_ENTRIES  (1 << SINTAB_ARGDIGITS)
-/* Value range of sine lookup table */
-#define SINTAB_DIGITS    16
-#define SINTAB_MAX      (1 << SINTAB_DIGITS)
-/* Domain of lookup function */
-#define SINLU_ARGDIGITS  16
-#define SINLU_ONEREV    (1 << SINLU_ARGDIGITS)
-#define PWM_DIGITS       12
-#define PWM_MAX         (1 << PWM_DIGITS)
-#define PHASE_SHIFT120  ((u32)(     SINLU_ONEREV / 3))
-#define PHASE_SHIFT240  ((u32)(2 * (SINLU_ONEREV / 3)))
+#define NUM_CTR_VAL (sizeof(timdata) / sizeof(timdata[0]))
 
-#define PWM_FREQ           (PERIPH_CLK / (u32)PWM_MAX)
-#define HZ_PER_DIGIT_8    ((256 * PWM_FREQ) / SINLU_ONEREV)
-#define DIGIT_TO_N_8       (HZ_PER_DIGIT_8 / POLE_PAIRS)
-#define NUM_IMPULSE_PER_REV 32
-#define POLE_PAIRS           2
-#define SAMPLE_INTERVAL    100
-#define RPM_FACT           (6000/NUM_IMPULSE_PER_REV * 1000 / SAMPLE_INTERVAL)
-#define HZ_FACT            (POLE_PAIRS * RPM_FACT/6)
-
-#define MOD_SLIP 1
-#define MOD_CTRL 2
-
-#ifdef TUMANAKO_KIWIAC  //i.e. TIM1 alternate function
-
-#define	red_led_port  GPIOC
-#define	red_led_bit   GPIO6
-#define	blue_led_port GPIOC
-#define	blue_led_bit  GPIO7
-
-#define TUMANAKO_PWM_TIM_CCR1 TIM1_CCR1
-#define TUMANAKO_PWM_TIM_CCR2 TIM1_CCR2
-#define TUMANAKO_PWM_TIM_CCR3 TIM1_CCR3
-
-#define TUMANAKO_TIMX_SR TIM1_SR
-
-#define	TUMANAKO_PWM_RCC_APBXENR RCC_APB2ENR
-#define	TUMANAKO_PWM_RCC_APBXENR_TIMXEN (RCC_APB2ENR_TIM1EN | RCC_APB2ENR_AFIOEN)
-
-#define TUMANAKO_PWM_TIM_PORT GPIOE
-//#define TUMANAKO_PWM_TIM_CHANNELS (GPIO_TIM1_CH1_REMAP | GPIO_TIM1_CH2_REMAP | GPIO_TIM1_CH3_REMAP | GPIO_TIM1_CH1N_REMAP | GPIO_TIM1_CH2N_REMAP | GPIO_TIM1_CH3N_REMAP)
-#define TUMANAKO_PWM_TIM_CHANNELS (GPIO9 | GPIO11 | GPIO13 | GPIO8 | GPIO10 | GPIO12)
-
-#define TUMANAKO_NVIC_PWM_IRQ NVIC_TIM1_UP_IRQ
-
-#define TUMANAKO_PWM_TIM_EGR TIM1_EGR
-#define TUMANAKO_PWM_TIM_DIER TIM1_DIER
-
-#define TUMANAKO_PWM_CR1 TIM1_CR1
-#define TUMANAKO_PWM_CCMR1 TIM1_CCMR1
-#define TUMANAKO_PWM_CCMR2 TIM1_CCMR2
-#define TUMANAKO_PWM_CCER TIM1_CCER
-
-#define TUMANAKO_PWM_PSC TIM1_PSC
-#define TUMANAKO_PWM_ARR TIM1_ARR
-
-#define TUMANAKO_ROT_TIM_SCMR         TIM2_SMCR //TODO test new KiwiAC speed sensor timer setup
-#define TUMANAKO_ROT_TIM_CR1          TIM2_CR1
-#define TUMANAKO_ROT_TIM_CNT          TIM2_CNT
-
-#else  //TIM4 (e.g. olimex board)
-
-#define	red_led_port  GPIOC
-#define	red_led_bit   GPIO12
-#define	blue_led_port GPIOD
-#define	blue_led_bit  GPIO6
-
-#define TUMANAKO_PWM_TIM_CCR1           TIM4_CCR1
-#define TUMANAKO_PWM_TIM_CCR2           TIM4_CCR2
-#define TUMANAKO_PWM_TIM_CCR3           TIM4_CCR3
-
-#define TUMANAKO_TIMX_SR                TIM4_SR
-
-#define	TUMANAKO_PWM_RCC_APBXENR        RCC_APB1ENR
-#define	TUMANAKO_PWM_RCC_APBXENR_TIMXEN RCC_APB1ENR_TIM4EN
-
-#define TUMANAKO_PWM_TIM_PORT           GPIOB
-#define TUMANAKO_PWM_TIM_CHANNELS       (GPIO_TIM4_CH1 | GPIO_TIM4_CH2 | GPIO_TIM4_CH3) 
-
-#define TUMANAKO_NVIC_PWM_IRQ           NVIC_TIM4_IRQ
-
-#define TUMANAKO_PWM_TIM_EGR            TIM4_EGR
-#define TUMANAKO_PWM_TIM_DIER           TIM4_DIER
-
-#define TUMANAKO_PWM_CR1                TIM4_CR1
-#define TUMANAKO_PWM_CCMR1              TIM4_CCMR1
-#define TUMANAKO_PWM_CCMR2              TIM4_CCMR2
-#define TUMANAKO_PWM_CCER               TIM4_CCER
-
-#define TUMANAKO_PWM_PSC                TIM4_PSC
-#define TUMANAKO_PWM_ARR                TIM4_ARR
-
-#define TUMANAKO_ROT_TIM_SCMR           TIM1_SMCR
-#define TUMANAKO_ROT_TIM_CR1            TIM1_CR1
-#define TUMANAKO_ROT_TIM_CNT            TIM1_CNT
-
-#endif
-
-#define max(a,b,c) (a>b && a>c)?a:(b>a && b>c)?b:c
-
-#define min(a,b,c) (a<b && a<c)?a:(b<a && b<c)?b:c
-
-/* Performs a lookup in the sine table */
-/* 0 = 0, 2Pi = 65535 */
-u16 SineLookup(u16 Arg)
-{
-    /* No interpolation for now */
-    /* We divide arg by 2^(SINTAB_ARGDIGITS) */
-    /* No we can directly address the lookup table */
-    Arg >>= SINLU_ARGDIGITS - SINTAB_ARGDIGITS;
-    return SinTab[Arg];
-}
-
-/* 0 = 0, 1 = 32767 */
-u16 MultiplyAmplitude(u16 Amplitude, u16 Baseval)
-{
-    u32 Temp;
-    Temp = (u32)Amplitude * (u32)Baseval;
-    /* Divide by 32768 */
-    /* -> Allow overmodulation, for SVPWM or FTPWM */
-    Temp >>= (SINTAB_DIGITS - 1);
-    /* Match to PWM resolution */
-    Temp >>= (SINTAB_DIGITS - PWM_DIGITS);
-    return Temp;
-}
-
-s16 CalcSVPWMOffset(u16 a, u16 b, u16 c)
-{
-    /* Formular for svpwm:
-       Offset = 1/2 * (min{a,b,c} + max{a,b,c}) */
-    /* this is valid only for a,b,c in [-32768,32767] */
-    /* we calculate from [0, 65535], thus we need to subtract 32768 to be symmetric */
-    s16 acor = a - (SINTAB_MAX >> 1);
-    s16 bcor = b - (SINTAB_MAX >> 1);
-    s16 ccor = c - (SINTAB_MAX >> 1);
-
-    s16 Minimum = min(acor, bcor, ccor);
-    s16 Maximum = max(acor, bcor, ccor);
-    s16 Offset = Minimum + Maximum;
-
-    return Offset >> 1;
-}
+static u8  pwmdigits;
+static u16 pwmfrq;
+static u16 timdata[10];
 
 void tim1_brk_isr(void)
 {
-    gpio_set(blue_led_port, blue_led_bit); /* BLUE LED on */
-    gpio_set(red_led_port, red_led_bit); /* RED LED on */
+   timer_disable_irq(PWM_TIMER, TIM_DIER_BIE);
+   parm_SetDig(VALUE_opmode, 0);
+   digio_set(err_out);
+}
+
+static void UpdFrq(u32fp frq)
+{
+   int ampnom = parm_GetInt(VALUE_ampnom);
+   int _amp = fu_GetAmpPerc(frq, ampnom);
+   sin_SetAmp(_amp);
+   parm_SetDig(VALUE_amp, _amp);
+   parm_SetFlt(VALUE_fstat, frq);
+   sin_SetFrq(frq);
+}
+
+static u32 GetImpulsesFiltered(u32 last)
+{
+   u16 numData = NUM_CTR_VAL - REV_CNT_DMA_CNDTR;
+   int filter = parm_GetInt(PARAM_speedflt);
+
+   for (int i = 0; i < numData; i++)
+   {
+      last = (timdata[i] + (filter - 1) * last) / filter;
+   }
+
+   REV_CNT_DMA_CCR &= ~DMA_CCR4_EN;
+   REV_CNT_DMA_CNDTR = NUM_CTR_VAL;
+   REV_CNT_DMA_CCR |= DMA_CCR4_EN;
+   parm_SetDig(VALUE_ctr, last);
+
+   return last;
 }
 
 /* Calculate dutycycles */
-#ifdef TUMANAKO_KIWIAC
-void tim1_up_isr(void)
-#else
-void tim4_isr(void)
-#endif
+void pwm_timer_isr(void)
 {
-    static   u8  IntCnt = 0;
-    static   u16 Arg = 0;
-             u16 Amp = 37550; /* Full amplitude for now, 15% extra with SVPWM */
-             s16 Ofs;
-             u8  Idx;
-    volatile u32 *pTimCcr = &TUMANAKO_PWM_TIM_CCR1;
+   u16 last = timer_get_counter(PWM_TIMER);
 
-    IntCnt++;
+   /* Clear interrupt pending flag */
+   TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
 
-    /* Clear interrupt pending flag - do this at the start of the routine */
-    TUMANAKO_TIMX_SR &= ~TIM_SR_UIF;
+   u32 DutyCycle[3];
+   u8 shiftCor = SINE_DIGITS - pwmdigits;
+   static u16 timval = 0;
+   timval = GetImpulsesFiltered(timval);
+   s32fp curFrq = parm_Get(VALUE_fstat);
+   u32fp newFrq = ControlSlip(timval, curFrq);
 
-    /* In center aligned mode, this ISR is called twice:
-       - in the middle of the period
-       - at the end of the period
-       we only want to calculate in the middle */
-    if (IntCnt & 1)
+   if (MOD_SLIP == parm_GetInt(VALUE_opmode))
+   {
+      UpdFrq(newFrq);
+   }
+
+   sin_Step(DutyCycle);
+   /* Match to PWM resolution */
+   DutyCycle[0] >>= shiftCor;
+   DutyCycle[1] >>= shiftCor;
+   DutyCycle[2] >>= shiftCor;
+
+   timer_set_oc_value(PWM_TIMER, TIM_OC1, DutyCycle[0]);
+   timer_set_oc_value(PWM_TIMER, TIM_OC2, DutyCycle[1]);
+   timer_set_oc_value(PWM_TIMER, TIM_OC3, DutyCycle[2]);
+
+   parm_SetDig(VALUE_tm_meas, (timer_get_counter(PWM_TIMER) - last)/36);
+}
+
+static void PwmInit(void)
+{
+   pwmdigits = MIN_PWM_DIGITS + parm_GetInt(PARAM_pwmfrq);
+   pwmfrq = tim_setup(pwmdigits, parm_GetInt(PARAM_deadtime));
+   sin_SetPwmFrq(pwmfrq);
+}
+
+void Ms100Task(void)
+{
+   digio_toggle(led_out);
+
+   parm_SetFlt(VALUE_slip, GetSlip());
+   parm_SetFlt(VALUE_speed, GetSpeed());
+
+
+   /* Only change direction when below certain rev */
+   if (GetSpeed() < FP_FROMINT(100))
+   {
+      if (digio_get(fwd_in) && !digio_get(rev_in))
+      {
+         parm_SetDig(VALUE_dir, 1);
+      }
+      else if (!digio_get(fwd_in) && digio_get(rev_in))
+      {
+         parm_SetDig(VALUE_dir, -1);
+      }
+   }
+
+   if (!digio_get(fwd_in) && !digio_get(rev_in))
+   {
+      parm_SetDig(VALUE_dir, 0);
+   }
+
+   sin_SetDir(parm_GetInt(VALUE_dir));
+
+   parm_SetDig(VALUE_din_on, digio_get(on_in));
+   parm_SetDig(VALUE_din_start, digio_get(start_in));
+   parm_SetDig(VALUE_din_brake, digio_get(brake_in));
+   parm_SetDig(VALUE_din_mprot, digio_get(mprot_in));
+   parm_SetDig(VALUE_din_forward, digio_get(fwd_in));
+   parm_SetDig(VALUE_din_reverse, digio_get(rev_in));
+   parm_SetDig(VALUE_din_emcystop, digio_get(emcystop_in));
+   parm_SetDig(VALUE_din_bms, digio_get(bms_in));
+}
+
+void RampFrq(s32fp _frq)
+{
+    s32fp frqcalc = parm_Get(VALUE_fstat);
+
+    if (frqcalc < _frq)
     {
-        /* 1. Calculate sine */
-        DutyCycle[0] = SineLookup(Arg);
-        DutyCycle[1] = SineLookup((u16)(((u32)Arg + PHASE_SHIFT120) & 0xFFFF));
-        DutyCycle[2] = SineLookup((u16)(((u32)Arg + PHASE_SHIFT240) & 0xFFFF));
+        frqcalc += 1;
+    }
+    else if (frqcalc > _frq)
+    {
+        frqcalc -= 1;
+    }
+    sin_SetFrq(frqcalc);
+    parm_SetFlt(VALUE_fstat, frqcalc);
+}
 
-        /* 2. Calculate the offset of SVPWM */
-        Ofs = CalcSVPWMOffset(DutyCycle[0], DutyCycle[1], DutyCycle[2]);
+static int CalcThrottle(int potval)
+{
+    int pot_min = parm_GetInt(PARAM_potmin);
+    int pot_max = parm_GetInt(PARAM_potmax);
+    int brknom  = parm_GetInt(PARAM_brknom);
+    int pot_nom;
+    int res = 0;
 
-        for (Idx = 0; Idx < 3; Idx++, pTimCcr++)
+    parm_SetDig(VALUE_pot, potval);
+
+    if ((potval < pot_min) || (potval > pot_max))
+    {
+        res = -1;
+    }
+    else
+    {
+        pot_nom = potval - pot_min;
+        pot_nom = ((100 + brknom) * pot_nom) / (pot_max-pot_min);
+        pot_nom -= brknom;
+        parm_SetDig(VALUE_potnom, pot_nom);
+    }
+
+    return res;
+}
+
+static void CalcAmpAndSlip(void)
+{
+   s32fp potnom = parm_Get(VALUE_potnom);
+   s32fp maxslip = parm_Get(PARAM_slipmax);
+   s32fp ampmin = parm_Get(PARAM_ampmin);
+   s32fp slipspnt = FP_MUL(maxslip, potnom) / 100;
+   s32fp ampnom;
+
+   if (potnom >= 0)
+   {
+      ampnom = ampmin + FP_MUL(FP_FROMINT(100) - ampmin, potnom) / 100;
+   }
+   else
+   {
+      ampnom = ampmin + FP_MUL(FP_FROMINT(100) - ampmin, -potnom) / 100;
+   }
+   parm_SetFlt(VALUE_ampnom, ampnom);
+
+   SetSlipSpnt(slipspnt);
+   parm_SetFlt(VALUE_slipspnt, slipspnt);
+}
+
+void Ms1Task(void)
+{
+   //asm volatile ("cpsie i");
+
+   static s32fp il1rms = 0;
+   static s32fp il2rms = 0;
+   static int samples = 0;
+
+   s32fp il1 = FP_FROMINT(anain_get(AIN_il1));
+   s32fp il2 = FP_FROMINT(anain_get(AIN_il2));
+
+   il1 -= parm_Get(PARAM_il1ofs);
+   il2 -= parm_Get(PARAM_il2ofs);
+
+   il1 = FP_DIV(il1, parm_Get(PARAM_il1gain));
+   il2 = FP_DIV(il2, parm_Get(PARAM_il2gain));
+
+   parm_SetFlt(VALUE_il1, il1);
+   parm_SetFlt(VALUE_il2, il2);
+
+   il1 = il1<0?-il1:il1;
+   il2 = il2<0?-il2:il2;
+
+   il1rms += il1;
+   il2rms += il2;
+   samples++;
+
+   if (samples == 256)
+   {
+      il1rms >>= 8;
+      il2rms >>= 8;
+
+      parm_SetFlt(VALUE_il1rms, il1rms);
+      parm_SetFlt(VALUE_il2rms, il2rms);
+      il1rms = 0;
+      il2rms = 0;
+      samples = 0;
+   }
+}
+
+void Ms10Task(void)
+{
+    static int InitDone = 0;
+    static int throttle = 0;
+    static int udc = 0;
+    int temphs;
+    int tempm;
+    int throtCur;
+    int udcCur;
+    int opmode = parm_GetInt(VALUE_opmode);
+
+    //asm volatile ("cpsie i");
+
+    temphs   = anain_get(AIN_tmphs);
+    tempm    = anain_get(AIN_tmpm);
+    throtCur = anain_get(AIN_throttle1);
+    udcCur   = anain_get(AIN_udc);
+
+    throttle = (throtCur + throttle * 31) / 32;
+    udc = (udcCur + udc * 31) / 32;
+
+    /* Shut down on implausible throttle value */
+    if (CalcThrottle(throttle) < 0)
+    {
+        parm_SetDig(VALUE_opmode, 0);
+    }
+
+    CalcAmpAndSlip();
+
+    /* switch on DC switch above threshold */
+    if (udc > parm_GetInt(PARAM_udcsw))
+    {
+        if (digio_get(start_in))
         {
-            /* 3. subtract it from all 3 phases -> no difference in phase-to-phase voltage */
-            DutyCycle[Idx] -= Ofs;
-            /* 4. Set desired amplitude and match to PWM resolution */
-            DutyCycle[Idx] = MultiplyAmplitude(Amp, DutyCycle[Idx]);
-            /* 5. Write to compare registers (set the PWM Duty Cycle!)*/
-            *pTimCcr = DutyCycle[Idx];
+           digio_set(dcsw_out);
+           digio_clear(err_out);
+           digio_clear(prec_out);
+           parm_SetDig(VALUE_opmode, MOD_SLIP);
         }
+    }
+    else
+    {
+       digio_set(prec_out);
+    }
 
-        /* Increase sine arg */
-        /* values below 0 makes us run through the sine lookup backwards
-           -> motor spins the other direction */
-        Arg += frq;
-        /* "lifesign" */
-        gpio_toggle(blue_led_port, blue_led_bit);	/* LED on/off */
-    } /* end if */
-} /* end isr */
+    parm_SetFlt(VALUE_tmphs, temp_JCurve(temphs));
+    parm_SetFlt(VALUE_tmpm, temp_KTY83(tempm));
+    parm_SetFlt(VALUE_udc, FP_DIV(FP_FROMINT(udc), parm_Get(PARAM_udcgain)));
 
-void clock_setup(void)
-{
-	rcc_clock_setup_in_hse_8mhz_out_72mhz();
+    if (MOD_CTRL == opmode)
+    {
+        RampFrq(throttle);
+        int _amp = fu_GetAmp(parm_Get(VALUE_fstat));
+        sin_SetAmp(_amp);
+        parm_SetDig(VALUE_amp, _amp);
+    }
+    if (MOD_FSPNT == opmode)
+    {
+       RampFrq(parm_Get(PARAM_fspnt));
+       int _amp = fu_GetAmp(parm_Get(VALUE_fstat));
+       sin_SetAmp(_amp);
+       parm_SetDig(VALUE_amp, _amp);
+    }
+    if (MOD_OFF == opmode)
+    {
+        //asm volatile ("cpsid i");
+        InitDone = 0;
 
-	/* Enable all present GPIOx clocks. (whats with GPIO F and G?)*/
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPAEN);
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPBEN);
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPCEN);
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPDEN);
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPEEN);
-
-	/* Enable clock for USART1. */
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_USART1EN);
-
-	/* Enable TIM1 clock */
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM1EN);
-
-	/* Enable TIM3 clock */
-	rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN);
-
-	/* Enable PWM TIM clock (TIM1 or TIM4 depending on KiwiAC or not defined above) */
-	rcc_peripheral_enable_clock(&TUMANAKO_PWM_RCC_APBXENR, TUMANAKO_PWM_RCC_APBXENR_TIMXEN);
+        parm_SetDig(VALUE_amp, 0);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC1);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC2);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC3);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC2N);
+        timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
+        digio_clear(dcsw_out);
+        digio_set(err_out);
+        //asm volatile ("cpsie i");
+    }
+    else if (!InitDone)
+    {
+        PwmInit();
+        digio_clear(err_out);
+        InitDone = 1;
+    }
 }
 
-void usart_setup(void)
+extern void parm_Change(PARAM_NUM ParamNum)
 {
-	/* Setup GPIO pin GPIO_USART3_TX/GPIO10 on GPIO port B for transmit. */
-	gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ,
-                      GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_USART1_TX);
+   ParamNum = ParamNum;
+   SetImpulsePerRev(parm_GetInt(PARAM_num_imp));
+   SetMotorPolePairs(2);
+   SetMaxFrq(parm_Get(PARAM_fmax));
+   SetControlKp(parm_Get(PARAM_slipkp));
+   SetMinSpeed(parm_Get(PARAM_minspeed));
 
-	/* Setup UART parameters. */
-	usart_set_baudrate(USART1, 115200);
-	usart_set_databits(USART1, 8);
-	usart_set_stopbits(USART1, USART_STOPBITS_1);
-	usart_set_mode(USART1, USART_MODE_TX_RX);
-	usart_set_parity(USART1, USART_PARITY_NONE);
-	usart_set_flow_control(USART1, USART_FLOWCONTROL_NONE);
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC2, parm_GetInt(PARAM_ucurlim));
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, parm_GetInt(PARAM_ocurlim));
 
-	/* Finally enable the USART. */
-	usart_enable(USART1);
+   fu_SetWeakeningFrq(parm_Get(PARAM_fweak));
+   fu_SetBoost(parm_GetInt(PARAM_boost));
+   fu_SetMaxAmp(parm_GetInt(PARAM_ampmax));
+   sin_SetMinPulseWidth(parm_GetInt(PARAM_minpulse));
+   sin_SetPwmMode(parm_GetInt(PARAM_pwmmode));
 }
 
-/* UART1 only write syscall, untimately called by printf()  */
-int _write(int fd, const u8 *buf, int len)
-{
-	int i;
-
-	(void)fd;
-
-	for(i = 0; i < len; i++) 
-		usart_send_blocking(USART1, buf[i]);
-
-	return len;
-}
-
-void gpio_setup(void)
-{
-#ifdef TUMANAKO_KIWIAC
-  AFIO_MAPR |= AFIO_MAPR_TIM1_REMAP_FULL_REMAP;
-#endif
-
-	/* Set LEDs (in GPIO port C) to 'output push-pull'. */
-	gpio_set_mode(red_led_port, GPIO_MODE_OUTPUT_2_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, red_led_bit);
-	gpio_set_mode(blue_led_port, GPIO_MODE_OUTPUT_2_MHZ,
-		      GPIO_CNF_OUTPUT_PUSHPULL, blue_led_bit);
-    /* Timer Ch GPIO */
-    gpio_set_mode(TUMANAKO_PWM_TIM_PORT, GPIO_MODE_OUTPUT_50_MHZ,
-                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TUMANAKO_PWM_TIM_CHANNELS);
-
-}
-
-/* Enable timer interrupts */
-void nvic_setup(void)
-{
-    nvic_enable_irq(TUMANAKO_NVIC_PWM_IRQ);
-    nvic_set_priority(TUMANAKO_NVIC_PWM_IRQ, 0);
-}
-
-void tim_setup(void)
-{
-    /* Center aligned PWM - control register 1 */
-    TUMANAKO_PWM_CR1 = TIM_CR1_CMS_CENTER_1 | TIM_CR1_ARPE;
-    /* PWM mode 1 and preload enable - capture compare mode register 1 and 2 */
-    TUMANAKO_PWM_CCMR1 = TIM_CCMR1_OC1M_PWM1 | TIM_CCMR1_OC1PE | TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
-    TUMANAKO_PWM_CCMR2 = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
-    /* Output enable */
-#ifdef TUMANAKO_KIWIAC
-
-    //clear CC1P (capture compare enable register, active high)
-    TIM1_CCER &= (uint16_t)~TIM_CCER_CC1P;
-
-    TUMANAKO_PWM_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E | TIM_CCER_CC1NE | TIM_CCER_CC2NE | TIM_CCER_CC3NE;
-    //Deadtime = 28 ~ 800ns
-    TIM1_BDTR = (TIM_BDTR_OSSR | TIM_BDTR_OSSI | 28 ) & ~TIM_BDTR_BKP & ~TIM_BDTR_AOE;
-
-    TIM1_CR2 &= (uint16_t)~(TIM_CR2_OIS1 || TIM_CR2_OIS1N || TIM_CR2_OIS2 || TIM_CR2_OIS2N || TIM_CR2_OIS3 || TIM_CR2_OIS3N);
-
-#else
-    TUMANAKO_PWM_CCER = TIM_CCER_CC1E | TIM_CCER_CC2E | TIM_CCER_CC3E;
-#endif
-    /* Enable update generation */
-    TUMANAKO_PWM_TIM_EGR = TIM_EGR_UG;
-    /* Enable update event interrupt */
-    TUMANAKO_PWM_TIM_DIER = TIM_DIER_UIE;
-    /* Prescaler */
-    TUMANAKO_PWM_PSC = 0x1;
-    /* PWM frequency */
-    TUMANAKO_PWM_ARR = PWM_MAX; //4096 
-
-    TIM1_RCR = 1;  //set rep_rate
-
-    /* start out with 50:50 duty cycle (does NOT handle rolling starts!!!)*/
-    TUMANAKO_PWM_TIM_CCR1 = PWM_MAX / 2;
-    TUMANAKO_PWM_TIM_CCR2 = PWM_MAX / 2;
-    TUMANAKO_PWM_TIM_CCR3 = PWM_MAX / 2;
-    /* Enable timer */
-    TUMANAKO_PWM_CR1 |= TIM_CR1_CEN;
-
-#ifdef TUMANAKO_KIWIAC
-#ifdef STM32_SINE_TEST //not needed for library (Tumanako Vehicle Control enables this)
-    TIM1_BDTR |= TIM_BDTR_MOE; //enable TIM1 main outputs
-#endif
-#endif
-
-
-    //TODO I suspect this encoder setup needs to be vastly different for the KiwiAC
-    /* setup capture timer. Strong filtering for EMI "robustness" */
-    TUMANAKO_ROT_TIM_SCMR = TIM_SMCR_ECE | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_16_N_8;
-    /* setup capture timer */
-    TUMANAKO_ROT_TIM_CR1  = TIM_CR1_CEN;
-}
-
-void adc_setup(void)
-{
-	int i;
-	rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_ADC1EN);
-
-	/* make sure it didnt run during config */
-	adc_off(ADC1);
-
-	/* we configure everything for one single conversion */
-	adc_disable_scan_mode(ADC1);
-	adc_set_single_conversion_mode(ADC1);
-	adc_enable_discontinous_mode_regular(ADC1);
-	adc_disable_external_trigger_regular(ADC1);
-	adc_set_right_aligned(ADC1);
-	/* we want read out the temperature sensor so we have to enable it */
-	adc_enable_temperature_sensor(ADC1);
-	adc_set_conversion_time_on_all_channels(ADC1, ADC_SMPR_SMP_28DOT5CYC);
-
-	adc_on(ADC1);
-	/* wait for adc starting up*/
-        for (i = 0; i < 80000; i++);    /* Wait (needs -O0 CFLAGS). */
-
-	adc_reset_calibration(ADC1);
-	adc_calibration(ADC1);
-}
-
-u8 adcchfromport(int command_port, int command_bit)
-{
-	/*
-	 PA0 ADC12_IN0
-	 PA1 ADC12_IN1
-	 PA2 ADC12_IN2
-	 PA3 ADC12_IN3
-	 PA4 ADC12_IN4
-	 PA5 ADC12_IN5
-	 PA6 ADC12_IN6
-	 PA7 ADC12_IN7
-	 PB0 ADC12_IN8
-	 PB1 ADC12_IN9
-	 PC0 ADC12_IN10
-	 PC1 ADC12_IN11
-	 PC2 ADC12_IN12
-	 PC3 ADC12_IN13
-	 PC4 ADC12_IN14
-	 PC5 ADC12_IN15
-	 temp ADC12_IN16
-	 */
-	switch (command_port) {
-		case 0: /* port A */
-			if (command_bit<8) return command_bit;
-			break;
-		case 1: /* port B */
-			if (command_bit<2) return command_bit+8;
-			break;
-		case 2: /* port C */
-			if (command_bit<6) return command_bit+10;
-			break;
-	}
-	return 16;
-}
-
-/* Toggle lifesign LED and read ADC */
-void ToggleRedLed(void)
-{
-    static u16 LastCtr = 0;
-#if USE_THROTTLE_POT
-    s16 slip_spnt = 12000 - STM32_SINE_SineSpeed;
-#else
-    s16 slip_spnt = 9500;
-#endif
-
-	gpio_toggle(red_led_port, red_led_bit);	/* LED on/off */
-	CtrVal = TUMANAKO_ROT_TIM_CNT - LastCtr;
-	LastCtr = TUMANAKO_ROT_TIM_CNT;
-
-    /** @todo: match task time with constant here */
-	slip = POLE_PAIRS * 10000 * CtrVal / ((NUM_IMPULSE_PER_REV * HZ_PER_DIGIT_8 * frq) >> 8);
-
-	if (MOD_SLIP == mode)
-	{
-	    frq = (POLE_PAIRS * 100000 * CtrVal) / ((NUM_IMPULSE_PER_REV * HZ_PER_DIGIT_8 * slip_spnt) >> 8);
-	}
-}
-
-void ReadAdc(void)
-{
-	adc_on(ADC1);	/* If the ADC_CR2_ON bit is already set -> setting it another time starts the conversion */
-	while (!(ADC_SR(ADC1) & ADC_SR_EOC));	/* Waiting for end of conversion */
-	STM32_SINE_SineSpeed = ADC_DR(ADC1) & 0xFFF;		/* read adc data */
-
-#if USE_THROTTLE_POT
-	if (MOD_CTRL == mode)
-	{
-	    frq = (STM32_SINE_SineSpeed - 2048) >> 1;
-	}
-#endif
-}
-
-/* Used to initailise the stm32_sine module*/
-void STM32_SINE_Init(void)
-{
-    static u8 channel_array[16] = {16,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0};
-
-	clock_setup();
-	gpio_setup();
-#ifdef STM32_SINE_TEST //Only setup usart and read ADC here if we are running standalone
-	usart_setup();
-	adc_setup();		/* todo: check setup of analog peripheral*/
-#endif
-	nvic_setup();
-	tim_setup();
-	init_timsched(); //Need this with the new slip control TODO check if still causes issues with Vehicle Control setup - PCC
-
-	gpio_set_mode(GPIOC, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, GPIO3);
-    channel_array[0] = adcchfromport(2,3);
-	adc_set_regular_sequence(ADC1, 1, channel_array);
-
-    mode = MOD_CTRL;
-
-#ifdef STM32_SINE_TEST //Only read ADC here if we are running standalone
-    create_task(ReadAdc,   PRIO_GRP1, 0, 250);
-#endif
-
-	/* The timing is still messed up, this gives me 100 ms */
-	create_task(ToggleRedLed, PRIO_GRP1, 1, 200);  //as well as toggling leds, this task is essential for slip control logic
-}
-
-
-#ifdef STM32_SINE_TEST //main not needed for library (as used by Tumanako Vehicle Control)
 int main(void)
 {
-  char c;
-  STM32_SINE_Init();
+   clock_setup();
+   digio_init();
+   usart_setup();
+   nvic_setup();
+   dma_setup(timdata, NUM_CTR_VAL);
+   PwmInit();
+   init_timsched();
+   anain_init();
+   parm_load();
+   parm_Change(0);
 
-	while (1) {
-   		while (!(USART1_SR & USART_SR_RXNE));
-        c = usart_recv(USART1);
+   parm_SetDig(VALUE_opmode, 0);
 
-        if ('c' == c) mode = MOD_CTRL;
-        if ('s' == c) mode = MOD_SLIP;
+   create_task(Ms100Task, PRIO_GRP1, 0, 100);
+   create_task(Ms10Task,  PRIO_GRP1, 1, 10);
+   create_task(Ms1Task,   PRIO_GRP1, 2, 1);
 
-        printf("%d %d %d %d %d %d %d - ", DutyCycle[0], DutyCycle[1],
-          DutyCycle[2], STM32_SINE_SineSpeed, slip, (int)(frq * HZ_PER_DIGIT_8) >> 8, /* inverter frequency */
-         (int)(POLE_PAIRS * 10 * CtrVal)/NUM_IMPULSE_PER_REV); /* rotor frequency */
+   term_Run(TERM_USART);
 
-        //output various register data (useful for debug of timer setup and behaviour)
-       /* Do we really print bitfields in decimal format? */
-        printf("%lu %lu %lu %lu  %lu %lu %lu %lu  %lu %lu %lu %lu  "
-           "%lu %lu %lu %lu  %lu %lu %lu %lu\r",
-           TIM1_CR1, TIM1_CR2, TIM1_SMCR, TIM1_DIER,
-           TIM1_SR, TIM1_EGR, TIM1_CCMR1, TIM1_CCMR2,
-           TIM1_CCER, TIM1_CNT, TIM1_PSC, TIM1_ARR,
-           TIM1_RCR, TIM1_CCR1, TIM1_CCR2, TIM1_CCR3,
-           TIM1_CCR4, TIM1_BDTR, TIM1_DCR, TIM1_DMAR);
-        fflush(stdout);
-
-	}
-	return 0;
+   return 0;
 }
-#endif
-
-
-
 

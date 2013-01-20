@@ -1,7 +1,7 @@
 /*
- * This file is part of the libopenstm32 project.
+ * This file is part of the tumanako_vc project.
  *
- * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+ * Copyright (C) 2012 Johannes Huebner <contact@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,17 +16,30 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef SLIP_CTL_H_INCLUDED
+#define SLIP_CTL_H_INCLUDED
+#include "my_fp.h"
 
-/* Linker script for Olimex STM32-H103 (STM32F103RBT6, 128K flash, 20K RAM). */
 
-/* Define memory regions. */
-MEMORY
+typedef uint16_t ctr_t;
+
+#ifdef __cplusplus
+extern "C"
 {
-	rom (rx)    : ORIGIN = 0x08001000, LENGTH = 120K
-	ram (rwx)   : ORIGIN = 0x20000000, LENGTH = 20K
+#endif
+
+u32fp ControlSlip(ctr_t ctrVal, s32fp invFrq);
+s32fp GetSlip();
+u32fp GetSpeed();
+void SetSlipSpnt(s32fp slip);
+void SetImpulsePerRev(ctr_t imp);
+void SetMotorPolePairs(uint8_t pairs);
+void SetMinSpeed(u32fp rpm);
+void SetMaxFrq(u32fp frq);
+void SetControlKp(s32fp kp);
+
+#ifdef __cplusplus
 }
+#endif
 
-
-/* Include the common ld script from libopenstm32. */
-INCLUDE libopencm3_stm32f1.ld
-
+#endif // SLIP_CTL_H_INCLUDED

@@ -1,7 +1,7 @@
 /*
- * This file is part of the libopenstm32 project.
+ * This file is part of the tumanako_vc project.
  *
- * Copyright (C) 2009 Uwe Hermann <uwe@hermann-uwe.de>
+ * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,17 +16,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#include <libopencm3/cm3/common.h>
 
-/* Linker script for Olimex STM32-H103 (STM32F103RBT6, 128K flash, 20K RAM). */
-
-/* Define memory regions. */
-MEMORY
+typedef struct
 {
-	rom (rx)    : ORIGIN = 0x08001000, LENGTH = 120K
-	ram (rwx)   : ORIGIN = 0x20000000, LENGTH = 20K
-}
+   char *cmd;
+   void (*CmdFunc)(char*);
+} TERM_CMD;
 
-
-/* Include the common ld script from libopenstm32. */
-INCLUDE libopencm3_stm32f1.ld
-
+void term_Run(u32 usart);
+void term_Send(char *str);

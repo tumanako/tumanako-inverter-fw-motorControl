@@ -18,23 +18,24 @@
 ##
 
 BINARY		= stm32_sine
-LIBNAME   = libstm32sine
 
 PREFIX		?= arm-none-eabi
 #PREFIX		?= arm-elf
 CC		= $(PREFIX)-gcc
+CPP	= $(PREFIX)-g++
 LD		= $(PREFIX)-gcc
-AR    = $(PREFIX)-ar
 OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR = `dirname \`which $(CC)\``/../$(PREFIX)
-CFLAGS		= -O0 -g -Wall -Wextra -Iinclude -fno-common \
-		  -mcpu=cortex-m3 -mthumb
+CFLAGS		= -Os -Wall -Wextra -Iinclude -fno-common -fno-builtin \
+		  -mcpu=cortex-m3 -mthumb -std=gnu99 -ffunction-sections -fdata-sections
+CPPFLAGS    = -Os -Wall -Wextra -Iinclude -I. -fno-common \
+		 -ffunction-sections -fdata-sections -fno-builtin -fno-rtti -fno-exceptions -fno-unwind-tables -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
-LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles \
-      -Wl,--defsym,_stack=0x20005000
-ARFLAGS   = rcs
-OBJS		= $(BINARY).o stm32_timsched.o
+LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
+OBJS		= $(BINARY).o hwinit.o stm32_timsched.o params.o terminal.o terminal_prj.o \
+           my_string.o digio.o sine_core.o my_fp.o fu.o slip_ctl.o printf.o anain.o \
+           temp_meas.o param_save.o
 
 
 OPENOCD_BASE	= /usr
@@ -49,27 +50,30 @@ Q := @
 NULL := 2>/dev/null
 endif
 
-$(LIBNAME).a: $(OBJS)
-	@printf "  AR      $(subst $(shell pwd)/,,$(@))\n"
-	$(AR) $(ARFLAGS) $@ $^
-
+all: images
+Debug:images
+cleanDebug:clean
 images: $(BINARY)
 	@printf "  OBJCOPY $(BINARY).bin\n"
 	$(Q)$(OBJCOPY) -Obinary $(BINARY) $(BINARY).bin
-	@printf "  OBJCOPY $(BINARY).hex\n"
-	$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
-	@printf "  OBJCOPY $(BINARY).srec\n"
-	$(Q)$(OBJCOPY) -Osrec $(BINARY) $(BINARY).srec
-	@printf "  OBJDUMP $(BINARY).list\n"
-	$(Q)$(OBJDUMP) -S $(BINARY) > $(BINARY).list
+#@printf "  OBJCOPY $(BINARY).hex\n"
+#$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
+#@printf "  OBJCOPY $(BINARY).srec\n"
+#$(Q)$(OBJCOPY) -Osrec $(BINARY) $(BINARY).srec
+#@printf "  OBJDUMP $(BINARY).list\n"
+#$(Q)$(OBJDUMP) -S $(BINARY) > $(BINARY).list
 
 $(BINARY): $(OBJS) $(LDSCRIPT)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopencm3_stm32f1 -lc -lnosys
+	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopencm3_stm32f1 -lnosys
 
 %.o: %.c Makefile
 	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
 	$(Q)$(CC) $(CFLAGS) -o $@ -c $<
+
+%.o: %.cpp Makefile
+	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"
+	$(CPP) $(CPPFLAGS) -o $@ -c $<
 
 clean:
 	@printf "  CLEAN   $(subst $(shell pwd)/,,$(OBJS))\n"

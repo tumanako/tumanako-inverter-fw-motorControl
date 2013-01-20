@@ -108,9 +108,7 @@ increases the argument and clears the interrupt pending flag
 --------------
 This is largely hardware dependendant, since the timer outputs map to fixed pins.
 The best choice would be TIM1 or TIM8 since they allow for complementary
-outputs with dead time generation. Unfortunatly on my hardware the outputs
-are connected to other peripherals and I couldn't start the timer for
-unknown reasons. Thus, I'm using TIM4 with OCC channels 1-3
+outputs with dead time generation.
 
 Timer setup comes down to the following steps
 
