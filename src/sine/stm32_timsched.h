@@ -21,21 +21,17 @@
 
 typedef enum _PrioGrp
 {
-    PRIO_GRP1 = 0, PRIO_GRP2, PRIO_GRP3, PRIO_GRPLAST
+    PRIO_GRP1 = 0, PRIO_GRPLAST
 } SCHED_PRIOGRP;
 
 #define TIM_MAXCHAN       4
 
 #define NUMCHAN_TIM2      4
-#define NUMCHAN_TIM3      4
-#define NUMCHAN_TIM5      4
 
 /* Timer table: */
 /* Timer number, timer channels, priority group */
 #define PRIORITY_GROUPS \
-    PRIOGRP_ENTRY(2, NUMCHAN_TIM2, PRIO_GRP1) \
-    PRIOGRP_ENTRY(3, NUMCHAN_TIM4, PRIO_GRP2) \
-    PRIOGRP_ENTRY(5, NUMCHAN_TIM4, PRIO_GRP3) \
+    PRIOGRP_ENTRY(2, NUMCHAN_TIM2, PRIO_GRP1)
 
 /* Map timers to priority groups */
 #define PRIOGRP_ENTRY(t,c,g) PRIOGRP_TIM##t = g,
@@ -51,8 +47,19 @@ enum
 #define FUNCIDX_TIMx(t,c) ((PRIOGRP_TIM##t) * TIM_MAXCHAN + (c))
 #define FUNCIDX_GRPx(g,c) (TIM_MAXCHAN * (g) + (c))
 
-#define MAX_TASKS 12
+#define MAX_TASKS 4
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 s8   create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period);
+void change_interval(SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period);
 void init_timsched(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif // STM32_TIMSCHED_H_INCLUDED
