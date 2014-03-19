@@ -3,7 +3,8 @@
 
 #include "hwdefs.h"
 
-#define NUM_SAMPLES 4
+#define NUM_SAMPLES 9
+#define SAMPLE_TIME ADC_SMPR_SMP_71DOT5CYC
 
 #if (HWCONFIG == HWCONFIG_TUMANAKO_KIWIAC)
 
