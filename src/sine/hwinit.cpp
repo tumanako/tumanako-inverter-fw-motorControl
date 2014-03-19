@@ -25,8 +25,8 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/f1/adc.h>
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/stm32/nvic.h>
-#include <libopencm3/stm32/f1/scb.h>
+#include <libopencm3/cm3/nvic.h>
+#include <libopencm3/cm3/scb.h>
 #include <libopencm3/stm32/f1/dma.h>
 #include "hwdefs.h"
 #include "hwinit.h"
@@ -40,7 +40,7 @@ void clock_setup(void)
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities
-	SCB_AIRCR = SCB_AIRCR_VECTKEY | (SCB_AIRCR_PRIGROUP_GROUP16_NOSUB << SCB_AIRCR_PRIGROUP_LSB);
+   SCB_AIRCR = SCB_AIRCR_VECTKEY | SCB_AIRCR_PRIGROUP_GROUP16_NOSUB;
 
    /* Enable all present GPIOx clocks. (whats with GPIO F and G?)*/
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPAEN);
@@ -50,7 +50,6 @@ void clock_setup(void)
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPEEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPGEN);
 
-   /* Enable clock for USART1. */
    #if (HWCONFIG==HWCONFIG_OLIMEX)
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_USART3EN);
    #elif (HWCONFIG == HWCONFIG_SB5COM)
@@ -66,9 +65,6 @@ void clock_setup(void)
    /* Enable TIM4 clock */
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN);
 
-   /* Enable TIM8 clock */
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM8EN);
-
    /* Enable DMA1 clock */
    rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_DMA1EN);
 
@@ -79,18 +75,6 @@ void clock_setup(void)
    rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_CRCEN);
 }
 
-void dma_setup(void *timdata, u16 timdata_size)
-{
-   REV_CNT_DMA_CPAR = (u32)&REV_CNT_CCR;
-   REV_CNT_DMA_CMAR = (u32)timdata;
-   REV_CNT_DMA_CNDTR = timdata_size;
-   REV_CNT_DMA_CCR |= DMA_CCR4_MSIZE_16BIT << DMA_CCR4_MSIZE_LSB;
-   REV_CNT_DMA_CCR |= DMA_CCR4_PSIZE_16BIT << DMA_CCR4_PSIZE_LSB;
-   REV_CNT_DMA_CCR |= DMA_CCR4_MINC;
-   REV_CNT_DMA_CCR |= DMA_CCR4_CIRC;
-   REV_CNT_DMA_CCR |= DMA_CCR4_EN;
-}
-
 void usart_setup(void)
 {
     gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
@@ -99,7 +83,7 @@ void usart_setup(void)
     /* Setup UART parameters. */
     usart_set_baudrate(TERM_USART, USART_BAUDRATE);
     usart_set_databits(TERM_USART, 8);
-    usart_set_stopbits(TERM_USART, USART_STOPBITS_1);
+    usart_set_stopbits(TERM_USART, USART_STOPBITS_2);
     usart_set_mode(TERM_USART, USART_MODE_TX_RX);
     usart_set_parity(TERM_USART, USART_PARITY_NONE);
     usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
@@ -118,8 +102,11 @@ void nvic_setup(void)
    nvic_enable_irq(NVIC_TIM1_BRK_IRQ);
    nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0 << 4);
 
+   /*nvic_enable_irq(REV_CNT_IRQ);
+   nvic_set_priority(REV_CNT_IRQ, 1 << 4);
+
    nvic_enable_irq(NVIC_USART1_IRQ);
-   nvic_set_priority(NVIC_USART1_IRQ, 3 << 4);
+   nvic_set_priority(NVIC_USART1_IRQ, 3 << 4);*/
 }
 
 u16 tim_setup(u16 pwmdigits, u16 deadtime)
@@ -150,6 +137,7 @@ u16 tim_setup(u16 pwmdigits, u16 deadtime)
 
    timer_disable_break_automatic_output(PWM_TIMER);
    timer_enable_break_main_output(PWM_TIMER);
+   #warning will not work on new hardware!
    timer_set_break_polarity_low(PWM_TIMER);
    timer_enable_break(PWM_TIMER);
    timer_set_enabled_off_state_in_run_mode(PWM_TIMER);
@@ -190,40 +178,26 @@ u16 tim_setup(u16 pwmdigits, u16 deadtime)
    /* PWM mode 1 and preload enable */
    timer_set_oc_mode(OVER_CUR_TIMER, TIM_OC2, TIM_OCM_PWM1);
    timer_set_oc_mode(OVER_CUR_TIMER, TIM_OC3, TIM_OCM_PWM1);
+   timer_set_oc_mode(OVER_CUR_TIMER, TIM_OC4, TIM_OCM_PWM1);
    timer_enable_oc_preload(OVER_CUR_TIMER, TIM_OC2);
    timer_enable_oc_preload(OVER_CUR_TIMER, TIM_OC3);
+   timer_enable_oc_preload(OVER_CUR_TIMER, TIM_OC4);
 
    timer_set_oc_polarity_high(OVER_CUR_TIMER, TIM_OC2);
    timer_set_oc_polarity_high(OVER_CUR_TIMER, TIM_OC3);
+   timer_set_oc_polarity_high(OVER_CUR_TIMER, TIM_OC4);
    timer_enable_oc_output(OVER_CUR_TIMER, TIM_OC2);
    timer_enable_oc_output(OVER_CUR_TIMER, TIM_OC3);
+   timer_enable_oc_output(OVER_CUR_TIMER, TIM_OC4);
    timer_generate_event(OVER_CUR_TIMER, TIM_EGR_UG);
    timer_set_prescaler(OVER_CUR_TIMER, 0);
    /* PWM frequency */
    timer_set_period(OVER_CUR_TIMER, 4096);
    timer_enable_counter(OVER_CUR_TIMER);
 
-   /** setup capture timer */
-   timer_set_prescaler(REV_CNT_TIMER, 35);
-   timer_set_period(REV_CNT_TIMER, 65535);
-   //timer_disable_preload(REV_CNT_TIMER);
-   timer_direction_up(REV_CNT_TIMER);
-
-   /* Reset counter on input pulse */
-   TIM_SMCR(REV_CNT_TIMER) = TIM_SMCR_SMS_RM | TIM_SMCR_TS_ETRF | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_32_N_8;
-   /* Save timer value on input pulse with smaller filter constant */
-   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2;
-   TIM_CCER(REV_CNT_TIMER) = REV_CNT_CCER;
-
-   timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
-   timer_set_dma_on_compare_event(REV_CNT_TIMER);
-
-   timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
-   timer_enable_counter(REV_CNT_TIMER);
-
    /** setup gpio */
    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
-   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15 | GPIO7 | GPIO8);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15 | GPIO7 | GPIO8 | GPIO9);
 
    return PERIPH_CLK / (u32)pwmmax;
 }

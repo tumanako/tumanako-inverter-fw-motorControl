@@ -21,21 +21,32 @@
 
 #include "my_fp.h"
 
-typedef enum
+class SineCore
 {
-   PWM_SINE = 0,
-   PWM_SVPWM
-} PWM_MODE;
+   public:
+      static void Calc(uint16_t angle);
+      static s32fp Sine(uint16_t angle);
+      static s32fp Cosine(uint16_t angle);
+      static void SetAmp(uint32_t amp);
+      static void SetMinPulseWidth(uint32_t minWidth);
+      static uint32_t DutyCycles[3];
+      static const int BITS;
+      static const uint16_t MAXAMP;
 
-void sin_Step(uint32_t newDutyCycles[3]);
-void sin_SetFrq(u32fp frq);
-void sin_SetAmp(uint32_t amp);
-void sin_SetDir(int32_t dir);
-void sin_SetPwmFrq(uint32_t f);
-void sin_SetPwmMode(PWM_MODE newMode);
-void sin_SetMinPulseWidth(uint32_t minWidth);
+   private:
+      static int32_t SineLookup(uint16_t Arg);
+      static int32_t MultiplyAmplitude(uint16_t Amplitude, int32_t Baseval);
+      static int32_t CalcSVPWMOffset(int32_t a, int32_t b, int32_t c);
+      static int32_t min(int32_t a, int32_t b);
+      static int32_t max(int32_t a, int32_t b);
 
-#define SINE_DIGITS    16
+      /** Minimum pulse width in normalized digits */
+      static uint32_t minPulse;
+      static uint32_t ampl;
+      static const int16_t SinTab[]; /* sine LUT */
+      static const uint16_t ZERO_OFFSET;
+};
+
 /* Domain of lookup function */
 #define SINLU_ARGDIGITS  16
 #define SINLU_ONEREV    (1U << SINLU_ARGDIGITS)

@@ -4,19 +4,23 @@
 #include <stdint.h>
 #include "my_fp.h"
 
-#ifdef __cplusplus
-extern "C"
+class MotorVoltage
 {
-#endif
+public:
+   static void SetBoost(uint32_t boost);
+   static void SetWeakeningFrq(u32fp frq);
+   static void SetMaxAmp(uint32_t maxAmp);
+   static void SetMinFrq(u32fp frq);
+   static uint32_t GetAmp(u32fp frq);
+   static uint32_t GetAmpPerc(u32fp frq, uint32_t perc);
 
-void fu_SetBoost(uint32_t boost);
-void fu_SetWeakeningFrq(u32fp frq);
-void fu_SetMaxAmp(uint32_t maxAmp);
-uint32_t fu_GetAmp(u32fp frq);
-uint32_t fu_GetAmpPerc(u32fp frq, uint32_t perc);
-
-#ifdef __cplusplus
-}
-#endif
+private:
+   static void CalcFac();
+   static uint32_t boost;
+   static u32fp fac;
+   static uint32_t maxAmp;
+   static u32fp endFrq;
+   static u32fp minFrq;
+};
 
 #endif // FU_H_INCLUDED
