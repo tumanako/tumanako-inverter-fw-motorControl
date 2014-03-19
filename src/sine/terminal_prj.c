@@ -18,7 +18,7 @@
  */
 
 #define STM32F1
-#include <libopencm3/stm32/scb.h>
+#include <libopencm3/cm3/scb.h>
 #include "terminal.h"
 #include "params.h"
 #include "my_string.h"
@@ -37,6 +37,7 @@ static void StopInverter(char *arg);
 static void StartInverter(char *arg);
 static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
+static void Help(char *arg);
 static void Reset(char *arg);
 
 const TERM_CMD TermCmds[] =
@@ -50,10 +51,10 @@ const TERM_CMD TermCmds[] =
   { "start", StartInverter },
   { "save", SaveParameters },
   { "load", LoadParameters },
+  { "help", Help },
   { "reset", Reset },
   { NULL, NULL }
 };
-
 
 static void PrintList(char *arg)
 {
@@ -186,7 +187,7 @@ static void StartInverter(char *arg)
 {
    arg = my_trim(arg);
    s32fp val = fp_atoi(arg);
-   if (val <= FP_FROMINT(3))
+   if (val <= FP_FROMINT(2))
    {
       parm_SetFlt(VALUE_opmode, val);
       printf("Inverter started\n");
@@ -196,19 +197,6 @@ static void StartInverter(char *arg)
       printf("Invalid inverter mode");
    }
 }
-
-typedef struct
-{
-   uint32_t key;
-   uint32_t value;
-} KEY_VALUEPAIR32;
-
-typedef struct
-{
-   KEY_VALUEPAIR32 data[127];
-   uint32_t crc;
-   uint32_t padding;
-} PARAM_PAGE;
 
 static void SaveParameters(char *arg)
 {
@@ -229,6 +217,11 @@ static void LoadParameters(char *arg)
    {
       printf("Parameter CRC error\n");
    }
+}
+
+static void Help(char *arg)
+{
+   arg = arg;
 }
 
 static void Reset(char *arg)
