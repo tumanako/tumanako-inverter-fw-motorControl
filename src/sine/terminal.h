@@ -24,5 +24,14 @@ typedef struct
    void (*CmdFunc)(char*);
 } TERM_CMD;
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 void term_Run(u32 usart);
 void term_Send(char *str);
+
+#ifdef __cplusplus
+}
+#endif

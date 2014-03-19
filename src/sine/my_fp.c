@@ -32,17 +32,39 @@ char* fp_itoa(char * buf, s32fp a)
 
 s32fp fp_atoi(char *str)
 {
-   int32_t nat = my_atoi(str);
-   const char *decPoint = my_strchr(str, '.');
-   int32_t frac = 0;
-
-   if (0 != *decPoint)
+   int nat = 0;
+   int frac = 0;
+   int div = 10;
+   int sign = 1;
+   if ('-' == *str)
    {
-      decPoint++;
-
-      frac = my_atoi(decPoint);
-      frac <<= FRAC_DIGITS;
-      frac /= UTOA_FRACDEC;
+      sign = -1;
+      str++;
    }
-   return FP_FROMINT(nat) + frac;
+   for (; *str >= '0' && *str <= '9'; str++)
+   {
+      nat *= 10;
+      nat += *str - '0';
+   }
+   for (str++; *str >= '0' && *str <= '9'; str++)
+   {
+      frac += FP_FROMINT(*str - '0') / div;
+      div *= 10;
+   }
+
+   return sign * (FP_FROMINT(nat) + frac);
+}
+
+u32fp fp_sqrt(u32fp rad)
+{
+   u32fp sqrt = rad >> (rad<1000?4:8); //Starting value for newton iteration
+   u32fp sqrtl;
+   sqrt = sqrt>FP_FROMINT(1)?sqrt:FP_FROMINT(1); //Must be > 0
+
+   do {
+      sqrtl = sqrt;
+      sqrt = (sqrt + FP_DIV(rad, sqrt)) >> 1;
+   } while ((sqrtl - sqrt) > 1);
+
+   return sqrt;
 }

@@ -34,8 +34,8 @@ CPPFLAGS    = -Os -Wall -Wextra -Iinclude -I. -fno-common \
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJS		= $(BINARY).o hwinit.o stm32_timsched.o params.o terminal.o terminal_prj.o \
-           my_string.o digio.o sine_core.o my_fp.o fu.o slip_ctl.o printf.o anain.o \
-           temp_meas.o param_save.o
+           my_string.o digio.o sine_core.o my_fp.o fu.o inc_encoder.o printf.o anain.o \
+           temp_meas.o param_save.o foc.o
 
 
 OPENOCD_BASE	= /usr
@@ -56,8 +56,8 @@ cleanDebug:clean
 images: $(BINARY)
 	@printf "  OBJCOPY $(BINARY).bin\n"
 	$(Q)$(OBJCOPY) -Obinary $(BINARY) $(BINARY).bin
-#@printf "  OBJCOPY $(BINARY).hex\n"
-#$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
+	@printf "  OBJCOPY $(BINARY).hex\n"
+	$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
 #@printf "  OBJCOPY $(BINARY).srec\n"
 #$(Q)$(OBJCOPY) -Osrec $(BINARY) $(BINARY).srec
 #@printf "  OBJDUMP $(BINARY).list\n"
@@ -65,7 +65,7 @@ images: $(BINARY)
 
 $(BINARY): $(OBJS) $(LDSCRIPT)
 	@printf "  LD      $(subst $(shell pwd)/,,$(@))\n"
-	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopencm3_stm32f1 -lnosys
+	$(Q)$(LD) $(LDFLAGS) -o $(BINARY) $(OBJS) -lopencm3_stm32f1
 
 %.o: %.c Makefile
 	@printf "  CC      $(subst $(shell pwd)/,,$(@))\n"

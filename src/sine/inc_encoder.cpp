@@ -18,124 +18,141 @@
  */
 #include "hwdefs.h"
 #include "inc_encoder.h"
+#include "my_math.h"
 
-#define NUM_CTR_VAL (sizeof(timdata) / sizeof(timdata[0]))
+#define STM32F1
+#include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/f1/rcc.h>
+
 #define TWO_PI 65536
+#define MAX_CNT 65535
 
-static void dma_setup();
 static void tim_setup();
-static uint16_t GetPulseTimeFiltered();
+static int GetPulseTimeFiltered();
 
-static uint16_t timdata[10];
 static uint16_t angle = 0;
-static uint16_t last_pulse_timespan;
+static uint32_t last_pulse_timespan;
 static uint16_t filter = 0;
 static uint32_t angle_per_pulse = 0;
 static uint16_t imp_per_rev;
-static uint32_t overflow = 0;
+static uint32_t ignore = 1;
 
-void enc_init(void)
+void Encoder::Init(void)
 {
    rcc_peripheral_enable_clock(&RCC_APB1ENR, REV_CNT_RCC_ENR);
-   dma_setup();
    tim_setup();
-   last_pulse_timespan = 1 << 15;
+   last_pulse_timespan = MAX_CNT;
+}
+
+void Encoder::Update(int16_t slipAngle)
+{
+   uint32_t numPulses = GetPulseTimeFiltered();
+
+   angle += (int16_t)(numPulses * angle_per_pulse) + slipAngle;
 }
 
 /** Returns current angle of motor shaft to some arbitrary 0-axis
  * @return angle in digit (2Pi=65536)
 */
-uint16_t enc_get_angle()
+uint16_t Encoder::GetAngle()
 {
-   uint32_t numPulses = GetPulseTimeFiltered();
    uint32_t time_since_last_pulse = timer_get_counter(REV_CNT_TIMER);
    uint16_t interpolated_angle = (angle_per_pulse * time_since_last_pulse) / last_pulse_timespan;
 
-   if (overflow)
-      return angle;
-
-   angle += numPulses * angle_per_pulse;
+   if (ignore > 0)
+   {
+      interpolated_angle = 0;
+   }
 
    return angle + interpolated_angle;
 }
 
-/** Get current speed in rpm */
-uint32_t enc_get_speed()
+u32fp Encoder::GetFrq()
 {
+   //GetPulseTimeFiltered();
+   if (ignore > 0) return 0;
+   return FP_FROMINT(1000000) / (last_pulse_timespan * imp_per_rev);
+}
+
+/** Get current speed in rpm */
+uint32_t Encoder::GetSpeed()
+{
+   if (ignore > 0) return 0;
    return 60000000 / (last_pulse_timespan * imp_per_rev);
 }
 
 /** set number of impulses per shaft rotation
   */
-void enc_set_imp_per_rev(uint16_t imp)
+void Encoder::SetImpulsesPerTurn(uint16_t imp)
 {
    imp_per_rev = imp;
    angle_per_pulse = TWO_PI / imp;
 }
 
 /** set filter constant of filter after pulse counter */
-void enc_set_filter_const(uint8_t flt)
+void Encoder::SetFilterConst(uint8_t flt)
 {
    filter = flt;
 }
 
-static void dma_setup()
-{
-   REV_CNT_DMA_CPAR = (u32)&REV_CNT_CCR;
-   REV_CNT_DMA_CMAR = (u32)timdata;
-   REV_CNT_DMA_CNDTR = NUM_CTR_VAL;
-   REV_CNT_DMA_CCR |= DMA_CCR4_MSIZE_16BIT << DMA_CCR4_MSIZE_LSB;
-   REV_CNT_DMA_CCR |= DMA_CCR4_PSIZE_16BIT << DMA_CCR4_PSIZE_LSB;
-   REV_CNT_DMA_CCR |= DMA_CCR4_MINC;
-   REV_CNT_DMA_CCR |= DMA_CCR4_CIRC;
-   REV_CNT_DMA_CCR |= DMA_CCR4_EN;
-}
-
 static void tim_setup()
 {
-   //prescaler to 35 -> divides by 36 -> 1MHz
-   timer_set_prescaler(REV_CNT_TIMER, 35);
-   timer_set_period(REV_CNT_TIMER, 65535);
+   //Some explanation: HCLK=72MHz
+   //APB1-Prescaler is 2 -> 36MHz
+   //Timer clock source is ABP1*2 because APB1 prescaler > 1
+   //So clock source is 72MHz (again)
+   //We want the timer to run at 1MHz = 72MHz/72
+   //Prescaler is div-1 => 71
+   timer_set_prescaler(REV_CNT_TIMER, 71);
+   timer_set_period(REV_CNT_TIMER, MAX_CNT);
    timer_update_on_overflow(REV_CNT_TIMER);
    timer_direction_up(REV_CNT_TIMER);
+   /*timer_ic_enable(REV_CNT_TIMER, REV_CNT_IC);
+   timer_ic_set_filter(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_DTF_DIV_32_N_6);
+   timer_ic_set_prescaler(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_PSC_OFF);
+   timer_ic_set_input(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_IN_TI2);*/
 
-   /* Reset counter on input pulse */
+   /* Reset counter on input pulse. Filter constant must be larger than that of the capture input
+      So that the counter value is first saved, then reset */
    TIM_SMCR(REV_CNT_TIMER) = TIM_SMCR_SMS_RM | TIM_SMCR_TS_ETRF | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_32_N_8;
    /* Save timer value on input pulse with smaller filter constant */
-   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2;
-   TIM_CCER(REV_CNT_TIMER) = REV_CNT_CCER;
+   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2 | TIM_CCMR2_IC3F_DTF_DIV_32_N_6;
+   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //1 << (1 + 4 * REV_CNT_IC);
 
-   timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
-   timer_enable_irq(REV_CNT_TIMER, TIM_DIER_UIE);
-   timer_set_dma_on_compare_event(REV_CNT_TIMER);
+   //timer_enable_irq(REV_CNT_TIMER, TIM_DIER_CC3IE);
+   //timer_set_dma_on_compare_event(REV_CNT_TIMER);
 
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
    timer_enable_counter(REV_CNT_TIMER);
 }
 
-static uint16_t GetPulseTimeFiltered()
+static int GetPulseTimeFiltered()
 {
-   uint16_t numData = NUM_CTR_VAL - REV_CNT_DMA_CNDTR;
+   int pulses = 0;
 
-   for (int i = 0; i < numData; i++)
+   if (timer_get_flag(REV_CNT_TIMER, TIM_SR_CC3IF))
    {
-      // filtered = (newVal + ((2^C) - 1) * lastVal) / 2^C
-      // x / 2^C = x >> C
-      // 2^C * x = x << C
-      // (2^C - 1) * x = (x << C) - x
-      last_pulse_timespan = (timdata[i] + (last_pulse_timespan << filter) - last_pulse_timespan) >> filter;
-      overflow = 0;
+      ignore = 0;
+      if (timer_get_flag(REV_CNT_TIMER, TIM_SR_UIF))
+      {
+         timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3IF);
+         timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
+         ignore = 1;
+      }
+
+      if (timer_get_flag(REV_CNT_TIMER, TIM_SR_CC3OF))
+      {
+         last_pulse_timespan = IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+         timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3OF);
+         pulses = 2;
+      }
+      else
+      {
+         last_pulse_timespan = IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+         pulses = 1;
+      }
    }
 
-   REV_CNT_DMA_CCR &= ~DMA_CCR4_EN;
-   REV_CNT_DMA_CNDTR = NUM_CTR_VAL;
-   REV_CNT_DMA_CCR |= DMA_CCR4_EN;
-
-   return numData;
+   return pulses;
 }
 
-void rev_timer_isr()
-{
-   timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
-   overflow = 1;
-}

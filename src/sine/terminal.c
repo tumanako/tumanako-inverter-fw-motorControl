@@ -52,21 +52,21 @@ void term_Run(u32 usart)
       c = usart_recv_blocking(usart);
       usart_send_blocking(usart, c);
 
-      if ('\r' == c || idx > (BUFSIZE - 2))
+      if ('\n' == c || '\r' == c || idx > (BUFSIZE - 2))
       {
          if (NULL != pCurCmd)
          {
             pCurCmd->CmdFunc(argStart);
+            argLast = argStart;
+            pLastCmd = pCurCmd;
+            argStart = NULL;
+            pCurCmd = NULL;
          }
-         else
+         else if (idx > 0)
          {
             term_send(usart, "Unknown command sequence\r");
          }
          idx = 0;
-         argLast = argStart;
-         pLastCmd = pCurCmd;
-         argStart = NULL;
-         pCurCmd = NULL;
       }
       else if ('!' == c)
       {

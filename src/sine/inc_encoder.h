@@ -2,20 +2,18 @@
 #define INC_ENCODER_H_INCLUDED
 
 #include <stdint.h>
+#include "my_fp.h"
 
-#ifdef __cplusplus
-extern "C"
+class Encoder
 {
-#endif
-
-void enc_init(void);
-uint16_t enc_get_angle();
-uint32_t enc_get_speed();
-void enc_set_filter_const(uint8_t flt);
-void enc_set_imp_per_rev(uint16_t imp);
-
-#ifdef __cplusplus
-}
-#endif
+   public:
+      static void Init(void);
+      static void Update(int16_t slipAngle);
+      static uint16_t GetAngle();
+      static uint32_t GetSpeed();
+      static u32fp GetFrq();
+      static void SetFilterConst(uint8_t flt);
+      static void SetImpulsesPerTurn(uint16_t imp);
+};
 
 #endif // INC_ENCODER_H_INCLUDED

@@ -127,21 +127,15 @@ PARAM_NUM parm_NumFromString(const char *name)
 {
     PARAM_NUM ParamNum = PARAM_INVALID;
     PARAM_NUM CurNum = 0;
-    const char NameLen = my_strlen(name);
-    char CurLen;
     const PARAM_ATTRIB *pCurAtr = attribs;
 
     for (; CurNum < PARAM_LAST; CurNum++, pCurAtr++)
     {
-        CurLen = my_strlen(pCurAtr->name);
-        if (CurLen == NameLen)
-        {
-            if (0 == my_strcmp(pCurAtr->name, name))
-            {
-                ParamNum = CurNum;
-                break;
-            }
-        }
+         if (0 == my_strcmp(pCurAtr->name, name))
+         {
+             ParamNum = CurNum;
+             break;
+         }
     }
     return ParamNum;
 }
@@ -163,5 +157,5 @@ const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum)
  */
 char parm_IsParam(PARAM_NUM ParamNum)
 {
-   return attribs[ParamNum].id != 0;
+   return attribs[ParamNum].min != attribs[ParamNum].max;
 }

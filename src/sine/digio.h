@@ -2,26 +2,29 @@
 #define DIGIO_H_INCLUDED
 
 #define STM32F1
-#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/f1/gpio.h>
 #include "digio_prj.h"
 
-typedef enum
-{
-    MODE_INPUT_PD,
-    MODE_INPUT_PU,
-    MODE_INPUT_FLT,
-    MODE_INPUT_AIN,
-    MODE_OUTPUT,
-    MODE_LAST
-} DIG_IO_MODE;
-
+namespace PinMode {
+   enum PinMode
+   {
+       INPUT_PD,
+       INPUT_PU,
+       INPUT_FLT,
+       INPUT_AIN,
+       OUTPUT,
+       LAST
+   };
+}
 
 #define DIG_IO_ENTRY(name, port, pin, mode) name,
-enum DigIos
-{
-    DIG_IO_LIST
-    DIG_IO_LAST
-};
+namespace Pin {
+   enum DigPin
+   {
+       DIG_IO_LIST
+       DIG_IO_LAST
+   };
+}
 #undef DIG_IO_ENTRY
 
 #ifdef __cplusplus
@@ -29,11 +32,15 @@ extern "C"
 {
 #endif
 
-void digio_init(void);
-u16  digio_get(enum DigIos);
-void digio_set(enum DigIos);
-void digio_clear(enum DigIos);
-void digio_toggle(enum DigIos);
+class DigIo
+{
+public:
+   static void Init(void);
+   static bool Get(Pin::DigPin DigIos);
+   static void Set(Pin::DigPin DigIos);
+   static void Clear(Pin::DigPin DigIos);
+   static void Toggle(Pin::DigPin DigIos);
+};
 
 #ifdef __cplusplus
 }

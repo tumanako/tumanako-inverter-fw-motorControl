@@ -23,25 +23,25 @@
 #define DIG_IO_OFF 0
 #define DIG_IO_ON  1
 
-struct DigIo
+struct IoInfo
 {
    u32 port;
    u16 pin;
-   DIG_IO_MODE mode;
+   PinMode::PinMode mode;
 };
 
 #define DIG_IO_ENTRY(name, port, pin, mode) { port, pin, mode },
-static const struct DigIo ios[] =
+static const struct IoInfo ios[] =
 {
    DIG_IO_LIST
-   { 0, 0, MODE_LAST }
+   { 0, 0, PinMode::LAST }
 };
 
-void digio_init(void)
+void DigIo::Init()
 {
-   const struct DigIo *pCur;
+   const struct IoInfo *pCur;
 
-   for (pCur = ios; pCur->mode != MODE_LAST; pCur++)
+   for (pCur = ios; pCur->mode != PinMode::LAST; pCur++)
    {
       u8 mode = GPIO_MODE_INPUT;
       u8 cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
@@ -50,19 +50,19 @@ void digio_init(void)
       switch (pCur->mode)
       {
          default:
-         case MODE_INPUT_PD:
+         case PinMode::INPUT_PD:
             /* use defaults */
             break;
-         case MODE_INPUT_PU:
+         case PinMode::INPUT_PU:
             val = DIG_IO_ON;
             break;
-         case MODE_INPUT_FLT:
+         case PinMode::INPUT_FLT:
             cnf = GPIO_CNF_INPUT_FLOAT;
             break;
-         case MODE_INPUT_AIN:
+         case PinMode::INPUT_AIN:
             cnf = GPIO_CNF_INPUT_ANALOG;
             break;
-         case MODE_OUTPUT:
+         case PinMode::OUTPUT:
             mode = GPIO_MODE_OUTPUT_50_MHZ;
             cnf = GPIO_CNF_OUTPUT_PUSHPULL;
             break;
@@ -76,26 +76,26 @@ void digio_init(void)
    }
 }
 
-u16 digio_get(enum DigIos io)
+bool DigIo::Get(Pin::DigPin io)
 {
-   const struct DigIo *pIo = ios + io;
+   const struct IoInfo *pIo = ios + io;
    return (gpio_get(pIo->port, pIo->pin) & pIo->pin) > 0;
 }
 
-void digio_set(enum DigIos io)
+void DigIo::Set(Pin::DigPin io)
 {
-   const struct DigIo *pIo = ios + io;
+   const struct IoInfo *pIo = ios + io;
    return gpio_set(pIo->port, pIo->pin);
 }
 
-void digio_clear(enum DigIos io)
+void DigIo::Clear(Pin::DigPin io)
 {
-   const struct DigIo *pIo = ios + io;
+   const struct IoInfo *pIo = ios + io;
    return gpio_clear(pIo->port, pIo->pin);
 }
 
-void digio_toggle(enum DigIos io)
+void DigIo::Toggle(Pin::DigPin io)
 {
-   const struct DigIo *pIo = ios + io;
+   const struct IoInfo *pIo = ios + io;
    return gpio_toggle(pIo->port, pIo->pin);
 }

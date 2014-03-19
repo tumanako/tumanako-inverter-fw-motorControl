@@ -26,6 +26,8 @@
 
 typedef uint32_t u32fp;
 typedef int32_t s32fp;
+typedef int16_t s16fp;
+typedef uint16_t u16fp;
 
 #ifdef __cplusplus
 extern "C"
@@ -34,6 +36,7 @@ extern "C"
 
 char* fp_itoa(char * buf, s32fp a);
 s32fp fp_atoi(char *str);
+u32fp fp_sqrt(u32fp rad);
 
 #ifdef __cplusplus
 }

@@ -21,8 +21,17 @@
 #ifndef PRINTF_H_INCLUDED
 #define PRINTF_H_INCLUDED
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 int printf(const char *format, ...);
 int sprintf(char *out, const char *format, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif // PRINTF_H_INCLUDED
