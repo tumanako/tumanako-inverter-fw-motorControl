@@ -54,10 +54,10 @@
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    0, 1.000, 43  ) \
     PARAM_ENTRY(ocurlim,     "A",       -500,   500,    100,    0, 1.000, 22 ) \
     PARAM_ENTRY(minpulse,    "dig",     0,      4095,   1000,   0, 1.000, 24 ) \
-    PARAM_ENTRY(il1ofs,      "dig",     0,      4095,   2047,   0, 1.000, 25  ) \
-    PARAM_ENTRY(il2ofs,      "dig",     0,      4095,   2047,   0, 1.000, 26  ) \
-    PARAM_ENTRY(il1gain,     "dig/A",   0,      4095,   3.1,    0, 1.000, 27  ) \
-    PARAM_ENTRY(il2gain,     "dig/A",   0,      4095,   3.1,    0, 1.000, 28  ) \
+    PARAM_ENTRY(il1ofs,      "dig",     0,      4095,   1988,   0, 1.000, 25  ) \
+    PARAM_ENTRY(il2ofs,      "dig",     0,      4095,   1988,   0, 1.000, 26  ) \
+    PARAM_ENTRY(il1gain,     "dig/A",   -100,   100,    -4.7,   0, 1.000, 27  ) \
+    PARAM_ENTRY(il2gain,     "dig/A",   -100,   100,    -4.7,   0, 1.000, 28  ) \
     PARAM_ENTRY(udcgain,     "dig/V",   0,      4095,   6.175,  0, 1.000, 29  ) \
     PARAM_ENTRY(tmpgain,     "dig/C",   0,      65535,  100,    0, 1.000, 40  ) \
     PARAM_ENTRY(tmpofs,      "dig",     -65535, 65535,  0,      0, 1.000, 41  ) \
@@ -71,6 +71,7 @@
     VALUE_ENTRY(idc,         "A",                               0, 1.000 ) \
     VALUE_ENTRY(il1,         "A",                               0, 1.000 ) \
     VALUE_ENTRY(il2,         "A",                               0, 1.000 ) \
+    VALUE_ENTRY(uac,         "V",                               0, 1.000 ) \
     VALUE_ENTRY(il1rms,      "A",                               0, 1.000 ) \
     VALUE_ENTRY(il2rms,      "A",                               0, 1.000 ) \
     VALUE_ENTRY(id,          "A",                               0, 1.000 ) \

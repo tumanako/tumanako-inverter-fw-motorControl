@@ -48,8 +48,7 @@
 #define MOD_RUN    1
 #define MOD_MANUAL 2
 
-#define RMS_SAMPLEBITS 8
-#define RMS_SAMPLES (1 << RMS_SAMPLEBITS)
+#define RMS_SAMPLES 256
 #define POT_SLACK 200
 
 static uint8_t  pwmdigits;
@@ -293,21 +292,22 @@ static void CalcFancyValues()
    s32fp il1 = parm_Get(VALUE_il1);
    s32fp il2 = parm_Get(VALUE_il2);
    s32fp udc = parm_Get(VALUE_udc);
+   s32fp uac = FP_MUL(udc, FP_FROMFLT(0.7071));
    s32fp fac = FP_DIV(amp, FP_FROMINT(SineCore::MAXAMP));
    s32fp idc, is, p, q, s, pf;
 
    FOC::ParkClarke(il1, il2, angle);
    is = fp_sqrt(FP_MUL(FOC::id,FOC::id)+FP_MUL(FOC::iq,FOC::iq));
-   pf = FP_DIV(FOC::id, is);
-   s = FP_MUL(fac, FP_MUL(udc, is) / 1000);
-   p = FP_MUL(fac, FP_MUL(udc, FOC::iq) / 1000);
-   q = FP_MUL(fac, FP_MUL(udc, FOC::id) / 1000);
+   s = FP_MUL(fac, FP_MUL(uac, is) / 1000);
+   p = FP_MUL(fac, FP_MUL(uac, FOC::iq) / 1000);
+   q = FP_MUL(fac, FP_MUL(uac, FOC::id) / 1000);
    pf = MIN(FP_FROMINT(1), MAX(0, FP_DIV(FOC::iq, is)));
-   idc = FP_MUL(fac, FOC::iq);
+   idc = FP_MUL(FP_MUL(fac, FOC::iq), FP_FROMFLT(0.7071));
 
    parm_SetFlt(VALUE_id, FOC::id);
    parm_SetFlt(VALUE_iq, FOC::iq);
    parm_SetFlt(VALUE_idc, idc);
+   parm_SetFlt(VALUE_uac, uac);
    parm_SetFlt(VALUE_pf, pf);
    parm_SetFlt(VALUE_p, p);
    parm_SetFlt(VALUE_q, q);
