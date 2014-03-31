@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include <libopencm3/cm3/common.h>
+#include <stdint.h>
 
 typedef struct
 {
@@ -29,7 +29,7 @@ extern "C"
 {
 #endif
 
-void term_Run(u32 usart);
+void term_Run(uint32_t usart);
 void term_Send(char *str);
 
 #ifdef __cplusplus

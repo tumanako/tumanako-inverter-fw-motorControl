@@ -2,7 +2,7 @@
 #define DIGIO_H_INCLUDED
 
 #define STM32F1
-#include <libopencm3/stm32/f1/gpio.h>
+#include <libopencm3/stm32/gpio.h>
 #include "digio_prj.h"
 
 namespace PinMode {
@@ -27,11 +27,6 @@ namespace Pin {
 }
 #undef DIG_IO_ENTRY
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 class DigIo
 {
 public:
@@ -41,9 +36,5 @@ public:
    static void Clear(Pin::DigPin DigIos);
    static void Toggle(Pin::DigPin DigIos);
 };
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif // DIGIO_H_INCLUDED

@@ -21,6 +21,7 @@
 
 #ifndef HWINIT_H_INCLUDED
 #define HWINIT_H_INCLUDED
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C"
@@ -30,9 +31,9 @@ extern "C"
 void clock_setup(void);
 void usart_setup(void);
 void nvic_setup(void);
-u16 tim_setup(u16 pwmdigits, u16 deadtime);
+uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime);
 void adc_setup(void);
-void dma_setup(void *timdata, u16 timdata_size);
+void dma_setup(void *timdata, uint16_t timdata_size);
 
 #ifdef __cplusplus
 }

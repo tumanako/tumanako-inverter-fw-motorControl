@@ -52,7 +52,7 @@
     PARAM_ENTRY(udcsw,       "V",       0,      1000,   330,    0, 1.000, 20  ) \
     PARAM_ENTRY(udcmin,      "V",       0,      1000,   450,    0, 1.000, 42  ) \
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    0, 1.000, 43  ) \
-    PARAM_ENTRY(ocurlim,     "A",       -500,   500,    100,    0, 1.000, 22 ) \
+    PARAM_ENTRY(ocurlim,     "A",       -500,   500,    -100,   0, 1.000, 22 ) \
     PARAM_ENTRY(minpulse,    "dig",     0,      4095,   1000,   0, 1.000, 24 ) \
     PARAM_ENTRY(il1ofs,      "dig",     0,      4095,   1988,   0, 1.000, 25  ) \
     PARAM_ENTRY(il2ofs,      "dig",     0,      4095,   1988,   0, 1.000, 26  ) \

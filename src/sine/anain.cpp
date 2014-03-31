@@ -19,9 +19,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #define STM32F1
-#include <libopencm3/stm32/f1/gpio.h>
-#include <libopencm3/stm32/f1/dma.h>
-#include <libopencm3/stm32/f1/adc.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/dma.h>
+#include <libopencm3/stm32/adc.h>
 #include "anain.h"
 #include "my_math.h"
 
@@ -39,8 +39,8 @@ uint16_t AnaIn::values[NUM_SAMPLES*NUM_CHAN];
 void AnaIn::Init(void)
 {
    const struct AnaInfo *pCur;
-   u8 channel_array[16];
-   u8 numChan = 0;
+   uint8_t channel_array[16];
+   uint8_t numChan = 0;
 
    adc_off(ADC1);
    adc_enable_scan_mode(ADC1);
@@ -78,8 +78,8 @@ void AnaIn::Init(void)
    adc_set_regular_sequence(ADC1, numChan, channel_array);
    adc_enable_dma(ADC1);
 
-   DMA1_CPAR1 = (u32)&ADC_DR(ADC1);
-   DMA1_CMAR1 = (u32)values;
+   DMA1_CPAR1 = (uint32_t)&ADC_DR(ADC1);
+   DMA1_CMAR1 = (uint32_t)values;
    DMA1_CNDTR1 = NUM_SAMPLES * numChan;
    DMA1_CCR1 |= DMA_CCR_MSIZE_16BIT;
    DMA1_CCR1 |= DMA_CCR_PSIZE_16BIT;
@@ -107,11 +107,11 @@ uint16_t AnaIn::Get(Pin::AnaIns in)
    #if NUM_SAMPLES == 1
    return values[in];
    #elif NUM_SAMPLES == 3
-   u16 *curVal = &values[in];
+   uint16_t *curVal = &values[in];
    return MEDIAN3_FROM_ADC_ARRAY(curVal);
    #elif NUM_SAMPLES == 9
-   u16 *curVal = &values[in];
-   u16 med[3];
+   uint16_t *curVal = &values[in];
+   uint16_t med[3];
 
    for (int i = 0; i < 3; i++, curVal += 3*NUM_CHAN)
    {

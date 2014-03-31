@@ -20,8 +20,9 @@
 #define STM32F1
 
 #include "my_string.h"
+#include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f1/gpio.h>
+#include <libopencm3/stm32/gpio.h>
 #include "terminal.h"
 #include <stdarg.h>
 
@@ -30,14 +31,14 @@
 #define CLR_RTS() /*gpio_clear(GPIOB, GPIO11)*/
 
 static const TERM_CMD *CmdLookup(char *buf);
-static void term_send(u32 usart, const char *str);
+static void term_send(uint32_t usart, const char *str);
 
 extern const TERM_CMD TermCmds[];
 static char inBuf[BUFSIZE];
-static u32 _usart;
+static uint32_t _usart;
 
 /** Run the terminal */
-void term_Run(u32 usart)
+void term_Run(uint32_t usart)
 {
    int idx = 0;
    char *argStart = NULL;
@@ -121,7 +122,7 @@ static const TERM_CMD *CmdLookup(char *buf)
    return pCmd;
 }
 
-static void term_send(u32 usart, const char *str)
+static void term_send(uint32_t usart, const char *str)
 {
    SET_RTS();
    for (;*str > 0; str++)

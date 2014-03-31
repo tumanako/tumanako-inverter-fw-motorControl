@@ -26,6 +26,7 @@
  */
 #define STM32F1
 
+#include <stdint.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
 #include "stm32_sine.h"
@@ -84,13 +85,13 @@ static void CalcNextAngle()
 
 extern "C" void pwm_timer_isr(void)
 {
-   u16 last = timer_get_counter(PWM_TIMER);
+   uint16_t last = timer_get_counter(PWM_TIMER);
 
    /* Clear interrupt pending flag */
    TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
 
    s32fp dir = parm_GetInt(VALUE_dir);
-   u8 shiftCor = SineCore::BITS - pwmdigits;
+   uint8_t shiftCor = SineCore::BITS - pwmdigits;
 
    CalcNextAngle();
    SineCore::Calc(angle);
@@ -292,8 +293,8 @@ static void CalcFancyValues()
    s32fp il1 = parm_Get(VALUE_il1);
    s32fp il2 = parm_Get(VALUE_il2);
    s32fp udc = parm_Get(VALUE_udc);
-   s32fp uac = FP_MUL(udc, FP_FROMFLT(0.7071));
    s32fp fac = FP_DIV(amp, FP_FROMINT(SineCore::MAXAMP));
+   s32fp uac = FP_MUL(fac, FP_MUL(udc, FP_FROMFLT(0.7071)));
    s32fp idc, is, p, q, s, pf;
 
    FOC::ParkClarke(il1, il2, angle);

@@ -70,7 +70,7 @@
 //Maximum PWM frequency is 36MHz/2^MIN_PWM_DIGITS
 #define MIN_PWM_DIGITS 11
 
-#define PERIPH_CLK      ((u32)36000000)
+#define PERIPH_CLK      ((uint32_t)36000000)
 
 
 #endif // HWDEFS_H_INCLUDED

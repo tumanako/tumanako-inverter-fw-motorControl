@@ -22,7 +22,7 @@
 
 #define STM32F1
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/stm32/f1/rcc.h>
+#include <libopencm3/stm32/rcc.h>
 
 #define TWO_PI 65536
 #define MAX_CNT 65535

@@ -25,8 +25,8 @@
 
 struct IoInfo
 {
-   u32 port;
-   u16 pin;
+   uint32_t port;
+   uint16_t pin;
    PinMode::PinMode mode;
 };
 
@@ -43,9 +43,9 @@ void DigIo::Init()
 
    for (pCur = ios; pCur->mode != PinMode::LAST; pCur++)
    {
-      u8 mode = GPIO_MODE_INPUT;
-      u8 cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
-      u16 val = DIG_IO_OFF;
+      uint8_t mode = GPIO_MODE_INPUT;
+      uint8_t cnf = GPIO_CNF_INPUT_PULL_UPDOWN;
+      uint16_t val = DIG_IO_OFF;
 
       switch (pCur->mode)
       {

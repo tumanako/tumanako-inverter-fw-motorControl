@@ -18,6 +18,7 @@
  */
 #ifndef STM32_TIMSCHED_H_INCLUDED
 #define STM32_TIMSCHED_H_INCLUDED
+#include <stdint.h>
 
 typedef enum _PrioGrp
 {
@@ -54,8 +55,8 @@ extern "C"
 {
 #endif
 
-s8   create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period);
-void change_interval(SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period);
+int create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, uint8_t PrioInGrp, uint16_t Period);
+void change_interval(SCHED_PRIOGRP PrioGrp, uint8_t PrioInGrp, uint16_t Period);
 void init_timsched(void);
 
 #ifdef __cplusplus

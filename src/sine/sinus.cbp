@@ -56,7 +56,6 @@
 		<Unit filename="hwinit.h" />
 		<Unit filename="inc_encoder.cpp" />
 		<Unit filename="inc_encoder.h" />
-		<Unit filename="mediator.hpp" />
 		<Unit filename="my_fp.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -80,7 +79,6 @@
 		<Unit filename="sine_core.cpp" />
 		<Unit filename="sine_core.h" />
 		<Unit filename="stm32_sine.cpp" />
-		<Unit filename="stm32_sine.h" />
 		<Unit filename="stm32_sine.ld" />
 		<Unit filename="stm32_timsched.c">
 			<Option compilerVar="CC" />

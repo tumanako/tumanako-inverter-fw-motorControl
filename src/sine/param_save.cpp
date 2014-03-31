@@ -19,11 +19,8 @@
 
 #define STM32F1
 
-extern "C" {
-
-#include <libopencm3/stm32/f1/flash.h>
+#include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
-}
 #include "params.h"
 #include "param_save.h"
 #include "hwdefs.h"
@@ -76,7 +73,7 @@ uint32_t parm_save()
 
    for (idx = 0; idx < 256; idx++)
    {
-      u32* pData = ((u32*)&parmPage) + idx;
+      uint32_t* pData = ((uint32_t*)&parmPage) + idx;
       flash_program_word(PARAM_ADDRESS + idx * 4, *pData);
    }
    flash_lock();
@@ -91,7 +88,7 @@ int parm_load()
 
    for (unsigned int idx = 0; idx < (2 * NUM_PARAMS); idx++)
    {
-      u32* pData = ((u32*)parmPage) + idx;
+      uint32_t* pData = ((uint32_t*)parmPage) + idx;
       CRC_DR = *pData;
    }
 

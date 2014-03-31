@@ -20,33 +20,33 @@
 
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/cm3/nvic.h>
-#include <libopencm3/stm32/f1/rcc.h>
+#include <libopencm3/stm32/rcc.h>
 #include "stm32_timsched.h"
 
 void (*Functions[MAX_TASKS]) (void);
 
-u16 Periods[MAX_TASKS];
+uint16_t Periods[MAX_TASKS];
 
 /* Helper macro */
 #define APPEND(a,b) a##b
 
 /* Map Priority groups to timers */
 #define PRIOGRP_ENTRY(t,c,g) TIM##t,
-const u32 GrpToTimer[] = { PRIORITY_GROUPS };
+const uint32_t GrpToTimer[] = { PRIORITY_GROUPS };
 #undef PRIOGRP_ENTRY
 
 /* Map Priority groups to nvic lines */
 #define PRIOGRP_ENTRY(t,c,g) APPEND(NVIC_TIM##t,_IRQ),
-const u32 GrpToNvic[] = { PRIORITY_GROUPS };
+const uint32_t GrpToNvic[] = { PRIORITY_GROUPS };
 #undef PRIOGRP_ENTRY
 
 /* Map Priority groups to RCC lines */
 #define PRIOGRP_ENTRY(t,c,g) APPEND(RCC_APB1ENR_TIM##t,EN),
-const u32 GrpToRCC[] = { PRIORITY_GROUPS };
+const uint32_t GrpToRCC[] = { PRIORITY_GROUPS };
 #undef PRIOGRP_ENTRY
 
 /* return CCRc of TIMt */
-#define TIM_CCR(t,c) (*(volatile u32 *)(&TIM_CCR1(t) + (c)))
+#define TIM_CCR(t,c) (*(volatile uint32_t *)(&TIM_CCR1(t) + (c)))
 
 /* We use preprocessor code generation instead of actual functions
    to have less function calls in the ISRs */
@@ -78,11 +78,11 @@ static void nofunc(void)
 {
 }
 
-s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period)
+int create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, uint8_t PrioInGrp, uint16_t Period)
 {
-    volatile u32 *CCMR;
-    volatile u32 *CCR;
-             u32  CCMRFlag;
+    volatile uint32_t *CCMR;
+    volatile uint32_t *CCR;
+             uint32_t  CCMRFlag;
 
 
     if (PrioGrp >= PRIO_GRPLAST)
@@ -136,7 +136,7 @@ s8 create_task(void (*Function)(void), SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 
     return 0;
 }
 
-void change_interval(SCHED_PRIOGRP PrioGrp, u8 PrioInGrp, u16 Period)
+void change_interval(SCHED_PRIOGRP PrioGrp, uint8_t PrioInGrp, uint16_t Period)
 {
     Periods[FUNCIDX_GRPx(PrioGrp,PrioInGrp)] = Period * 10;
 }

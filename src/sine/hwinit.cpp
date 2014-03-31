@@ -19,15 +19,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #define STM32F1
-
-#include <libopencm3/stm32/f1/rcc.h>
-#include <libopencm3/stm32/f1/gpio.h>
-#include <libopencm3/stm32/usart.h>
-#include <libopencm3/stm32/f1/adc.h>
-#include <libopencm3/stm32/timer.h>
+#include <libopencm3/cm3/common.h>
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/cm3/scb.h>
-#include <libopencm3/stm32/f1/dma.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/dma.h>
 #include "hwdefs.h"
 #include "hwinit.h"
 
@@ -109,9 +109,9 @@ void nvic_setup(void)
    nvic_set_priority(NVIC_USART1_IRQ, 3 << 4);*/
 }
 
-u16 tim_setup(u16 pwmdigits, u16 deadtime)
+uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime)
 {
-   const u16 pwmmax = 1U << pwmdigits;
+   const uint16_t pwmmax = 1U << pwmdigits;
    /* disable timer */
    timer_disable_counter(PWM_TIMER);
    /* Center aligned PWM */
@@ -199,5 +199,5 @@ u16 tim_setup(u16 pwmdigits, u16 deadtime)
    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15 | GPIO7 | GPIO8 | GPIO9);
 
-   return PERIPH_CLK / (u32)pwmmax;
+   return PERIPH_CLK / (uint32_t)pwmmax;
 }
