@@ -23,24 +23,29 @@
 #define STM32F1
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/dma.h>
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
+#define NUM_CTR_VAL 10
 
 static void tim_setup();
+static void dma_setup();
 static int GetPulseTimeFiltered();
 
+static uint16_t timdata[NUM_CTR_VAL];
 static uint16_t angle = 0;
 static uint32_t last_pulse_timespan;
 static uint16_t filter = 0;
 static uint32_t angle_per_pulse = 0;
 static uint16_t imp_per_rev;
-static uint32_t ignore = 1;
+static bool ignore = true;
 
 void Encoder::Init(void)
 {
    rcc_peripheral_enable_clock(&RCC_APB1ENR, REV_CNT_RCC_ENR);
    tim_setup();
+   dma_setup();
    last_pulse_timespan = MAX_CNT;
 }
 
@@ -57,27 +62,21 @@ void Encoder::Update(int16_t slipAngle)
 uint16_t Encoder::GetAngle()
 {
    uint32_t time_since_last_pulse = timer_get_counter(REV_CNT_TIMER);
-   uint16_t interpolated_angle = (angle_per_pulse * time_since_last_pulse) / last_pulse_timespan;
-
-   if (ignore > 0)
-   {
-      interpolated_angle = 0;
-   }
+   uint16_t interpolated_angle = ignore?0:(angle_per_pulse * time_since_last_pulse) / last_pulse_timespan;
 
    return angle + interpolated_angle;
 }
 
 u32fp Encoder::GetFrq()
 {
-   //GetPulseTimeFiltered();
-   if (ignore > 0) return 0;
+   if (ignore) return 0;
    return FP_FROMINT(1000000) / (last_pulse_timespan * imp_per_rev);
 }
 
 /** Get current speed in rpm */
 uint32_t Encoder::GetSpeed()
 {
-   if (ignore > 0) return 0;
+   if (ignore) return 0;
    return 60000000 / (last_pulse_timespan * imp_per_rev);
 }
 
@@ -93,6 +92,19 @@ void Encoder::SetImpulsesPerTurn(uint16_t imp)
 void Encoder::SetFilterConst(uint8_t flt)
 {
    filter = flt;
+}
+
+static void dma_setup()
+{
+   //We use DMA only for counting events, the values are ignored
+   REV_CNT_DMA_CPAR = (uint32_t)&REV_CNT_CCR;
+   REV_CNT_DMA_CMAR = (uint32_t)timdata;
+   REV_CNT_DMA_CNDTR = NUM_CTR_VAL;
+   REV_CNT_DMA_CCR |= DMA_CCR_MSIZE_16BIT;
+   REV_CNT_DMA_CCR |= DMA_CCR_PSIZE_16BIT;
+   REV_CNT_DMA_CCR |= DMA_CCR_MINC;
+   REV_CNT_DMA_CCR |= DMA_CCR_CIRC;
+   REV_CNT_DMA_CCR |= DMA_CCR_EN;
 }
 
 static void tim_setup()
@@ -120,7 +132,8 @@ static void tim_setup()
    TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //1 << (1 + 4 * REV_CNT_IC);
 
    //timer_enable_irq(REV_CNT_TIMER, TIM_DIER_CC3IE);
-   //timer_set_dma_on_compare_event(REV_CNT_TIMER);
+   timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
+   timer_set_dma_on_compare_event(REV_CNT_TIMER);
 
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
    timer_enable_counter(REV_CNT_TIMER);
@@ -128,31 +141,23 @@ static void tim_setup()
 
 static int GetPulseTimeFiltered()
 {
-   int pulses = 0;
+   static uint16_t lastN = NUM_CTR_VAL;
+   uint16_t n = REV_CNT_DMA_CNDTR;
+   int pulses = n <= lastN?lastN - n:lastN + NUM_CTR_VAL - n;
 
-   if (timer_get_flag(REV_CNT_TIMER, TIM_SR_CC3IF))
+   if (pulses > 0)
    {
-      ignore = 0;
+      ignore = false;
       if (timer_get_flag(REV_CNT_TIMER, TIM_SR_UIF))
       {
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3IF);
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
-         ignore = 1;
-      }
-
-      if (timer_get_flag(REV_CNT_TIMER, TIM_SR_CC3OF))
-      {
-         last_pulse_timespan = IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
-         timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3OF);
-         pulses = 2;
-      }
-      else
-      {
-         last_pulse_timespan = IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
-         pulses = 1;
+         ignore = true;
+         pulses = 0;
       }
    }
-
+   last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+   lastN = n;
    return pulses;
 }
 

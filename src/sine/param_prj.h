@@ -18,7 +18,7 @@
  */
 
 #define OPMODES "0=OFF, 1=RUN, 2=MANUAL_RUN"
-#define PWMFRQS  "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz"
+#define PWMFRQS  "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
 #define DIRS     "-1=FWD, 0=NEUTRAL, 1=REV"
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
@@ -41,7 +41,7 @@
     PARAM_ENTRY(speedflt,    "",        0,      16,     4,      0, 1.000, 6   ) \
     PARAM_ENTRY(fmin,        "Hz",      0,      400,    1,      0, 1.000, 34  ) \
     PARAM_ENTRY(fmax,        "Hz",      0,      400,    200,    0, 1.000, 9   ) \
-    PARAM_ENTRY(pwmfrq,      PWMFRQS,   0,      3,      2,      0, 1.000, 13  ) \
+    PARAM_ENTRY(pwmfrq,      PWMFRQS,   0,      4,      2,      0, 1.000, 13  ) \
     PARAM_ENTRY(deadtime,    "dig",     0,      255,    28,     0, 1.000, 14  ) \
     PARAM_ENTRY(numimp,      "Imp/rev", 8,      8192,   60,     0, 1.000, 15  ) \
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      0, 1.000, 17  ) \
