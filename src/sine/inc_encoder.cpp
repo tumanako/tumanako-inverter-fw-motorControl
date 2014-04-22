@@ -153,7 +153,6 @@ static int GetPulseTimeFiltered()
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3IF);
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
          ignore = true;
-         pulses = 0;
       }
    }
    last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
