@@ -19,10 +19,10 @@
 
 #define OPMODES "0=OFF, 1=RUN, 2=MANUAL_RUN"
 #define PWMFRQS  "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
-#define DIRS     "-1=FWD, 0=NEUTRAL, 1=REV"
+#define DIRS     "-1=REV, 0=NEUTRAL, 1=FWD"
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
-#define VER 2.60
+#define VER 2.67
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
@@ -34,6 +34,7 @@
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   0, 1.000, 1   ) \
     PARAM_ENTRY(fweak,       "Hz",      0,      400,    67,     0, 1.000, 2   ) \
+    PARAM_ENTRY(sync,        "",        0,      1,      0,      0, 1.000, 47  ) \
     PARAM_ENTRY(fslipmin,    "Hz",      0,      100,    1,      0, 1.000, 37  ) \
     PARAM_ENTRY(fslipmax,    "Hz",      0,      100,    3,      0, 1.000, 33  ) \
     PARAM_ENTRY(polepairs,   "",        1,      16,     2,      0, 1.000, 32  ) \
@@ -48,10 +49,12 @@
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   0, 1.000, 18  ) \
     PARAM_ENTRY(brknompedal, "%",       -100,   0,      -50,    0, 1.000, 38  ) \
     PARAM_ENTRY(brknom,      "%",       0,      100,    30,     0, 1.000, 19  ) \
+    PARAM_ENTRY(brkmax,      "%",       0,      100,    30,     0, 1.000, 49  ) \
     PARAM_ENTRY(brkrampstr,  "Hz",      0,      400,    10,     0, 1.000, 39  ) \
     PARAM_ENTRY(udcsw,       "V",       0,      1000,   330,    0, 1.000, 20  ) \
     PARAM_ENTRY(udcmin,      "V",       0,      1000,   450,    0, 1.000, 42  ) \
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    0, 1.000, 43  ) \
+    PARAM_ENTRY(udclim,      "V",       0,      1000,   540,    0, 1.000, 48  ) \
     PARAM_ENTRY(ocurlim,     "A",       -500,   500,    -100,   0, 1.000, 22 ) \
     PARAM_ENTRY(minpulse,    "dig",     0,      4095,   1000,   0, 1.000, 24 ) \
     PARAM_ENTRY(il1ofs,      "dig",     0,      4095,   1988,   0, 1.000, 25  ) \

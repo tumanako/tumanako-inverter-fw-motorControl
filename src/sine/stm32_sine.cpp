@@ -65,16 +65,17 @@ extern "C" void tim1_brk_isr(void)
 
 static void CalcNextAngle()
 {
-   uint16_t pole_pairs = parm_GetInt(PARAM_polepairs);
+   uint16_t polePairs = parm_GetInt(PARAM_polepairs);
    s32fp fslip = parm_Get(PARAM_fslipspnt);
-   int16_t slip_angle = FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
+   int16_t slipAngle = FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
    s32fp fmax = parm_Get(PARAM_fmax);
 
-   s32fp frq = pole_pairs * Encoder::GetFrq() + fslip;
+   s32fp frq = polePairs * Encoder::GetFrq() + fslip;
    if (frq < 0) frq = 0;
-   if (frq > fmax) slip_angle = 0;
-   Encoder::Update(slip_angle);
-   angle = pole_pairs * Encoder::GetAngle();
+   if (frq > fmax) slipAngle = 0;
+   if (parm_Get(PARAM_sync) && Encoder::GetFrq() > 0) slipAngle = 0;
+   Encoder::Update(slipAngle);
+   angle = polePairs * Encoder::GetAngle();
 
    uint32_t ampnom = parm_GetInt(PARAM_ampnom);
    uint32_t amp = MotorVoltage::GetAmpPerc(frq, ampnom);
@@ -182,9 +183,10 @@ static int CalcThrottle(int potval)
    int potmin = parm_GetInt(PARAM_potmin);
    int potmax = parm_GetInt(PARAM_potmax);
    int brknom  = parm_GetInt(PARAM_brknom);
+   int brkmax  = parm_GetInt(PARAM_brkmax);
    u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
    bool brkpedal = parm_GetInt(VALUE_din_brake);
-   int pot_nom = 0;
+   int potnom = 0;
    int res = 0;
 
    parm_SetDig(VALUE_pot, potval);
@@ -201,20 +203,22 @@ static int CalcThrottle(int potval)
 
    if (brkpedal)
    {
-      pot_nom = parm_GetInt(PARAM_brknompedal);
+      potnom = parm_GetInt(PARAM_brknompedal);
    }
    else
    {
-      pot_nom = potval - potmin;
-      pot_nom = ((100 + brknom) * pot_nom) / (potmax-potmin);
-      pot_nom -= brknom;
+      potnom = potval - potmin;
+      potnom = ((100 + brknom) * potnom) / (potmax-potmin);
+      potnom -= brknom;
+      if (potnom < 0)
+         potnom = (potnom * brkmax) / brknom;
    }
 
-   if (Encoder::GetFrq() < brkrampstr && pot_nom < 0)
+   if (Encoder::GetFrq() < brkrampstr && potnom < 0)
    {
-      pot_nom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * pot_nom);
+      potnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * potnom);
    }
-   parm_SetDig(VALUE_potnom, pot_nom);
+   parm_SetDig(VALUE_potnom, potnom);
 
    return res;
 }
@@ -272,6 +276,7 @@ static s32fp ProcessUdc()
    s32fp udcfp;
    s32fp udcmin = parm_Get(PARAM_udcmin);
    s32fp udcmax = parm_Get(PARAM_udcmax);
+   s32fp udclim = parm_Get(PARAM_udclim);
    s32fp udcgain = parm_Get(PARAM_udcgain);
 
    udc = IIRFILTER(udc, AnaIn::Get(Pin::udc), 5);
@@ -281,6 +286,12 @@ static s32fp ProcessUdc()
       DigIo::Set(Pin::vtg_out);
    else
       DigIo::Clear(Pin::vtg_out);
+
+   if (udcfp > udclim)
+   {
+      parm_SetDig(VALUE_opmode, MOD_OFF);
+      DigIo::Set(Pin::err_out);
+   }
 
    parm_SetFlt(VALUE_udc, udcfp);
 
@@ -323,7 +334,6 @@ static void Ms10Task(void)
    s32fp udc = ProcessUdc();
 
    CalcAndOutputTemp();
-   //CalcFancyValues();
 
    throttle = IIRFILTER(throttle, AnaIn::Get(Pin::throttle1), 5);
 

@@ -137,7 +137,6 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime)
 
    timer_disable_break_automatic_output(PWM_TIMER);
    timer_enable_break_main_output(PWM_TIMER);
-   #warning will not work on old hardware!
    timer_set_break_polarity_high(PWM_TIMER);
    timer_enable_break(PWM_TIMER);
    timer_set_enabled_off_state_in_run_mode(PWM_TIMER);
