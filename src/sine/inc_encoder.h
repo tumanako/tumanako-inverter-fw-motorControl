@@ -8,7 +8,7 @@ class Encoder
 {
    public:
       static void Init(void);
-      static void Update(int16_t slipAngle);
+      static void Update();
       static uint16_t GetAngle();
       static uint32_t GetSpeed();
       static u32fp GetFrq();

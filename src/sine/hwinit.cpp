@@ -191,7 +191,7 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime)
    timer_generate_event(OVER_CUR_TIMER, TIM_EGR_UG);
    timer_set_prescaler(OVER_CUR_TIMER, 0);
    /* PWM frequency */
-   timer_set_period(OVER_CUR_TIMER, 4096);
+   timer_set_period(OVER_CUR_TIMER, OCURMAX);
    timer_enable_counter(OVER_CUR_TIMER);
 
    /** setup gpio */

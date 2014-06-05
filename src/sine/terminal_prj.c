@@ -115,7 +115,7 @@ static void ParamGet(char *arg)
 
       if (PARAM_INVALID != idx)
       {
-         val = parm_GetScl(idx);
+         val = parm_Get(idx);
          printf("%f\n", val);
       }
       else
@@ -134,7 +134,7 @@ static void GetAll(char *arg)
    for (int idx = 0; idx < PARAM_LAST; idx++)
    {
       pAtr = parm_GetAttrib(idx);
-      printf("%s\t\t%f\n", pAtr->name, parm_GetScl(idx));
+      printf("%s\t\t%f\n", pAtr->name, parm_Get(idx));
    }
 }
 

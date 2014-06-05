@@ -118,12 +118,11 @@ int32_t SineCore::SineLookup(uint16_t Arg)
 /* 0 = 0, 1 = 32767 */
 int32_t SineCore::MultiplyAmplitude(uint16_t Amplitude, int32_t Baseval)
 {
-    int32_t Temp;
-    Temp = (int32_t)((uint32_t)Amplitude * Baseval);
+    int32_t temp = (int32_t)((uint32_t)Amplitude * Baseval);
     /* Divide by 32768 */
     /* -> Allow overmodulation, for SVPWM or FTPWM */
-    Temp >>= (BITS - 1);
-    return Temp;
+    temp >>= (BITS - 1);
+    return temp;
 }
 
 

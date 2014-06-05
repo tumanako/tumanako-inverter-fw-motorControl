@@ -93,11 +93,21 @@ void AnaIn::Init(void)
 
 int median3(int a, int b, int c)
 {
-   int max = MAX(a, MAX(b, c));
-   int min = MIN(a, MIN(b, c));
-   if (a != min && a != max) return a;
-   if (b != min && b != max) return b;
-   return c;
+   int med;
+   if (a > b)
+   {
+      if (b > c) med = b;
+      else if (a > c) med = c;
+      else med = a;
+   }
+   else
+   {
+      if (a > c) med = a;
+      else if (b > c) med = c;
+      else med = b;
+   }
+
+   return med;
 }
 
 #define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + NUM_CHAN), *(a + 2*NUM_CHAN))
@@ -119,6 +129,16 @@ uint16_t AnaIn::Get(Pin::AnaIns in)
    }
 
    return median3(med[0], med[1], med[2]);
+   #elif NUM_SAMPLES == 12
+   uint16_t *curVal = &values[in];
+   uint16_t med[4];
+
+   for (int i = 0; i < 4; i++, curVal += 3*NUM_CHAN)
+   {
+      med[i] = MEDIAN3_FROM_ADC_ARRAY(curVal);
+   }
+
+   return (med[0] + med[1] + med[2] + med[3]) >> 2;
    #else
    #error NUM_SAMPLES must be 1, 3 or 9
    #endif

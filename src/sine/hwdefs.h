@@ -64,6 +64,9 @@
 #define PARAM_BLKSIZE 1024
 #endif
 
+//Maximum value for over current limit timer
+#define OCURMAX 4096
+
 #define USART_BAUDRATE  115200
 //Deadtime = 28 ~ 800ns
 #define TIM_DEADTIME 28

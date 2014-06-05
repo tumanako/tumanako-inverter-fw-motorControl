@@ -51,6 +51,7 @@
 
 #define RMS_SAMPLES 256
 #define POT_SLACK 200
+#define SQRT2OV1 0.707106781187
 
 static uint8_t  pwmdigits;
 static uint16_t pwmfrq;
@@ -65,17 +66,20 @@ extern "C" void tim1_brk_isr(void)
 
 static void CalcNextAngle()
 {
+   static uint16_t slipAngle = 0;
    uint16_t polePairs = parm_GetInt(PARAM_polepairs);
    s32fp fslip = parm_Get(PARAM_fslipspnt);
-   int16_t slipAngle = FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
    s32fp fmax = parm_Get(PARAM_fmax);
-
    s32fp frq = polePairs * Encoder::GetFrq() + fslip;
+
+   if (frq < fmax)
+      slipAngle += FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
+
    if (frq < 0) frq = 0;
-   if (frq > fmax) slipAngle = 0;
+   //if (frq > fmax) slipAngle = 0;
    if (parm_Get(PARAM_sync) && Encoder::GetFrq() > 0) slipAngle = 0;
-   Encoder::Update(slipAngle);
-   angle = polePairs * Encoder::GetAngle();
+   Encoder::Update();
+   angle = polePairs * Encoder::GetAngle() + slipAngle;
 
    uint32_t ampnom = parm_GetInt(PARAM_ampnom);
    uint32_t amp = MotorVoltage::GetAmpPerc(frq, ampnom);
@@ -184,7 +188,6 @@ static int CalcThrottle(int potval)
    int potmax = parm_GetInt(PARAM_potmax);
    int brknom  = parm_GetInt(PARAM_brknom);
    int brkmax  = parm_GetInt(PARAM_brkmax);
-   u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
    bool brkpedal = parm_GetInt(VALUE_din_brake);
    int potnom = 0;
    int res = 0;
@@ -214,10 +217,6 @@ static int CalcThrottle(int potval)
          potnom = (potnom * brkmax) / brknom;
    }
 
-   if (Encoder::GetFrq() < brkrampstr && potnom < 0)
-   {
-      potnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * potnom);
-   }
    parm_SetDig(VALUE_potnom, potnom);
 
    return res;
@@ -231,6 +230,7 @@ static void CalcAmpAndSlip(void)
    s32fp ampmin = parm_Get(PARAM_ampmin);
    s32fp ampnom;
    s32fp fslipspnt;
+   u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
 
    if (potnom >= 0)
    {
@@ -239,8 +239,12 @@ static void CalcAmpAndSlip(void)
    }
    else
    {
-      ampnom = ampmin - potnom;
+      ampnom = -potnom;
       fslipspnt = -fslipmin;
+      if (Encoder::GetFrq() < brkrampstr)
+      {
+         ampnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * ampnom);
+      }
    }
    if (ampnom > FP_FROMINT(100))
    {
@@ -300,21 +304,25 @@ static s32fp ProcessUdc()
 
 static void CalcFancyValues()
 {
+   const s32fp twoPi = FP_FROMFLT(2*3.141593);
    s32fp amp = parm_Get(VALUE_amp);
+   s32fp speed = parm_Get(VALUE_speed);
    s32fp il1 = parm_Get(VALUE_il1);
    s32fp il2 = parm_Get(VALUE_il2);
    s32fp udc = parm_Get(VALUE_udc);
    s32fp fac = FP_DIV(amp, FP_FROMINT(SineCore::MAXAMP));
    s32fp uac = FP_MUL(fac, FP_MUL(udc, FP_FROMFLT(0.7071)));
-   s32fp idc, is, p, q, s, pf;
+   s32fp idc, is, p, q, s, pf, t;
 
    FOC::ParkClarke(il1, il2, angle);
    is = fp_sqrt(FP_MUL(FOC::id,FOC::id)+FP_MUL(FOC::iq,FOC::iq));
    s = FP_MUL(fac, FP_MUL(uac, is) / 1000);
-   p = FP_MUL(fac, FP_MUL(uac, FOC::iq) / 1000);
-   q = FP_MUL(fac, FP_MUL(uac, FOC::id) / 1000);
-   pf = MIN(FP_FROMINT(1), MAX(0, FP_DIV(FOC::iq, is)));
-   idc = FP_MUL(FP_MUL(fac, FOC::iq), FP_FROMFLT(0.7071));
+   p = FP_MUL(fac, FP_MUL(uac, FOC::id));
+   t = FP_DIV(p, FP_MUL(twoPi, speed / 60));
+   p/= 1000;
+   q = FP_MUL(fac, FP_MUL(uac, FOC::iq) / 1000);
+   pf = MIN(FP_FROMINT(1), MAX(0, FP_DIV(FOC::id, is)));
+   idc = FP_MUL(FP_MUL(fac, FOC::id), FP_FROMFLT(0.7071));
 
    parm_SetFlt(VALUE_id, FOC::id);
    parm_SetFlt(VALUE_iq, FOC::iq);
@@ -324,21 +332,19 @@ static void CalcFancyValues()
    parm_SetFlt(VALUE_p, p);
    parm_SetFlt(VALUE_q, q);
    parm_SetFlt(VALUE_s, s);
+   parm_SetFlt(VALUE_t, t);
 }
 
 static void Ms10Task(void)
 {
    static int initWait = 0;
-   static int32_t throttle = 0;
    int opmode = parm_GetInt(VALUE_opmode);
    s32fp udc = ProcessUdc();
 
    CalcAndOutputTemp();
 
-   throttle = IIRFILTER(throttle, AnaIn::Get(Pin::throttle1), 5);
-
    /* Error light on implausible value */
-   if (CalcThrottle(throttle) < 0)
+   if (CalcThrottle(AnaIn::Get(Pin::throttle1)) < 0)
    {
       DigIo::Set(Pin::err_out);
    }
@@ -414,7 +420,7 @@ static void Ms1Task(void)
 
       if (samples == 0)
       {
-         ilrms[i] = FP_MUL(ilrms[i], FP_FROMFLT(0.7071));
+         ilrms[i] = FP_MUL(ilrms[i], FP_FROMFLT(SQRT2OV1));
          parm_SetFlt((PARAM_NUM)(VALUE_il1rms+i), ilrms[i]);
          ilrms[i] = 0;
       }
@@ -431,12 +437,16 @@ extern void parm_Change(PARAM_NUM ParamNum)
    s32fp iofs = (parm_Get(PARAM_il1ofs) + parm_Get(PARAM_il2ofs)) / 2;
    s32fp igain= (parm_Get(PARAM_il1gain) + parm_Get(PARAM_il2gain)) / 2;
    ocurlim = FP_MUL(igain, ocurlim);
+   int limNeg = FP_TOINT(iofs-ocurlim);
+   int limPos = FP_TOINT(iofs+ocurlim);
+   limNeg = MAX(0, limNeg);
+   limPos = MIN(OCURMAX, limPos);
 
    Encoder::SetFilterConst(parm_GetInt(PARAM_speedflt));
    Encoder::SetImpulsesPerTurn(parm_GetInt(PARAM_numimp));
 
-   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC2, FP_TOINT(iofs-ocurlim));
-   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, FP_TOINT(iofs+ocurlim));
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC2, limNeg);
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, limPos);
 
    MotorVoltage::SetWeakeningFrq(parm_Get(PARAM_fweak));
    MotorVoltage::SetBoost(parm_GetInt(PARAM_boost));

@@ -20,8 +20,8 @@
 #include "params.h"
 #include "my_string.h"
 
-#define PARAM_ENTRY(name, unit, min, max, def, ofs, fac, id) { #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), FP_FROMFLT(ofs), FP_FROMFLT(fac), id },
-#define VALUE_ENTRY(name, unit, ofs, fac) { #name, unit, 0, 0, 0, FP_FROMFLT(ofs), FP_FROMFLT(fac), 0 },
+#define PARAM_ENTRY(name, unit, min, max, def, id) { #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id },
+#define VALUE_ENTRY(name, unit) { #name, unit, 0, 0, 0, 0 },
 static const PARAM_ATTRIB attribs[] =
 {
     PARAM_LIST
@@ -29,8 +29,8 @@ static const PARAM_ATTRIB attribs[] =
 #undef PARAM_ENTRY
 #undef VALUE_ENTRY
 
-#define PARAM_ENTRY(name, unit, min, max, def, ofs, fac, id) FP_MUL( (FP_FROMFLT(def) + FP_FROMFLT(ofs)) , FP_FROMFLT(fac)),
-#define VALUE_ENTRY(name, unit, ofs, fac) 0,
+#define PARAM_ENTRY(name, unit, min, max, def, id) def,
+#define VALUE_ENTRY(name, unit) 0,
 static s32fp values[] =
 {
     PARAM_LIST
@@ -51,7 +51,7 @@ char parm_Set(PARAM_NUM ParamNum, s32fp ParamVal)
 
     if (ParamVal >= attribs[ParamNum].min && ParamVal <= attribs[ParamNum].max)
     {
-        values[ParamNum] = FP_MUL((ParamVal + attribs[ParamNum].ofs), attribs[ParamNum].fac);
+        values[ParamNum] = ParamVal;
         parm_Change(ParamNum);
         res = 0;
     }
@@ -78,17 +78,6 @@ s32fp parm_Get(PARAM_NUM ParamNum)
 int parm_GetInt(PARAM_NUM ParamNum)
 {
     return FP_TOINT(values[ParamNum]);
-}
-
-/**
-* Get a parameters scaled SI value
-*
-* @param[in] ParamNum Parameter index
-* @return Parameters value
-*/
-s32fp parm_GetScl(PARAM_NUM ParamNum)
-{
-    return FP_DIV(values[ParamNum], attribs[ParamNum].fac) - attribs[ParamNum].ofs;
 }
 
 /**

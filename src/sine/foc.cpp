@@ -32,10 +32,10 @@ static int dir = 1;
 
 s32fp FOC::id;
 s32fp FOC::iq;
+uint32_t FOC::DutyCycles[3];
 
 /** @brief Transform current to rotor system using Clarke and Park transformation
   *
-  * (documentation goes here)
   */
 void FOC::ParkClarke(s32fp il1, s32fp il2, uint16_t angle)
 {
@@ -45,8 +45,25 @@ void FOC::ParkClarke(s32fp il1, s32fp il2, uint16_t angle)
    s32fp ia = il1;
    s32fp ib = FP_MUL(sqrt3inv1, il1) + FP_MUL(sqrt3inv2, il2);
    //Park transformation
-   id = IIRFILTER(id, FP_MUL(sqrt32, (FP_MUL(cos, ia) + FP_MUL(sin, ib))), 2);
-   iq = IIRFILTER(iq, FP_MUL(sqrt32, (-FP_MUL(sin, ia) + FP_MUL(cos, ib))), 2);
+   s32fp idl = FP_MUL(sqrt32, (FP_MUL(cos, ia) + FP_MUL(sin, ib)));
+   s32fp iql = FP_MUL(sqrt32, (-FP_MUL(sin, ia) + FP_MUL(cos, ib)));
+
+   id = IIRFILTER(id, idl, 2);
+   iq = IIRFILTER(iq, iql, 2);
+}
+
+void FOC::InvParkClarke(s32fp id, s32fp iq, uint16_t angle)
+{
+   s32fp sin = dir * SineCore::Sine(angle);
+   s32fp cos = SineCore::Cosine(angle);
+
+   //Inverse Park transformation
+   s32fp ia = FP_MUL(sqrt32, (FP_MUL(cos, id) + FP_MUL(sin, iq)));
+   s32fp ib = FP_MUL(sqrt32, (-FP_MUL(sin, id) + FP_MUL(cos, iq)));
+   //Inverse Clarke transformation
+   DutyCycles[0] = ia;
+   DutyCycles[1] = FP_MUL(-FP_FROMFLT(0.5), ia) + FP_MUL(sqrt3ov2, ib);
+   DutyCycles[2] = FP_MUL(-FP_FROMFLT(0.5), ia) - FP_MUL(sqrt3ov2, ib);
 }
 
 void FOC::SetDirection(int _dir)

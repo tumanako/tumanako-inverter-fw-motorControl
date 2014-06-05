@@ -49,11 +49,11 @@ void Encoder::Init(void)
    last_pulse_timespan = MAX_CNT;
 }
 
-void Encoder::Update(int16_t slipAngle)
+void Encoder::Update()
 {
    uint32_t numPulses = GetPulseTimeFiltered();
 
-   angle += (int16_t)(numPulses * angle_per_pulse) + slipAngle;
+   angle += (int16_t)(numPulses * angle_per_pulse);
 }
 
 /** Returns current angle of motor shaft to some arbitrary 0-axis
