@@ -63,12 +63,12 @@ static void PrintList(char *arg)
 
    arg = arg;
 
-   printf("Available parameters and values\n");
+   printf("Available parameters and values\r\n");
 
    for (idx = 0; idx < PARAM_LAST; idx++)
    {
       pAtr = parm_GetAttrib(idx);
-      printf("%s [%s]\n", pAtr->name, pAtr->unit);
+      printf("%s [%s]\r\n", pAtr->name, pAtr->unit);
    }
 }
 
@@ -79,8 +79,8 @@ static void PrintAtr(char *arg)
 
    arg = arg;
 
-   printf("Parameter attributes\n");
-   printf("Name\t\tmin - max [default]\n");
+   printf("Parameter attributes\r\n");
+   printf("Name\t\tmin - max [default]\r\n");
 
    for (idx = 0; idx < PARAM_LAST; idx++)
    {
@@ -88,7 +88,7 @@ static void PrintAtr(char *arg)
       /* Only display for params */
       if (parm_IsParam(idx))
       {
-         printf("%s\t\t%f - %f [%f]\n", pAtr->name,pAtr->min,pAtr->max,pAtr->def);
+         printf("%s\t\t%f - %f [%f]\r\n", pAtr->name,pAtr->min,pAtr->max,pAtr->def);
       }
    }
 }
@@ -116,11 +116,11 @@ static void ParamGet(char *arg)
       if (PARAM_INVALID != idx)
       {
          val = parm_Get(idx);
-         printf("%f\n", val);
+         printf("%f\r\n", val);
       }
       else
       {
-         printf("Unknown parameter\n");
+         printf("Unknown parameter\r\n");
       }
    } while (',' == *comma);
 }
@@ -134,7 +134,7 @@ static void GetAll(char *arg)
    for (int idx = 0; idx < PARAM_LAST; idx++)
    {
       pAtr = parm_GetAttrib(idx);
-      printf("%s\t\t%f\n", pAtr->name, parm_Get(idx));
+      printf("%s\t\t%f\r\n", pAtr->name, parm_Get(idx));
    }
 }
 
@@ -149,7 +149,7 @@ static void ParamSet(char *arg)
 
    if (*pParamVal == 0)
    {
-      printf("No parameter value given\n");
+      printf("No parameter value given\r\n");
       return;
    }
 
@@ -163,16 +163,16 @@ static void ParamSet(char *arg)
    {
        if (0 == parm_Set(idx, val))
        {
-          printf("Set OK\n");
+          printf("Set OK\r\n");
        }
        else
        {
-          printf("Value out of range\n");
+          printf("Value out of range\r\n");
        }
    }
    else
    {
-       printf("Unknown parameter %s\n", arg);
+       printf("Unknown parameter %s\r\n", arg);
    }
 }
 
@@ -180,17 +180,17 @@ static void StopInverter(char *arg)
 {
     arg = arg;
     parm_SetDig(VALUE_opmode, 0);
-    printf("Inverter halted.\n");
+    printf("Inverter halted.\r\n");
 }
 
 static void StartInverter(char *arg)
 {
    arg = my_trim(arg);
    s32fp val = fp_atoi(arg);
-   if (val <= FP_FROMINT(2))
+   if (val <= FP_FROMINT(3))
    {
       parm_SetFlt(VALUE_opmode, val);
-      printf("Inverter started\n");
+      printf("Inverter started\r\n");
    }
    else
    {
@@ -202,7 +202,7 @@ static void SaveParameters(char *arg)
 {
    arg = arg;
    uint32_t crc = parm_save();
-   printf("Parameters stored, CRC=%x\n", crc);
+   printf("Parameters stored, CRC=%x\r\n", crc);
 }
 
 static void LoadParameters(char *arg)
@@ -211,11 +211,11 @@ static void LoadParameters(char *arg)
    if (0 == parm_load())
    {
       parm_Change(0);
-      printf("Parameters loaded\n");
+      printf("Parameters loaded\r\n");
    }
    else
    {
-      printf("Parameter CRC error\n");
+      printf("Parameter CRC error\r\n");
    }
 }
 

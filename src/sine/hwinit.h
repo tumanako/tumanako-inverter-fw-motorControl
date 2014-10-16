@@ -31,7 +31,7 @@ extern "C"
 void clock_setup(void);
 void usart_setup(void);
 void nvic_setup(void);
-uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime);
+uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol);
 void adc_setup(void);
 void dma_setup(void *timdata, uint16_t timdata_size);
 

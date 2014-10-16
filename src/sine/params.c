@@ -29,7 +29,7 @@ static const PARAM_ATTRIB attribs[] =
 #undef PARAM_ENTRY
 #undef VALUE_ENTRY
 
-#define PARAM_ENTRY(name, unit, min, max, def, id) def,
+#define PARAM_ENTRY(name, unit, min, max, def, id) FP_FROMFLT(def),
 #define VALUE_ENTRY(name, unit) 0,
 static s32fp values[] =
 {

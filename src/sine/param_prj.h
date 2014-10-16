@@ -17,36 +17,41 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define OPMODES "0=OFF, 1=RUN, 2=MANUAL_RUN"
+#define OPMODES "0=OFF, 1=RUN, 2=MANUAL_RUN, 3=BOOST"
 #define PWMFRQS  "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
+#define PWMPOLS  "0=ACTHIGH, 1=ACTLOW"
 #define DIRS     "-1=REV, 0=NEUTRAL, 1=FWD"
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
-#define VER 2.67
+#define VER 2.76
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-
+//Next param id (increase when adding new parameter!): 55
 /*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
     PARAM_ENTRY(fweak,       "Hz",      0,      400,    67,     2   ) \
-    PARAM_ENTRY(sync,        "",        0,      1,      0,      47  ) \
+    /*PARAM_ENTRY(sync,        "",        0,      1,      0,      47  ) */\
     PARAM_ENTRY(fslipmin,    "Hz",      0,      100,    1,      37  ) \
     PARAM_ENTRY(fslipmax,    "Hz",      0,      100,    3,      33  ) \
     PARAM_ENTRY(polepairs,   "",        1,      16,     2,      32  ) \
     PARAM_ENTRY(ampmin,      "%",       0,      100,    50,     4   ) \
     PARAM_ENTRY(speedflt,    "",        0,      16,     4,      6   ) \
+    /*PARAM_ENTRY(frisemax,    "digit",   0,     65535,  1,      51  ) */\
     PARAM_ENTRY(fmin,        "Hz",      0,      400,    1,      34  ) \
     PARAM_ENTRY(fmax,        "Hz",      0,      400,    200,    9   ) \
     PARAM_ENTRY(pwmfrq,      PWMFRQS,   0,      4,      2,      13  ) \
+    PARAM_ENTRY(pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
     PARAM_ENTRY(deadtime,    "dig",     0,      255,    28,     14  ) \
     PARAM_ENTRY(numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   18  ) \
+    PARAM_ENTRY(idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
+    PARAM_ENTRY(idlekp,      "",        0,      100,    1,      53  ) \
     PARAM_ENTRY(brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(brknom,      "%",       0,      100,    30,     19  ) \
     PARAM_ENTRY(brkmax,      "%",       0,      100,    30,     49  ) \
@@ -55,8 +60,8 @@
     PARAM_ENTRY(udcmin,      "V",       0,      1000,   450,    42  ) \
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    43  ) \
     PARAM_ENTRY(udclim,      "V",       0,      1000,   540,    48  ) \
-    PARAM_ENTRY(ocurlim,     "A",       -500,   500,    -100,   22 ) \
-    PARAM_ENTRY(minpulse,    "dig",     0,      4095,   1000,   24 ) \
+    PARAM_ENTRY(ocurlim,     "A",       -1000,  1000,   -100,   22  ) \
+    PARAM_ENTRY(minpulse,    "dig",     0,      4095,   1000,   24  ) \
     PARAM_ENTRY(il1ofs,      "dig",     0,      4095,   1988,   25  ) \
     PARAM_ENTRY(il2ofs,      "dig",     0,      4095,   1988,   26  ) \
     PARAM_ENTRY(il1gain,     "dig/A",   -100,   100,    -4.7,   27  ) \
@@ -67,8 +72,8 @@
     PARAM_ENTRY(snshs,       SNS_HS,    0,      1,      0,      45  ) \
     PARAM_ENTRY(snsm,        SNS_M,     2,      3,      2,      46  ) \
     PARAM_ENTRY(fslipspnt,   "Hz",      -100,   100,    0,      0   ) \
-    PARAM_ENTRY(version,     "",        0,      0,      VER,     0  ) \
-    PARAM_ENTRY(ampnom,      "%",       0,      100,    0,      0 ) \
+    PARAM_ENTRY(version,     "",        0,      0,      VER,    0   ) \
+    PARAM_ENTRY(ampnom,      "%",       0,      100,    0,      0   ) \
     VALUE_ENTRY(opmode,      OPMODES ) \
     VALUE_ENTRY(udc,         "V"     ) \
     VALUE_ENTRY(idc,         "A"     ) \

@@ -46,10 +46,13 @@ s32fp fp_atoi(char *str)
       nat *= 10;
       nat += *str - '0';
    }
-   for (str++; *str >= '0' && *str <= '9'; str++)
+   if (*str != 0)
    {
-      frac += FP_FROMINT(*str - '0') / div;
-      div *= 10;
+      for (str++; *str >= '0' && *str <= '9'; str++)
+      {
+         frac += FP_FROMINT(*str - '0') / div;
+         div *= 10;
+      }
    }
 
    return sign * (FP_FROMINT(nat) + frac);

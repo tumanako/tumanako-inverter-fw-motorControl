@@ -48,6 +48,7 @@
 #define MOD_OFF    0
 #define MOD_RUN    1
 #define MOD_MANUAL 2
+#define MOD_BOOST  3
 
 #define RMS_SAMPLES 256
 #define POT_SLACK 200
@@ -67,70 +68,99 @@ extern "C" void tim1_brk_isr(void)
 static void CalcNextAngle()
 {
    static uint16_t slipAngle = 0;
+
    uint16_t polePairs = parm_GetInt(PARAM_polepairs);
+   uint32_t ampnom = parm_GetInt(PARAM_ampnom);
    s32fp fslip = parm_Get(PARAM_fslipspnt);
    s32fp fmax = parm_Get(PARAM_fmax);
+
+   Encoder::Update();
+   uint16_t motorAngle = Encoder::GetAngle();
    s32fp frq = polePairs * Encoder::GetFrq() + fslip;
 
-   if (frq < fmax)
-      slipAngle += FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
+   if (frq > fmax)
+      fslip = 0;
+
+   slipAngle += FP_TOINT((fslip << SineCore::BITS) / pwmfrq);
 
    if (frq < 0) frq = 0;
-   //if (frq > fmax) slipAngle = 0;
-   if (parm_Get(PARAM_sync) && Encoder::GetFrq() > 0) slipAngle = 0;
-   Encoder::Update();
-   angle = polePairs * Encoder::GetAngle() + slipAngle;
+   angle = polePairs * motorAngle + slipAngle;
 
-   uint32_t ampnom = parm_GetInt(PARAM_ampnom);
    uint32_t amp = MotorVoltage::GetAmpPerc(frq, ampnom);
    SineCore::SetAmp(amp);
    parm_SetDig(VALUE_amp, amp);
    parm_SetFlt(VALUE_fstat, frq);
 }
 
+static void Boost()
+{
+   uint32_t ampnom = parm_GetInt(PARAM_ampnom);
+   ampnom *= 1 << pwmdigits;
+   ampnom /= 100;
+   timer_disable_oc_output(PWM_TIMER, TIM_OC1);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC2);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC3);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
+   timer_set_oc_value(PWM_TIMER, TIM_OC1, 0);
+   timer_set_oc_value(PWM_TIMER, TIM_OC2, ampnom);
+   timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
+}
+
 extern "C" void pwm_timer_isr(void)
 {
    uint16_t last = timer_get_counter(PWM_TIMER);
-
+   int opmode = parm_GetInt(VALUE_opmode);
    /* Clear interrupt pending flag */
    TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
 
-   s32fp dir = parm_GetInt(VALUE_dir);
-   uint8_t shiftCor = SineCore::BITS - pwmdigits;
-
-   CalcNextAngle();
-   SineCore::Calc(angle);
-
-   /* Match to PWM resolution */
-   SineCore::DutyCycles[0] >>= shiftCor;
-   SineCore::DutyCycles[1] >>= shiftCor;
-   SineCore::DutyCycles[2] >>= shiftCor;
-
-   timer_set_oc_value(PWM_TIMER, TIM_OC1, SineCore::DutyCycles[0]);
-
-   if (dir > 0 )
+   if (opmode == MOD_MANUAL || opmode == MOD_RUN)
    {
-      timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[1]);
-      timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[2]);
-   }
-   if (dir < 0 )
-   {
-      timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[2]);
-      timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[1]);
-   }
-   if (dir == 0 )
-   {
-      timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[0]);
-      timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[0]);
-   }
+      s32fp dir = parm_GetInt(VALUE_dir);
+      uint8_t shiftCor = SineCore::BITS - pwmdigits;
 
+      CalcNextAngle();
+      SineCore::Calc(angle);
+
+      /* Match to PWM resolution */
+      SineCore::DutyCycles[0] >>= shiftCor;
+      SineCore::DutyCycles[1] >>= shiftCor;
+      SineCore::DutyCycles[2] >>= shiftCor;
+
+      if (0 == parm_GetInt(VALUE_amp))
+      {
+          SineCore::DutyCycles[0] = SineCore::DutyCycles[1] = SineCore::DutyCycles[2] = 0;
+      }
+
+      timer_set_oc_value(PWM_TIMER, TIM_OC1, SineCore::DutyCycles[0]);
+
+      if (dir == 0 )
+      {
+         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[0]);
+         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[0]);
+      }
+      else if (dir > 0 )
+      {
+         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[1]);
+         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[2]);
+      }
+      else if (dir < 0 )
+      {
+         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[2]);
+         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[1]);
+      }
+   }
+   else if (opmode == MOD_BOOST)
+   {
+      Boost();
+   }
    parm_SetDig(VALUE_tm_meas, (timer_get_counter(PWM_TIMER) - last)/72);
 }
 
 static void PwmInit(void)
 {
    pwmdigits = MIN_PWM_DIGITS + parm_GetInt(PARAM_pwmfrq);
-   pwmfrq = tim_setup(pwmdigits, parm_GetInt(PARAM_deadtime));
+   pwmfrq = tim_setup(pwmdigits, parm_GetInt(PARAM_deadtime), parm_GetInt(PARAM_pwmpol));
 }
 
 static void Ms100Task(void)
@@ -224,10 +254,15 @@ static int CalcThrottle(int potval)
 
 static void CalcAmpAndSlip(void)
 {
-   s32fp potnom = parm_Get(VALUE_potnom);
    s32fp fslipmin = parm_Get(PARAM_fslipmin);
    s32fp fslipmax = parm_Get(PARAM_fslipmax);
    s32fp ampmin = parm_Get(PARAM_ampmin);
+   int idlespeed = parm_GetInt(PARAM_idlespeed);
+   int speed = Encoder::GetSpeed();
+   int speederr = idlespeed - speed;
+   s32fp idlekp = parm_Get(PARAM_idlekp);
+   s32fp potreg = MIN(FP_FROMINT(50), idlekp * speederr);
+   s32fp potnom = MAX(potreg, parm_Get(VALUE_potnom));
    s32fp ampnom;
    s32fp fslipspnt;
    u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
@@ -349,7 +384,7 @@ static void Ms10Task(void)
       DigIo::Set(Pin::err_out);
    }
 
-   if (MOD_MANUAL != opmode)
+   if (MOD_MANUAL != opmode && MOD_BOOST != opmode)
    {
       CalcAmpAndSlip();
    }
@@ -371,7 +406,6 @@ static void Ms10Task(void)
          parm_SetDig(VALUE_opmode, MOD_RUN);
       }
    }
-
 
    if (MOD_OFF == opmode)
    {

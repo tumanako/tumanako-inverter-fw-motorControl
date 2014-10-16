@@ -109,7 +109,7 @@ void nvic_setup(void)
    nvic_set_priority(NVIC_USART1_IRQ, 3 << 4);*/
 }
 
-uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime)
+uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
 {
    const uint16_t pwmmax = 1U << pwmdigits;
    /* disable timer */
@@ -123,9 +123,18 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime)
    TIM_CCMR2(PWM_TIMER) = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
 
    //clear CC1P (capture compare enable register, active high)
-   timer_set_oc_polarity_high(PWM_TIMER, TIM_OC1);
-   timer_set_oc_polarity_high(PWM_TIMER, TIM_OC2);
-   timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
+   if (pwmpol)
+   {
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC1);
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC2);
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3);
+   }
+   else
+   {
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC1);
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC2);
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
+   }
 
    /* Output enable */
    timer_enable_oc_output(PWM_TIMER, TIM_OC1);
