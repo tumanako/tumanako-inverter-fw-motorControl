@@ -30,7 +30,7 @@ char* fp_itoa(char * buf, s32fp a)
    return buf;
 }
 
-s32fp fp_atoi(char *str)
+s32fp fp_atoi(const char *str)
 {
    int nat = 0;
    int frac = 0;

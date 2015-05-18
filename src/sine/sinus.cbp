@@ -6,6 +6,7 @@
 		<Option makefile_is_custom="1" />
 		<Option pch_mode="2" />
 		<Option compiler="armelfgcc" />
+		<Option virtualFolders="Test/;" />
 		<MakeCommands>
 			<Build command="make" />
 			<CompileFile command="$make -f $makefile $file" />
@@ -29,13 +30,29 @@
 					<SilentBuild command="$make -s" />
 				</MakeCommands>
 			</Target>
+			<Target title="Test">
+				<Option output="test/test_sine" prefix_auto="1" extension_auto="1" />
+				<Option working_dir="test" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Option use_console_runner="0" />
+			</Target>
 		</Build>
-		<Unit filename="Makefile" />
-		<Unit filename="anain.cpp" />
-		<Unit filename="anain.h" />
-		<Unit filename="anain_prj.h" />
+		<Unit filename="Makefile">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="anain.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="anain.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="anain_prj.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="digio.cpp">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
 		<Unit filename="digio.h">
 			<Option target="&lt;{~None~}&gt;" />
@@ -43,55 +60,128 @@
 		<Unit filename="digio_prj.h">
 			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
-		<Unit filename="foc.cpp" />
-		<Unit filename="foc.h" />
+		<Unit filename="foc.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="foc.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="fu.cpp">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="fu.h" />
-		<Unit filename="hwdefs.h" />
+		<Unit filename="fu.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="hwdefs.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="hwinit.cpp">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="hwinit.h" />
-		<Unit filename="inc_encoder.cpp" />
-		<Unit filename="inc_encoder.h" />
+		<Unit filename="hwinit.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="inc_encoder.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="inc_encoder.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="my_fp.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="my_fp.h" />
-		<Unit filename="my_math.h" />
+		<Unit filename="my_fp.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="my_math.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="my_string.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="my_string.h" />
-		<Unit filename="param_prj.h" />
-		<Unit filename="param_save.cpp" />
-		<Unit filename="param_save.h" />
+		<Unit filename="my_string.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="param_prj.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="param_save.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="param_save.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="params.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="params.h" />
+		<Unit filename="params.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="printf.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="printf.h" />
-		<Unit filename="sine_core.cpp" />
-		<Unit filename="sine_core.h" />
-		<Unit filename="stm32_sine.cpp" />
-		<Unit filename="stm32_sine.ld" />
+		<Unit filename="printf.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="sine_core.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="sine_core.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="stm32_sine.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="stm32_sine.ld">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="stm32_timsched.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="stm32_timsched.h" />
-		<Unit filename="temp_meas.cpp" />
-		<Unit filename="temp_meas.h" />
+		<Unit filename="stm32_timsched.h">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="temp_meas.cpp">
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="temp_meas.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="terminal.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
 		</Unit>
-		<Unit filename="terminal.h" />
+		<Unit filename="terminal.h">
+			<Option target="Release" />
+		</Unit>
 		<Unit filename="terminal_prj.c">
 			<Option compilerVar="CC" />
+			<Option target="Release" />
+		</Unit>
+		<Unit filename="test/Makefile">
+			<Option target="Test" />
+		</Unit>
+		<Unit filename="test/test.h">
+			<Option target="Test" />
+		</Unit>
+		<Unit filename="test/test_fp.cpp">
+			<Option target="Test" />
+		</Unit>
+		<Unit filename="test/test_fu.cpp">
+			<Option target="Test" />
+		</Unit>
+		<Unit filename="test/test_list.h">
+			<Option target="Test" />
+		</Unit>
+		<Unit filename="test/test_main.cpp">
+			<Option target="Test" />
 		</Unit>
 		<Extensions>
 			<code_completion />

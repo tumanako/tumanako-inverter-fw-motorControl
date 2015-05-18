@@ -11,7 +11,7 @@
     DIG_IO_ENTRY(ovtmp_out,   GPIOC, GPIO11, PinMode_OUTPUT)      \
     DIG_IO_ENTRY(prec_out,    GPIOD, GPIO6,  PinMode_OUTPUT)      \
     DIG_IO_ENTRY(led_out,     GPIOC, GPIO7,  PinMode_OUTPUT)      \
-    DIG_IO_ENTRY(on_in,       GPIOB, GPIO5,  PinMode_INPUT_PD)    \
+    DIG_IO_ENTRY(cruise_in,   GPIOB, GPIO5,  PinMode_INPUT_PD)    \
     DIG_IO_ENTRY(start_in,    GPIOD, GPIO6,  PinMode_INPUT_PD)    \
     DIG_IO_ENTRY(brake_in,    GPIOG, GPIO2,  PinMode_INPUT_PD)    \
     DIG_IO_ENTRY(mprot_in,    GPIOG, GPIO3,  PinMode_INPUT_PD)    \
@@ -29,7 +29,7 @@
     DIG_IO_ENTRY(vtg_out,     GPIOC, GPIO11, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(prec_out,    GPIOB, GPIO1,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(led_out,     GPIOC, GPIO12, PinMode::OUTPUT)      \
-    DIG_IO_ENTRY(on_in,       GPIOB, GPIO5,  PinMode::INPUT_PD)    \
+    DIG_IO_ENTRY(cruise_in,   GPIOB, GPIO5,  PinMode::INPUT_PD)    \
     DIG_IO_ENTRY(start_in,    GPIOB, GPIO6,  PinMode::INPUT_PD)    \
     DIG_IO_ENTRY(brake_in,    GPIOA, GPIO2,  PinMode::INPUT_PD)    \
     DIG_IO_ENTRY(mprot_in,    GPIOA, GPIO3,  PinMode::INPUT_PD)    \

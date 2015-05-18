@@ -3,7 +3,7 @@
 uint32_t MotorVoltage::boost;
 u32fp MotorVoltage::fac;
 uint32_t MotorVoltage::maxAmp;
-u32fp MotorVoltage::endFrq;
+u32fp MotorVoltage::endFrq = 1; //avoid division by 0 when not set
 u32fp MotorVoltage::minFrq;
 
 
@@ -27,7 +27,7 @@ uint32_t MotorVoltage::GetAmp(u32fp frq)
    return MotorVoltage::GetAmpPerc(frq, 100);
 }
 
-/** Get amplitude for given frequency multiplied with given percantage */
+/** Get amplitude for given frequency multiplied with given percentage */
 uint32_t MotorVoltage::GetAmpPerc(u32fp frq, uint32_t perc)
 {
    uint32_t amp = (perc * (FP_TOINT(FP_MUL(fac, frq)) + boost)) / 100;

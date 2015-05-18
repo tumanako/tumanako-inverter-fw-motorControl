@@ -35,7 +35,7 @@ LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map
 OBJS		= $(BINARY).o hwinit.o stm32_timsched.o params.o terminal.o terminal_prj.o \
            my_string.o digio.o sine_core.o my_fp.o fu.o inc_encoder.o printf.o anain.o \
-           temp_meas.o param_save.o foc.o
+           temp_meas.o param_save.o foc.o throttle.o
 
 
 OPENOCD_BASE	= /usr
@@ -52,6 +52,7 @@ endif
 
 all: images
 Debug:images
+Release: images
 cleanDebug:clean
 images: $(BINARY)
 	@printf "  OBJCOPY $(BINARY).bin\n"
@@ -102,3 +103,7 @@ flash: images
 
 .PHONY: images clean
 
+Test:
+	cd test && $(MAKE)
+cleanTest:
+	cd test && $(MAKE) clean

@@ -43,6 +43,7 @@
 #include "param_save.h"
 #include "inc_encoder.h"
 #include "foc.h"
+#include "throttle.h"
 #include "my_math.h"
 
 #define MOD_OFF    0
@@ -51,7 +52,6 @@
 #define MOD_BOOST  3
 
 #define RMS_SAMPLES 256
-#define POT_SLACK 200
 #define SQRT2OV1 0.707106781187
 
 static uint8_t  pwmdigits;
@@ -201,8 +201,18 @@ static void Ms100Task(void)
       parm_SetDig(VALUE_din_ocur, 0);
    }
 
+   if (DigIo::Get(Pin::cruise_in) && !DigIo::Get(Pin::brake_in))
+   {
+      Throttle::cruiseSpeed = Encoder::GetSpeed();
+   }
+
+   if (DigIo::Get(Pin::brake_in))
+   {
+      Throttle::cruiseSpeed = -1;
+   }
+
    parm_SetDig(VALUE_dir, dir);
-   parm_SetDig(VALUE_din_on, DigIo::Get(Pin::on_in));
+   parm_SetDig(VALUE_din_on, DigIo::Get(Pin::cruise_in));
    parm_SetDig(VALUE_din_start, DigIo::Get(Pin::start_in));
    parm_SetDig(VALUE_din_brake, DigIo::Get(Pin::brake_in));
    parm_SetDig(VALUE_din_mprot, DigIo::Get(Pin::mprot_in));
@@ -212,65 +222,28 @@ static void Ms100Task(void)
    parm_SetDig(VALUE_din_bms, DigIo::Get(Pin::bms_in));
 }
 
-static int CalcThrottle(int potval)
-{
-   int potmin = parm_GetInt(PARAM_potmin);
-   int potmax = parm_GetInt(PARAM_potmax);
-   int brknom  = parm_GetInt(PARAM_brknom);
-   int brkmax  = parm_GetInt(PARAM_brkmax);
-   bool brkpedal = parm_GetInt(VALUE_din_brake);
-   int potnom = 0;
-   int res = 0;
-
-   parm_SetDig(VALUE_pot, potval);
-
-   if (((potval + POT_SLACK) < potmin) || (potval > (potmax + POT_SLACK)))
-   {
-      potval = potmin;
-      res = -1;
-   }
-   else if (potval < potmin)
-      potval = potmin;
-   else if (potval > potmax)
-      potval = potmax;
-
-   if (brkpedal)
-   {
-      potnom = parm_GetInt(PARAM_brknompedal);
-   }
-   else
-   {
-      potnom = potval - potmin;
-      potnom = ((100 + brknom) * potnom) / (potmax-potmin);
-      potnom -= brknom;
-      if (potnom < 0)
-         potnom = (potnom * brkmax) / brknom;
-   }
-
-   parm_SetDig(VALUE_potnom, potnom);
-
-   return res;
-}
-
 static void CalcAmpAndSlip(void)
 {
    s32fp fslipmin = parm_Get(PARAM_fslipmin);
    s32fp fslipmax = parm_Get(PARAM_fslipmax);
    s32fp ampmin = parm_Get(PARAM_ampmin);
-   int idlespeed = parm_GetInt(PARAM_idlespeed);
-   int speed = Encoder::GetSpeed();
-   int speederr = idlespeed - speed;
-   s32fp idlekp = parm_Get(PARAM_idlekp);
-   s32fp potreg = MIN(FP_FROMINT(50), idlekp * speederr);
-   s32fp potnom = MAX(potreg, parm_Get(VALUE_potnom));
+   s32fp potnom = parm_Get(VALUE_potnom);
    s32fp ampnom;
    s32fp fslipspnt;
    u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
 
    if (potnom >= 0)
    {
-      ampnom = ampmin + potnom;
-      fslipspnt = fslipmin + (FP_MUL(fslipmax-fslipmin, potnom) / 100);
+      ampnom = ampmin + 2 * potnom;
+
+      if (potnom >= FP_FROMINT(50))
+      {
+         fslipspnt = fslipmin + (FP_MUL(fslipmax-fslipmin, 2 * (potnom - FP_FROMINT(50))) / 100);
+      }
+      else
+      {
+         fslipspnt = fslipmin;
+      }
    }
    else
    {
@@ -373,16 +346,44 @@ static void CalcFancyValues()
 static void Ms10Task(void)
 {
    static int initWait = 0;
+   int potval = AnaIn::Get(Pin::throttle1);
+   int throtSpnt, idleSpnt, cruiseSpnt, finalSpnt;
    int opmode = parm_GetInt(VALUE_opmode);
    s32fp udc = ProcessUdc();
 
    CalcAndOutputTemp();
 
+   parm_SetDig(VALUE_pot, potval);
+
    /* Error light on implausible value */
-   if (CalcThrottle(AnaIn::Get(Pin::throttle1)) < 0)
+   if (!Throttle::CheckAndLimitRange(&potval))
    {
       DigIo::Set(Pin::err_out);
    }
+
+   throtSpnt = Throttle::CalcThrottle(potval, parm_GetInt(VALUE_din_brake));
+   idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
+
+   finalSpnt = MAX(throtSpnt, idleSpnt);
+
+   if (Throttle::cruiseSpeed > 0 && Throttle::cruiseSpeed > Throttle::idleSpeed)
+   {
+      cruiseSpnt = Throttle::CalcCruiseSpeed(Encoder::GetSpeed());
+      if (throtSpnt < 0)
+         finalSpnt = cruiseSpnt;
+      else if (throtSpnt > 0)
+         finalSpnt = MAX(cruiseSpnt, throtSpnt);
+   }
+
+   if (parm_GetInt(VALUE_din_bms))
+   {
+      if (finalSpnt >= 0)
+         finalSpnt = MIN(finalSpnt, parm_GetInt(PARAM_bmslimhigh));
+      else
+         finalSpnt = MAX(finalSpnt, parm_GetInt(PARAM_bmslimlow));
+   }
+
+   parm_SetDig(VALUE_potnom, finalSpnt);
 
    if (MOD_MANUAL != opmode && MOD_BOOST != opmode)
    {
@@ -486,6 +487,14 @@ extern void parm_Change(PARAM_NUM ParamNum)
    MotorVoltage::SetBoost(parm_GetInt(PARAM_boost));
    MotorVoltage::SetMinFrq(parm_Get(PARAM_fmin));
    SineCore::SetMinPulseWidth(parm_GetInt(PARAM_minpulse));
+
+   Throttle::potmin = parm_GetInt(PARAM_potmin);
+   Throttle::potmax = parm_GetInt(PARAM_potmax);
+   Throttle::brknom = parm_GetInt(PARAM_brknom);
+   Throttle::brknompedal = parm_GetInt(PARAM_brknompedal);
+   Throttle::brkmax = parm_GetInt(PARAM_brkmax);
+   Throttle::idleSpeed = parm_GetInt(PARAM_idlespeed);
+   Throttle::speedkp = parm_Get(PARAM_speedkp);
 }
 
 extern "C" int main(void)
