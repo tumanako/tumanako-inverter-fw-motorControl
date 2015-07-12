@@ -30,6 +30,8 @@ int Throttle::brkmax;
 int Throttle::idleSpeed;
 int Throttle::cruiseSpeed;
 s32fp Throttle::speedkp;
+int Throttle::speedflt;
+int Throttle::speedFiltered;
 
 bool Throttle::CheckAndLimitRange(int* potval)
 {
@@ -78,6 +80,16 @@ int Throttle::CalcIdleSpeed(int speed)
 
 int Throttle::CalcCruiseSpeed(int speed)
 {
-   int speederr = cruiseSpeed - speed;
+   speedFiltered = IIRFILTER(speedFiltered, speed, speedflt);
+   int speederr = cruiseSpeed - speedFiltered;
    return FP_TOINT(MAX(FP_FROMINT(-100), MIN(FP_FROMINT(100), speedkp * speederr)));
+}
+
+int Throttle::TemperatureDerate(s32fp tmphs)
+{
+   if (tmphs < TMPHS_MAX)
+      return 100;
+   if (tmphs < (TMPHS_MAX + 2))
+      return 50;
+   return 0;
 }

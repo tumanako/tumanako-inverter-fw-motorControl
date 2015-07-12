@@ -31,6 +31,9 @@
 #include "hwdefs.h"
 #include "hwinit.h"
 
+/**
+* Start clocks of all needed peripherals
+*/
 void clock_setup(void)
 {
    RCC_CLOCK_SETUP();
@@ -42,73 +45,60 @@ void clock_setup(void)
    //value. Explicitly set 16 preemtion priorities
    SCB_AIRCR = SCB_AIRCR_VECTKEY | SCB_AIRCR_PRIGROUP_GROUP16_NOSUB;
 
-   /* Enable all present GPIOx clocks. (whats with GPIO F and G?)*/
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPAEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPBEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPCEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPDEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPEEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPGEN);
-
-   #if (HWCONFIG==HWCONFIG_OLIMEX)
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_USART3EN);
-   #elif (HWCONFIG == HWCONFIG_SB5COM)
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_USART1EN);
-   #endif
-
-   /* Enable TIM1 clock */
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM1EN);
-
-   /* Enable TIM3 clock */
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN);
-
-   /* Enable TIM4 clock */
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN);
-
-   /* Enable DMA1 clock */
    rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_DMA1EN);
-
-   /* Enable ADC clock */
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_ADC1EN);
-
-   /* Enable CRC clock */
    rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_CRCEN);
 }
 
+/**
+* Setup UART3 115200 8N1
+*/
 void usart_setup(void)
 {
     gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
                   GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TERM_USART_TXPIN);
 
-    /* Setup UART parameters. */
     usart_set_baudrate(TERM_USART, USART_BAUDRATE);
     usart_set_databits(TERM_USART, 8);
     usart_set_stopbits(TERM_USART, USART_STOPBITS_2);
     usart_set_mode(TERM_USART, USART_MODE_TX_RX);
     usart_set_parity(TERM_USART, USART_PARITY_NONE);
     usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
-    //USART_CR1(TERM_USART) |= USART_CR1_RXNEIE;
 
-    /* Finally enable the USART. */
     usart_enable(TERM_USART);
 }
 
-/* Enable timer interrupts */
+/**
+* Enable Timer refresh and break interrupts
+*/
 void nvic_setup(void)
 {
    nvic_enable_irq(PWM_TIMER_IRQ);
-   nvic_set_priority(PWM_TIMER_IRQ, 0 << 4);
+   nvic_set_priority(PWM_TIMER_IRQ, 0); //Set highest priority
 
    nvic_enable_irq(NVIC_TIM1_BRK_IRQ);
-   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0 << 4);
-
-   /*nvic_enable_irq(REV_CNT_IRQ);
-   nvic_set_priority(REV_CNT_IRQ, 1 << 4);
-
-   nvic_enable_irq(NVIC_USART1_IRQ);
-   nvic_set_priority(NVIC_USART1_IRQ, 3 << 4);*/
+   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0);
 }
 
+/**
+* Setup main PWM timer and timer for generating over current
+* reference values and external PWM
+*
+* @param[in] pwmdigits Number of binary digits to use (determines PWM frequency)
+* @param[in] deadtime Deadtime between bottom and top (coded value, consult STM32 manual)
+* @param[in] pwmpol Output Polarity. 0=Active High, 1=Active Low
+* @return PWM frequency
+*/
 uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
 {
    const uint16_t pwmmax = 1U << pwmdigits;
@@ -122,7 +112,6 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
                         TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
    TIM_CCMR2(PWM_TIMER) = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
 
-   //clear CC1P (capture compare enable register, active high)
    if (pwmpol)
    {
       timer_set_oc_polarity_low(PWM_TIMER, TIM_OC1);
@@ -136,13 +125,7 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
       timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
    }
 
-   /* Output enable */
-   timer_enable_oc_output(PWM_TIMER, TIM_OC1);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC2);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC1N);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC2N);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
+   tim_output_enable();
 
    timer_disable_break_automatic_output(PWM_TIMER);
    timer_enable_break_main_output(PWM_TIMER);
@@ -171,14 +154,13 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
    timer_set_period(PWM_TIMER, pwmmax);
    timer_set_repetition_counter(PWM_TIMER, 1);
 
-   /* start out with 50:50 duty cycle */
-   timer_set_oc_value(PWM_TIMER, TIM_OC1, pwmmax / 2);
-   timer_set_oc_value(PWM_TIMER, TIM_OC2, pwmmax / 2);
-   timer_set_oc_value(PWM_TIMER, TIM_OC3, pwmmax / 2);
+   timer_set_oc_value(PWM_TIMER, TIM_OC1, 0);
+   timer_set_oc_value(PWM_TIMER, TIM_OC2, 0);
+   timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
 
    timer_enable_counter(PWM_TIMER);
 
-   /*** Setup over/undercurrent timer */
+   /*** Setup over/undercurrent and PWM output timer */
    timer_disable_counter(OVER_CUR_TIMER);
    //edge aligned PWM
    timer_set_alignment(OVER_CUR_TIMER, TIM_CR1_CMS_EDGE);
@@ -208,4 +190,30 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15 | GPIO7 | GPIO8 | GPIO9);
 
    return PERIPH_CLK / (uint32_t)pwmmax;
+}
+
+/**
+* Enable timer PWM output
+*/
+void tim_output_enable()
+{
+   timer_enable_oc_output(PWM_TIMER, TIM_OC1);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC2);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC3);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC1N);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC2N);
+   timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
+}
+
+/**
+* Disable timer PWM output
+*/
+void tim_output_disable()
+{
+   timer_disable_oc_output(PWM_TIMER, TIM_OC1);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC2);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC3);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC2N);
+   timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
 }

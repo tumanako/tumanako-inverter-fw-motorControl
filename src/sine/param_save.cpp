@@ -40,6 +40,11 @@ typedef struct
    uint32_t padding;
 } PARAM_PAGE;
 
+/**
+* Save parameters to flash
+*
+* @return CRC of parameter flash page
+*/
 uint32_t parm_save()
 {
    PARAM_PAGE parmPage;
@@ -80,6 +85,12 @@ uint32_t parm_save()
    return CRC_DR;
 }
 
+/**
+* Load parameters from flash
+*
+* @retval 0 Parameters loaded successfully
+* @retval -1 CRC error, parameters not loaded
+*/
 int parm_load()
 {
    PARAM_PAGE *parmPage = (PARAM_PAGE *)PARAM_ADDRESS;

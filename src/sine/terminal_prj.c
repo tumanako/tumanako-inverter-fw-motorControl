@@ -38,6 +38,7 @@ static void StartInverter(char *arg);
 static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
 static void Help(char *arg);
+static void PrintParamsJson(char *arg);
 static void Reset(char *arg);
 
 const TERM_CMD TermCmds[] =
@@ -52,9 +53,37 @@ const TERM_CMD TermCmds[] =
   { "save", SaveParameters },
   { "load", LoadParameters },
   { "help", Help },
+  { "json", PrintParamsJson },
   { "reset", Reset },
   { NULL, NULL }
 };
+
+static void PrintParamsJson(char *arg)
+{
+   PARAM_NUM idx;
+   const PARAM_ATTRIB *pAtr;
+   char comma = ' ';
+
+   arg = arg;
+   printf("{");
+   for (idx = 0; idx < PARAM_LAST; idx++)
+   {
+      pAtr = parm_GetAttrib(idx);
+
+      printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,\"isparam\":",comma, pAtr->name, pAtr->unit, parm_Get(idx));
+
+      if (parm_IsParam(idx))
+      {
+         printf("true,\"minimum\":%f,\"maximum\":%f,\"default\":%f}", pAtr->min, pAtr->max, pAtr->def);
+      }
+      else
+      {
+         printf("false}");
+      }
+      comma = ',';
+   }
+   printf("\r\n}\r\n");
+}
 
 static void PrintList(char *arg)
 {

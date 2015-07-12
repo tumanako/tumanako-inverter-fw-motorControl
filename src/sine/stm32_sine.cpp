@@ -51,12 +51,18 @@
 #define MOD_MANUAL 2
 #define MOD_BOOST  3
 
+#define PWM_FUNC_TMPM  0
+#define PWM_FUNC_TMPHS 1
+#define PWM_FUNC_SPEED 2
+
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
 
 static uint8_t  pwmdigits;
 static uint16_t pwmfrq;
 static uint16_t angle;
+//Current sensor offsets are determined at runtime
+static s32fp ilofs[2] = { 0, 0 };
 
 extern "C" void tim1_brk_isr(void)
 {
@@ -267,18 +273,38 @@ static void CalcAndOutputTemp()
 {
    static int temphs = 0;
    static int tempm = 0;
-   int tmpgain = parm_GetInt(PARAM_tmpgain);
-   int tmpofs = parm_GetInt(PARAM_tmpofs);
+   int pwmgain = parm_GetInt(PARAM_pwmgain);
+   int pwmofs = parm_GetInt(PARAM_pwmofs);
+   int pwmfunc = parm_GetInt(PARAM_pwmfunc);
+   int tmpout;
    TempMeas::Sensors snshs = (TempMeas::Sensors)parm_GetInt(PARAM_snshs);
    TempMeas::Sensors snsm = (TempMeas::Sensors)parm_GetInt(PARAM_snsm);
+
    temphs = IIRFILTER(AnaIn::Get(Pin::tmphs), temphs, 15);
    tempm = IIRFILTER(AnaIn::Get(Pin::tmpm), tempm, 18);
+
    s32fp tmpmf = TempMeas::Lookup(tempm, snsm);
-   int tmpout = MAX(FP_TOINT(tmpmf) * tmpgain + tmpofs, 0);
+   s32fp tmphsf = TempMeas::Lookup(temphs, snshs);
+
+   switch (pwmfunc)
+   {
+      default:
+      case PWM_FUNC_TMPM:
+         tmpout = FP_TOINT(tmpmf) * pwmgain + pwmofs;
+         break;
+      case PWM_FUNC_TMPHS:
+         tmpout = FP_TOINT(tmphsf) * pwmgain + pwmofs;
+         break;
+      case PWM_FUNC_SPEED:
+         tmpout = FP_TOINT(tmpmf) * pwmgain + pwmofs;
+         break;
+   }
+
+   tmpout = MIN(0xFFFF, MAX(0, tmpout));
 
    timer_set_oc_value(OVER_CUR_TIMER, TIM_OC4, tmpout);
 
-   parm_SetFlt(VALUE_tmphs, TempMeas::Lookup(temphs, snshs));
+   parm_SetFlt(VALUE_tmphs, tmphsf);
    parm_SetFlt(VALUE_tmpm, tmpmf);
 }
 
@@ -343,15 +369,10 @@ static void CalcFancyValues()
    parm_SetFlt(VALUE_t, t);
 }
 
-static void Ms10Task(void)
+static void CalcThrottle()
 {
-   static int initWait = 0;
    int potval = AnaIn::Get(Pin::throttle1);
-   int throtSpnt, idleSpnt, cruiseSpnt, finalSpnt;
-   int opmode = parm_GetInt(VALUE_opmode);
-   s32fp udc = ProcessUdc();
-
-   CalcAndOutputTemp();
+   int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
    parm_SetDig(VALUE_pot, potval);
 
@@ -363,6 +384,7 @@ static void Ms10Task(void)
 
    throtSpnt = Throttle::CalcThrottle(potval, parm_GetInt(VALUE_din_brake));
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
+   derateSpnt = Throttle::TemperatureDerate(parm_Get(VALUE_tmphs));
 
    finalSpnt = MAX(throtSpnt, idleSpnt);
 
@@ -383,7 +405,26 @@ static void Ms10Task(void)
          finalSpnt = MAX(finalSpnt, parm_GetInt(PARAM_bmslimlow));
    }
 
+   if (derateSpnt < 100)
+   {
+      if (finalSpnt >= 0)
+         finalSpnt = MIN(finalSpnt, derateSpnt);
+      else
+         finalSpnt = MAX(finalSpnt, -derateSpnt);
+      DigIo::Set(Pin::err_out);
+   }
+
    parm_SetDig(VALUE_potnom, finalSpnt);
+}
+
+static void Ms10Task(void)
+{
+   static int initWait = 0;
+   int opmode = parm_GetInt(VALUE_opmode);
+   s32fp udc = ProcessUdc();
+
+   CalcThrottle();
+   CalcAndOutputTemp();
 
    if (MOD_MANUAL != opmode && MOD_BOOST != opmode)
    {
@@ -413,13 +454,9 @@ static void Ms10Task(void)
       initWait = 50;
 
       parm_SetDig(VALUE_amp, 0);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC1);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC2);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC3);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC2N);
-      timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
+      tim_output_disable();
       DigIo::Clear(Pin::dcsw_out);
+      Throttle::cruiseSpeed = -1;
    }
    else if (0 == initWait)
    {
@@ -433,6 +470,24 @@ static void Ms10Task(void)
    }
 }
 
+static void SetCurrentLimitThreshold()
+{
+   s32fp ocurlim = parm_Get(PARAM_ocurlim);
+   //We use the average offset and gain values because we only
+   //have one reference channel per polarity
+   s32fp iofs = (ilofs[0] + ilofs[1]) / 2;
+   s32fp igain= (parm_Get(PARAM_il1gain) + parm_Get(PARAM_il2gain)) / 2;
+
+   ocurlim = FP_MUL(igain, ocurlim);
+   int limNeg = FP_TOINT(iofs-ocurlim);
+   int limPos = FP_TOINT(iofs+ocurlim);
+   limNeg = MAX(0, limNeg);
+   limPos = MIN(OCURMAX, limPos);
+
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC2, limNeg);
+   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, limPos);
+}
+
 static void Ms1Task(void)
 {
    static s32fp ilrms[2] = { 0, 0 };
@@ -443,7 +498,13 @@ static void Ms1Task(void)
       s32fp il;
       il = FP_FROMINT(AnaIn::Get((Pin::AnaIns)(Pin::il1+i)));
 
-      il -= parm_Get((PARAM_NUM)(PARAM_il1ofs+i));
+      if (MOD_OFF == parm_GetInt(VALUE_opmode))
+      {
+         ilofs[i] = il;
+         SetCurrentLimitThreshold();
+      }
+
+      il -= ilofs[i];
 
       il = FP_DIV(il, parm_Get((PARAM_NUM)(PARAM_il1gain+i)));
 
@@ -465,23 +526,14 @@ static void Ms1Task(void)
    samples = (samples + 1) & (RMS_SAMPLES-1);
 }
 
+/** This function is called when the user changes a parameter */
 extern void parm_Change(PARAM_NUM ParamNum)
 {
    (void)ParamNum;
-   s32fp ocurlim = parm_Get(PARAM_ocurlim);
-   s32fp iofs = (parm_Get(PARAM_il1ofs) + parm_Get(PARAM_il2ofs)) / 2;
-   s32fp igain= (parm_Get(PARAM_il1gain) + parm_Get(PARAM_il2gain)) / 2;
-   ocurlim = FP_MUL(igain, ocurlim);
-   int limNeg = FP_TOINT(iofs-ocurlim);
-   int limPos = FP_TOINT(iofs+ocurlim);
-   limNeg = MAX(0, limNeg);
-   limPos = MIN(OCURMAX, limPos);
+   SetCurrentLimitThreshold();
 
-   Encoder::SetFilterConst(parm_GetInt(PARAM_speedflt));
+   Encoder::SetFilterConst(parm_GetInt(PARAM_encflt));
    Encoder::SetImpulsesPerTurn(parm_GetInt(PARAM_numimp));
-
-   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC2, limNeg);
-   timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, limPos);
 
    MotorVoltage::SetWeakeningFrq(parm_Get(PARAM_fweak));
    MotorVoltage::SetBoost(parm_GetInt(PARAM_boost));
@@ -495,6 +547,7 @@ extern void parm_Change(PARAM_NUM ParamNum)
    Throttle::brkmax = parm_GetInt(PARAM_brkmax);
    Throttle::idleSpeed = parm_GetInt(PARAM_idlespeed);
    Throttle::speedkp = parm_Get(PARAM_speedkp);
+   Throttle::speedflt = parm_GetInt(PARAM_speedflt);
 }
 
 extern "C" int main(void)

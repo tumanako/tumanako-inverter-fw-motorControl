@@ -37,6 +37,9 @@ static const struct IoInfo ios[] =
    { 0, 0, PinMode::LAST }
 };
 
+/**
+* Initialize pins
+*/
 void DigIo::Init()
 {
    const struct IoInfo *pCur;
@@ -76,26 +79,47 @@ void DigIo::Init()
    }
 }
 
+/**
+* Get pin value
+*
+* @param[in] io pin index
+* @return pin value
+*/
 bool DigIo::Get(Pin::DigPin io)
 {
    const struct IoInfo *pIo = ios + io;
    return (gpio_get(pIo->port, pIo->pin) & pIo->pin) > 0;
 }
 
+/**
+* Set pin high
+*
+* @param[in] io pin index
+*/
 void DigIo::Set(Pin::DigPin io)
 {
    const struct IoInfo *pIo = ios + io;
    return gpio_set(pIo->port, pIo->pin);
 }
 
+/**
+* Set pin low
+*
+* @param[in] io pin index
+*/
 void DigIo::Clear(Pin::DigPin io)
 {
    const struct IoInfo *pIo = ios + io;
    return gpio_clear(pIo->port, pIo->pin);
 }
 
+/**
+* Toggle pin
+*
+* @param[in] io pin index
+*/
 void DigIo::Toggle(Pin::DigPin io)
 {
    const struct IoInfo *pIo = ios + io;
-   return gpio_toggle(pIo->port, pIo->pin);
+   gpio_toggle(pIo->port, pIo->pin);
 }

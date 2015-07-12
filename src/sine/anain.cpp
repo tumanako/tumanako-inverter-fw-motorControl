@@ -33,10 +33,14 @@ const AnaIn::AnaInfo AnaIn::ins[] =
 };
 
 #define NUM_CHAN (sizeof(ins) / sizeof(ins[0]) - 1)
+#define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + NUM_CHAN), *(a + 2*NUM_CHAN))
 
 uint16_t AnaIn::values[NUM_SAMPLES*NUM_CHAN];
 
-void AnaIn::Init(void)
+/**
+* Initialize ADC hardware and start DMA based conversion process
+*/
+void AnaIn::Init()
 {
    const struct AnaInfo *pCur;
    uint8_t channel_array[16];
@@ -91,27 +95,17 @@ void AnaIn::Init(void)
    adc_start_conversion_direct(ADC1);
 }
 
-int median3(int a, int b, int c)
-{
-   int med;
-   if (a > b)
-   {
-      if (b > c) med = b;
-      else if (a > c) med = c;
-      else med = a;
-   }
-   else
-   {
-      if (a > c) med = a;
-      else if (b > c) med = c;
-      else med = b;
-   }
-
-   return med;
-}
-
-#define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + NUM_CHAN), *(a + 2*NUM_CHAN))
-
+/**
+* Get filtered value of given channel
+*
+*  - NUM_SAMPLES = 1: Most recent raw value is returned
+*  - NUM_SAMPLES = 3: Median of last 3 values is returned
+*  - NUM_SAMPLES = 9: Median of last 3 medians is returned
+*  - NUM_SAMPLES = 12: Average of last 4 medians is returned
+*
+* @param[in] in channel index
+* @return Filtered value
+*/
 uint16_t AnaIn::Get(Pin::AnaIns in)
 {
    #if NUM_SAMPLES == 1
@@ -142,6 +136,25 @@ uint16_t AnaIn::Get(Pin::AnaIns in)
    #else
    #error NUM_SAMPLES must be 1, 3 or 9
    #endif
+}
+
+int AnaIn::median3(int a, int b, int c)
+{
+   int med;
+   if (a > b)
+   {
+      if (b > c) med = b;
+      else if (a > c) med = c;
+      else med = a;
+   }
+   else
+   {
+      if (a > c) med = a;
+      else if (b > c) med = c;
+      else med = b;
+   }
+
+   return med;
 }
 
 uint8_t AnaIn::AdcChFromPort(int command_port, int command_bit)

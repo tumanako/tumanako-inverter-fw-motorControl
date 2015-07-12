@@ -35,7 +35,8 @@ s32fp FOC::iq;
 uint32_t FOC::DutyCycles[3];
 
 /** @brief Transform current to rotor system using Clarke and Park transformation
-  *
+  * @post flux producing (id) and torque producing (iq) current are written
+  *       to FOC::id and FOC::iq
   */
 void FOC::ParkClarke(s32fp il1, s32fp il2, uint16_t angle)
 {

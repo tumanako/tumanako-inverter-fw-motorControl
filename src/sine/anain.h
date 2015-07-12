@@ -46,6 +46,7 @@ private:
    static uint16_t values[];
 
    static uint8_t AdcChFromPort(int command_port, int command_bit);
+   static int median3(int a, int b, int c);
 };
 
 #endif // ANAIO_H_INCLUDED

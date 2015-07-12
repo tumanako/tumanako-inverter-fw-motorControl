@@ -183,6 +183,8 @@
 		<Unit filename="test/test_main.cpp">
 			<Option target="Test" />
 		</Unit>
+		<Unit filename="throttle.cpp" />
+		<Unit filename="throttle.h" />
 		<Extensions>
 			<code_completion />
 			<debugger>

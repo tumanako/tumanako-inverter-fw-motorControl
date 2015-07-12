@@ -65,7 +65,7 @@ void term_Run(uint32_t usart)
          }
          else if (idx > 0)
          {
-            term_send(usart, "Unknown command sequence\r");
+            term_send(usart, "Unknown command sequence\r\n");
          }
          idx = 0;
       }

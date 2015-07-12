@@ -21,6 +21,7 @@ BINARY		= stm32_sine
 
 PREFIX		?= arm-none-eabi
 #PREFIX		?= arm-elf
+SIZE  = $(PREFIX)-size
 CC		= $(PREFIX)-gcc
 CPP	= $(PREFIX)-g++
 LD		= $(PREFIX)-gcc
@@ -59,6 +60,7 @@ images: $(BINARY)
 	$(Q)$(OBJCOPY) -Obinary $(BINARY) $(BINARY).bin
 	@printf "  OBJCOPY $(BINARY).hex\n"
 	$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
+	$(Q)$(SIZE) $(BINARY)
 #@printf "  OBJCOPY $(BINARY).srec\n"
 #$(Q)$(OBJCOPY) -Osrec $(BINARY) $(BINARY).srec
 #@printf "  OBJDUMP $(BINARY).list\n"
