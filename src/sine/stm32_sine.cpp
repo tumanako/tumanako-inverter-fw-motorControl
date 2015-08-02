@@ -532,7 +532,11 @@ static void Ms1Task(void)
    if (speedCnt == 0)
    {
       DigIo::Toggle(Pin::speed_out);
-      speedCnt = parm_GetInt(PARAM_speedgain) / parm_GetInt(VALUE_speed);
+      speedCnt = parm_GetInt(PARAM_speedgain) / (2 * parm_GetInt(VALUE_speed));
+   }
+   else
+   {
+      speedCnt--;
    }
 }
 
