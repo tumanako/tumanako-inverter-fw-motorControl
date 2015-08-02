@@ -24,14 +24,14 @@
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
-#define VER 2.82
+#define VER 2.88
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 59
+//Next param id (increase when adding new parameter!): 60
 /*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -70,6 +70,7 @@
     PARAM_ENTRY(pwmfunc,     PWMFUNCS,  0,      2,      0,      58  ) \
     PARAM_ENTRY(pwmgain,     "dig/C",   -65535, 65535,  100,    40  ) \
     PARAM_ENTRY(pwmofs,      "dig",     -65535, 65535,  0,      41  ) \
+    PARAM_ENTRY(speedgain,   "rpm/kHz", 0,      65535,  6000,   59  ) \
     PARAM_ENTRY(snshs,       SNS_HS,    0,      1,      0,      45  ) \
     PARAM_ENTRY(snsm,        SNS_M,     2,      3,      2,      46  ) \
     PARAM_ENTRY(fslipspnt,   "Hz",      -100,   100,    0,      0   ) \

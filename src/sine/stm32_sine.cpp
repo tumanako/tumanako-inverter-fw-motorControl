@@ -436,7 +436,7 @@ static void Ms10Task(void)
     * - start pin is high
     * - motor protection switch and emcystop is high (=inactive)
     */
-   if (udc > parm_Get(PARAM_udcsw) && parm_GetInt(VALUE_potnom) <= 0)
+   if (udc >= parm_Get(PARAM_udcsw) && parm_GetInt(VALUE_potnom) <= 0)
    {
       if (DigIo::Get(Pin::start_in) &&
           DigIo::Get(Pin::emcystop_in) &&
@@ -492,6 +492,7 @@ static void Ms1Task(void)
 {
    static s32fp ilrms[2] = { 0, 0 };
    static int samples = 0;
+   static int speedCnt = 0;
 
    for (int i = 0; i < 2; i++)
    {
@@ -521,9 +522,18 @@ static void Ms1Task(void)
          ilrms[i] = 0;
       }
    }
+
    if (samples == 0)
+   {
       CalcFancyValues();
+   }
    samples = (samples + 1) & (RMS_SAMPLES-1);
+
+   if (speedCnt == 0)
+   {
+      DigIo::Toggle(Pin::speed_out);
+      speedCnt = parm_GetInt(PARAM_speedgain) / parm_GetInt(VALUE_speed);
+   }
 }
 
 /** This function is called when the user changes a parameter */

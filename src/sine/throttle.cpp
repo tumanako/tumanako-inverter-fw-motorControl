@@ -82,7 +82,7 @@ int Throttle::CalcCruiseSpeed(int speed)
 {
    speedFiltered = IIRFILTER(speedFiltered, speed, speedflt);
    int speederr = cruiseSpeed - speedFiltered;
-   return FP_TOINT(MAX(FP_FROMINT(-100), MIN(FP_FROMINT(100), speedkp * speederr)));
+   return FP_TOINT(MAX(FP_FROMINT(-brkmax), MIN(FP_FROMINT(100), speedkp * speederr)));
 }
 
 int Throttle::TemperatureDerate(s32fp tmphs)

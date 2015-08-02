@@ -155,7 +155,15 @@ static int GetPulseTimeFiltered()
          ignore = true;
       }
    }
-   last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+   //Ignore pulses when time is less than half of the last measurement
+   if (REV_CNT_CCR < (last_pulse_timespan / 4))
+   {
+      pulses = 0;
+   }
+   else
+   {
+      last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+   }
    lastN = n;
    return pulses;
 }

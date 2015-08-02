@@ -38,6 +38,7 @@
     DIG_IO_ENTRY(emcystop_in, GPIOC, GPIO7,  PinMode::INPUT_PD)    \
     DIG_IO_ENTRY(bk_in,       GPIOB, GPIO12, PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(bms_in,      GPIOC, GPIO8,  PinMode::INPUT_PD)    \
+    DIG_IO_ENTRY(speed_out,   GPIOC, GPIO9,  PinMode::OUTPUT)      \
 
 #endif
 
