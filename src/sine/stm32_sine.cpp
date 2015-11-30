@@ -231,12 +231,10 @@ static void Ms100Task(void)
 static void CalcAmpAndSlip(void)
 {
    s32fp fslipmin = parm_Get(PARAM_fslipmin);
-   s32fp fslipmax = parm_Get(PARAM_fslipmax);
    s32fp ampmin = parm_Get(PARAM_ampmin);
    s32fp potnom = parm_Get(VALUE_potnom);
    s32fp ampnom;
    s32fp fslipspnt;
-   u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
 
    if (potnom >= 0)
    {
@@ -244,7 +242,17 @@ static void CalcAmpAndSlip(void)
 
       if (potnom >= FP_FROMINT(50))
       {
-         fslipspnt = fslipmin + (FP_MUL(fslipmax-fslipmin, 2 * (potnom - FP_FROMINT(50))) / 100);
+         s32fp fslipmax = parm_Get(PARAM_fslipmax);
+         s32fp fpconst =  parm_Get(PARAM_fpconst);
+         s32fp fstat = parm_Get(VALUE_fstat);
+         s32fp fweak = parm_Get(PARAM_fweak);
+         s32fp fslipdiff = fslipmax - fslipmin;
+         //Derate the slip frequency above fpconst and uprate above fweak
+         s32fp ffac = 2*(fstat > fweak?fpconst + fstat - 2 * fweak:fpconst - fstat);
+         s32fp fslipdrt = FP_MUL(FP_DIV(ffac, fweak), fslipdiff) + fslipmax;
+
+         fslipspnt = fslipmin + (FP_MUL(fslipdiff, 2 * (potnom - FP_FROMINT(50))) / 100);
+         fslipspnt = MIN(fslipspnt, fslipdrt);
       }
       else
       {
@@ -253,6 +261,8 @@ static void CalcAmpAndSlip(void)
    }
    else
    {
+      u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
+
       ampnom = -potnom;
       fslipspnt = -fslipmin;
       if (Encoder::GetFrq() < brkrampstr)
@@ -260,10 +270,8 @@ static void CalcAmpAndSlip(void)
          ampnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * ampnom);
       }
    }
-   if (ampnom > FP_FROMINT(100))
-   {
-      ampnom = FP_FROMINT(100);
-   }
+
+   ampnom = MIN(ampnom, FP_FROMINT(100));
 
    parm_SetFlt(PARAM_ampnom, IIRFILTER(parm_Get(PARAM_ampnom), ampnom, 3));
    parm_SetFlt(PARAM_fslipspnt, IIRFILTER(parm_Get(PARAM_fslipspnt), fslipspnt, 3));

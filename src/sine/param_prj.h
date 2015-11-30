@@ -24,18 +24,19 @@
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
-#define VER 2.88
+#define VER 2.92
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 60
+//Next param id (increase when adding new parameter!): 61
 /*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
     PARAM_ENTRY(fweak,       "Hz",      0,      400,    67,     2   ) \
+    PARAM_ENTRY(fpconst,     "Hz",      0,      400,    400,    60  ) \
     PARAM_ENTRY(fslipmin,    "Hz",      0,      100,    1,      37  ) \
     PARAM_ENTRY(fslipmax,    "Hz",      0,      100,    3,      33  ) \
     PARAM_ENTRY(polepairs,   "",        1,      16,     2,      32  ) \
@@ -50,8 +51,8 @@
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   18  ) \
     PARAM_ENTRY(idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
-    PARAM_ENTRY(speedkp,     "",        0,      100,    1,      53  ) \
-    PARAM_ENTRY(speedflt,    "",        0,      16,     4,      57  ) \
+    PARAM_ENTRY(speedkp,     "",        0,      100,    0.25,   53  ) \
+    PARAM_ENTRY(speedflt,    "",        0,      16,     1,      57  ) \
     PARAM_ENTRY(bmslimhigh,  "%",       0,      100,    50,     55  ) \
     PARAM_ENTRY(bmslimlow,   "%",       -100,   0,      -1,     56  ) \
     PARAM_ENTRY(brknompedal, "%",       -100,   0,      -50,    38  ) \
