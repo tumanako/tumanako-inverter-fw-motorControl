@@ -24,8 +24,6 @@
  * Example from libopencm3 expanded to make tumanako arm tester
  * Added sine wave generation, removed testing code
  */
-#define STM32F1
-
 #include <stdint.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
@@ -45,15 +43,6 @@
 #include "foc.h"
 #include "throttle.h"
 #include "my_math.h"
-
-#define MOD_OFF    0
-#define MOD_RUN    1
-#define MOD_MANUAL 2
-#define MOD_BOOST  3
-
-#define PWM_FUNC_TMPM  0
-#define PWM_FUNC_TMPHS 1
-#define PWM_FUNC_SPEED 2
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
@@ -169,6 +158,44 @@ static void PwmInit(void)
    pwmfrq = tim_setup(pwmdigits, parm_GetInt(PARAM_deadtime), parm_GetInt(PARAM_pwmpol));
 }
 
+static void CruiseControl()
+{
+   static bool lastState = false;
+
+   //Always disable cruise control when brake pedal is pressed
+   if (DigIo::Get(Pin::brake_in))
+    {
+      Throttle::cruiseSpeed = -1;
+   }
+   else
+   {
+      if (parm_GetInt(PARAM_cruisemode) == BUTTON)
+      {
+         //Enable/update cruise control when button is pressed
+         if (DigIo::Get(Pin::cruise_in))
+         {
+            Throttle::cruiseSpeed = Encoder::GetSpeed();
+         }
+      }
+      else //if cruiseMode == SWITCH
+      {
+         //Enable/update cruise control when switch is toggled on
+         if (DigIo::Get(Pin::cruise_in) && !lastState)
+         {
+            Throttle::cruiseSpeed = Encoder::GetSpeed();
+         }
+
+         //Disable cruise control when switch is off
+         if (!DigIo::Get(Pin::cruise_in))
+         {
+            Throttle::cruiseSpeed = -1;
+         }
+      }
+   }
+
+   lastState = DigIo::Get(Pin::cruise_in);
+}
+
 static void Ms100Task(void)
 {
    int32_t dir = parm_GetInt(VALUE_dir);
@@ -207,18 +234,10 @@ static void Ms100Task(void)
       parm_SetDig(VALUE_din_ocur, 0);
    }
 
-   if (DigIo::Get(Pin::cruise_in) && !DigIo::Get(Pin::brake_in))
-   {
-      Throttle::cruiseSpeed = Encoder::GetSpeed();
-   }
-
-   if (DigIo::Get(Pin::brake_in))
-   {
-      Throttle::cruiseSpeed = -1;
-   }
+   CruiseControl();
 
    parm_SetDig(VALUE_dir, dir);
-   parm_SetDig(VALUE_din_on, DigIo::Get(Pin::cruise_in));
+   parm_SetDig(VALUE_din_cruise, DigIo::Get(Pin::cruise_in));
    parm_SetDig(VALUE_din_start, DigIo::Get(Pin::start_in));
    parm_SetDig(VALUE_din_brake, DigIo::Get(Pin::brake_in));
    parm_SetDig(VALUE_din_mprot, DigIo::Get(Pin::mprot_in));
@@ -380,17 +399,20 @@ static void CalcFancyValues()
 static void CalcThrottle()
 {
    int potval = AnaIn::Get(Pin::throttle1);
+   int pot2val = AnaIn::Get(Pin::throttle2);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
    parm_SetDig(VALUE_pot, potval);
+   parm_SetDig(VALUE_pot2, pot2val);
 
    /* Error light on implausible value */
-   if (!Throttle::CheckAndLimitRange(&potval))
+   if (!Throttle::CheckAndLimitRange(&potval, 0))
    {
       DigIo::Set(Pin::err_out);
    }
+   Throttle::CheckAndLimitRange(&pot2val, 1);
 
-   throtSpnt = Throttle::CalcThrottle(potval, parm_GetInt(VALUE_din_brake));
+   throtSpnt = Throttle::CalcThrottle(potval, pot2val, parm_GetInt(VALUE_din_brake));
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
    derateSpnt = Throttle::TemperatureDerate(parm_Get(VALUE_tmphs));
 
@@ -562,8 +584,10 @@ extern void parm_Change(PARAM_NUM ParamNum)
    MotorVoltage::SetMinFrq(parm_Get(PARAM_fmin));
    SineCore::SetMinPulseWidth(parm_GetInt(PARAM_minpulse));
 
-   Throttle::potmin = parm_GetInt(PARAM_potmin);
-   Throttle::potmax = parm_GetInt(PARAM_potmax);
+   Throttle::potmin[0] = parm_GetInt(PARAM_potmin);
+   Throttle::potmax[0] = parm_GetInt(PARAM_potmax);
+   Throttle::potmin[1] = parm_GetInt(PARAM_pot2min);
+   Throttle::potmax[1] = parm_GetInt(PARAM_pot2max);
    Throttle::brknom = parm_GetInt(PARAM_brknom);
    Throttle::brknompedal = parm_GetInt(PARAM_brknompedal);
    Throttle::brkmax = parm_GetInt(PARAM_brkmax);

@@ -1,7 +1,6 @@
 #ifndef DIGIO_H_INCLUDED
 #define DIGIO_H_INCLUDED
 
-#define STM32F1
 #include <libopencm3/stm32/gpio.h>
 #include "digio_prj.h"
 

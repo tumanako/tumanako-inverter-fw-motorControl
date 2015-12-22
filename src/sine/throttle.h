@@ -27,13 +27,13 @@
 class Throttle
 {
    public:
-      static bool CheckAndLimitRange(int* potval);
-      static int CalcThrottle(int potval, bool brkpedal);
+      static bool CheckAndLimitRange(int* potval, int potIdx);
+      static int CalcThrottle(int potval, int pot2val, bool brkpedal);
       static int CalcIdleSpeed(int speed);
       static int CalcCruiseSpeed(int speed);
       static int TemperatureDerate(s32fp tmphs);
-      static int potmin;
-      static int potmax;
+      static int potmin[2];
+      static int potmax[2];
       static int brknom;
       static int brknompedal;
       static int brkmax;

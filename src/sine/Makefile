@@ -28,9 +28,9 @@ LD		= $(PREFIX)-gcc
 OBJCOPY		= $(PREFIX)-objcopy
 OBJDUMP		= $(PREFIX)-objdump
 TOOLCHAIN_DIR = `dirname \`which $(CC)\``/../$(PREFIX)
-CFLAGS		= -Os -Wall -Wextra -Iinclude -fno-common -fno-builtin \
+CFLAGS		= -Os -Wall -Wextra -Iinclude -fno-common -fno-builtin -DSTM32F1 \
 		  -mcpu=cortex-m3 -mthumb -std=gnu99 -ffunction-sections -fdata-sections
-CPPFLAGS    = -Os -Wall -Wextra -Iinclude -I. -fno-common \
+CPPFLAGS    = -Os -Wall -Wextra -Iinclude -I. -fno-common -DSTM32F1 \
 		 -ffunction-sections -fdata-sections -fno-builtin -fno-rtti -fno-exceptions -fno-unwind-tables -mcpu=cortex-m3 -mthumb
 LDSCRIPT	= $(BINARY).ld
 LDFLAGS         = -L$(TOOLCHAIN_DIR)/lib -T$(LDSCRIPT) -nostartfiles -Wl,--gc-sections,-Map,linker.map

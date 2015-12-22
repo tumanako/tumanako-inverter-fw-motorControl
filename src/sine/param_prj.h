@@ -24,14 +24,27 @@
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
-#define VER 2.92
+#define CRUISEMODS "0=Button, 1=Switch"
+#define REGENMODS "0=OffThrottleAndPedal, 1=PedalPlusPot, 2=PotOnly"
+#define VER 2.96
+
+#define BUTTON 0
+#define MOD_OFF    0
+#define MOD_RUN    1
+#define MOD_MANUAL 2
+#define MOD_BOOST  3
+
+#define PWM_FUNC_TMPM  0
+#define PWM_FUNC_TMPHS 1
+#define PWM_FUNC_SPEED 2
+
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 61
+//Next param id (increase when adding new parameter!): 65
 /*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -50,9 +63,12 @@
     PARAM_ENTRY(numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   18  ) \
+    PARAM_ENTRY(pot2min,      "dig",    0,      4095,   4095,   63  ) \
+    PARAM_ENTRY(pot2max,      "dig",    0,      4095,   4095,   64  ) \
     PARAM_ENTRY(idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
     PARAM_ENTRY(speedkp,     "",        0,      100,    0.25,   53  ) \
     PARAM_ENTRY(speedflt,    "",        0,      16,     1,      57  ) \
+    PARAM_ENTRY(cruisemode,  CRUISEMODS,0,      1,      0,      62  ) \
     PARAM_ENTRY(bmslimhigh,  "%",       0,      100,    50,     55  ) \
     PARAM_ENTRY(bmslimlow,   "%",       -100,   0,      -1,     56  ) \
     PARAM_ENTRY(brknompedal, "%",       -100,   0,      -50,    38  ) \
@@ -96,11 +112,12 @@
     VALUE_ENTRY(speed,       "rpm"   ) \
     VALUE_ENTRY(amp,         "dig"   ) \
     VALUE_ENTRY(pot,         "dig"   ) \
+    VALUE_ENTRY(pot2,        "dig"   ) \
     VALUE_ENTRY(potnom,      "%"     ) \
     VALUE_ENTRY(dir,         DIRS    ) \
     VALUE_ENTRY(tmphs,       "°C"    ) \
     VALUE_ENTRY(tmpm,        "°C"    ) \
-    VALUE_ENTRY(din_on,      ""      ) \
+    VALUE_ENTRY(din_cruise,  ""      ) \
     VALUE_ENTRY(din_start,   ""      ) \
     VALUE_ENTRY(din_brake,   ""      ) \
     VALUE_ENTRY(din_mprot,   ""      ) \

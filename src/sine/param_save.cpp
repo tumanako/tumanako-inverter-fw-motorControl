@@ -17,8 +17,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define STM32F1
-
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include "params.h"

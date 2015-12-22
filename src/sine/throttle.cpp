@@ -22,8 +22,8 @@
 
 #define POT_SLACK 200
 
-int Throttle::potmin;
-int Throttle::potmax;
+int Throttle::potmin[2];
+int Throttle::potmax[2];
 int Throttle::brknom;
 int Throttle::brknompedal;
 int Throttle::brkmax;
@@ -33,40 +33,51 @@ s32fp Throttle::speedkp;
 int Throttle::speedflt;
 int Throttle::speedFiltered;
 
-bool Throttle::CheckAndLimitRange(int* potval)
+bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
-   if (((*potval + POT_SLACK) < potmin) || (*potval > (potmax + POT_SLACK)))
+   if (((*potval + POT_SLACK) < potmin[potIdx]) || (*potval > (potmax[potIdx] + POT_SLACK)))
    {
-      *potval = potmin;
+      *potval = potmin[potIdx];
       return false;
    }
-   else if (*potval < potmin)
+   else if (*potval < potmin[potIdx])
    {
-      *potval = potmin;
+      *potval = potmin[potIdx];
    }
-   else if (*potval > potmax)
+   else if (*potval > potmax[potIdx])
    {
-      *potval = potmax;
+      *potval = potmax[potIdx];
    }
 
    return true;
 }
 
-int Throttle::CalcThrottle(int potval, bool brkpedal)
+int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 {
    int potnom = 0;
+   int scaledBrkMax = brkmax;
+   int scaledBrkPedal = brknompedal;
+
+   if (pot2val > potmin[1])
+   {
+      potnom = (100 * (pot2val - potmin[1])) / (potmax[1] - potmin[1]);
+      //potnom = (100 * potnom) / (potmax[1] - potmin[1]);
+      //Never reach 0, because that can spin up the motor
+      scaledBrkMax = 1 + (scaledBrkMax * potnom) / 100;
+      scaledBrkPedal = 1+ (scaledBrkPedal * potnom) / 100;
+   }
 
    if (brkpedal)
    {
-      potnom = brknompedal;
+      potnom = scaledBrkPedal;
    }
    else
    {
-      potnom = potval - potmin;
-      potnom = ((100 + brknom) * potnom) / (potmax-potmin);
+      potnom = potval - potmin[0];
+      potnom = ((100 + brknom) * potnom) / (potmax[0] - potmin[0]);
       potnom -= brknom;
       if (potnom < 0)
-         potnom = (potnom * brkmax) / brknom;
+         potnom = (potnom * scaledBrkMax) / brknom;
    }
 
    return potnom;

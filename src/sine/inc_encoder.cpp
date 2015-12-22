@@ -20,7 +20,6 @@
 #include "inc_encoder.h"
 #include "my_math.h"
 
-#define STM32F1
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/dma.h>

@@ -17,7 +17,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define STM32F1
 #include <libopencm3/cm3/scb.h>
 #include "terminal.h"
 #include "params.h"

@@ -68,8 +68,6 @@
 #define OCURMAX 4096
 
 #define USART_BAUDRATE  115200
-//Deadtime = 28 ~ 800ns
-#define TIM_DEADTIME 28
 //Maximum PWM frequency is 36MHz/2^MIN_PWM_DIGITS
 #define MIN_PWM_DIGITS 11
 
