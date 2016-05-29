@@ -24,6 +24,7 @@
 #include "my_fp.h"
 #include "printf.h"
 #include "param_save.h"
+#include "errormessage.h"
 
 #define NUM_BUF_LEN 15
 
@@ -38,9 +39,10 @@ static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
 static void Help(char *arg);
 static void PrintParamsJson(char *arg);
+static void PrintErrors(char *arg);
 static void Reset(char *arg);
 
-const TERM_CMD TermCmds[] =
+extern "C" const TERM_CMD TermCmds[] =
 {
   { "set", ParamSet },
   { "get", ParamGet },
@@ -53,25 +55,25 @@ const TERM_CMD TermCmds[] =
   { "load", LoadParameters },
   { "help", Help },
   { "json", PrintParamsJson },
+  { "errors", PrintErrors },
   { "reset", Reset },
   { NULL, NULL }
 };
 
 static void PrintParamsJson(char *arg)
 {
-   PARAM_NUM idx;
    const PARAM_ATTRIB *pAtr;
    char comma = ' ';
 
    arg = arg;
    printf("{");
-   for (idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib(idx);
+      pAtr = parm_GetAttrib((PARAM_NUM)idx);
 
-      printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,\"isparam\":",comma, pAtr->name, pAtr->unit, parm_Get(idx));
+      printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,\"isparam\":",comma, pAtr->name, pAtr->unit, parm_Get((PARAM_NUM)idx));
 
-      if (parm_IsParam(idx))
+      if (parm_IsParam((PARAM_NUM)idx))
       {
          printf("true,\"minimum\":%f,\"maximum\":%f,\"default\":%f}", pAtr->min, pAtr->max, pAtr->def);
       }
@@ -86,23 +88,21 @@ static void PrintParamsJson(char *arg)
 
 static void PrintList(char *arg)
 {
-   PARAM_NUM idx;
    const PARAM_ATTRIB *pAtr;
 
    arg = arg;
 
    printf("Available parameters and values\r\n");
 
-   for (idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib(idx);
+      pAtr = parm_GetAttrib((PARAM_NUM)idx);
       printf("%s [%s]\r\n", pAtr->name, pAtr->unit);
    }
 }
 
 static void PrintAtr(char *arg)
 {
-   PARAM_NUM idx;
    const PARAM_ATTRIB *pAtr;
 
    arg = arg;
@@ -110,11 +110,11 @@ static void PrintAtr(char *arg)
    printf("Parameter attributes\r\n");
    printf("Name\t\tmin - max [default]\r\n");
 
-   for (idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib(idx);
+      pAtr = parm_GetAttrib((PARAM_NUM)idx);
       /* Only display for params */
-      if (parm_IsParam(idx))
+      if (parm_IsParam((PARAM_NUM)idx))
       {
          printf("%s\t\t%f - %f [%f]\r\n", pAtr->name,pAtr->min,pAtr->max,pAtr->def);
       }
@@ -159,10 +159,10 @@ static void GetAll(char *arg)
 
    arg = arg;
 
-   for (int idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t  idx = 0; idx < PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib(idx);
-      printf("%s\t\t%f\r\n", pAtr->name, parm_Get(idx));
+      pAtr = parm_GetAttrib((PARAM_NUM)idx);
+      printf("%s\t\t%f\r\n", pAtr->name, parm_Get((PARAM_NUM)idx));
    }
 }
 
@@ -238,13 +238,20 @@ static void LoadParameters(char *arg)
    arg = arg;
    if (0 == parm_load())
    {
-      parm_Change(0);
+      parm_Change((PARAM_NUM)0);
       printf("Parameters loaded\r\n");
    }
    else
    {
       printf("Parameter CRC error\r\n");
    }
+}
+
+static void PrintErrors(char *arg)
+{
+   arg = arg;
+   ErrorMessage::Post(ERR_THROTTLE2);
+   ErrorMessage::PrintAllErrors();
 }
 
 static void Help(char *arg)

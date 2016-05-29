@@ -20,7 +20,7 @@
 
 typedef struct
 {
-   char *cmd;
+   char const *cmd;
    void (*CmdFunc)(char*);
 } TERM_CMD;
 

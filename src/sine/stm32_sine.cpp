@@ -43,6 +43,7 @@
 #include "foc.h"
 #include "throttle.h"
 #include "my_math.h"
+#include "errormessage.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
@@ -50,6 +51,7 @@
 static uint8_t  pwmdigits;
 static uint16_t pwmfrq;
 static uint16_t angle;
+static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
 static s32fp ilofs[2] = { 0, 0 };
 
@@ -58,6 +60,13 @@ extern "C" void tim1_brk_isr(void)
    timer_disable_irq(PWM_TIMER, TIM_DIER_BIE);
    parm_SetDig(VALUE_opmode, MOD_OFF);
    DigIo::Set(Pin::err_out);
+
+   if (DigIo::Get(Pin::emcystop_in))
+      ErrorMessage::Post(ERR_EMCYSTOP);
+   else if (DigIo::Get(Pin::mprot_in))
+      ErrorMessage::Post(ERR_MPROT);
+   else
+      ErrorMessage::Post(ERR_OVERCURRENT);
 }
 
 static void CalcNextAngle()
@@ -409,7 +418,9 @@ static void CalcThrottle()
    if (!Throttle::CheckAndLimitRange(&potval, 0))
    {
       DigIo::Set(Pin::err_out);
+      ErrorMessage::Post(ERR_THROTTLE1);
    }
+
    Throttle::CheckAndLimitRange(&pot2val, 1);
 
    throtSpnt = Throttle::CalcThrottle(potval, pot2val, parm_GetInt(VALUE_din_brake));
@@ -476,6 +487,7 @@ static void Ms10Task(void)
          DigIo::Clear(Pin::err_out);
          DigIo::Clear(Pin::prec_out);
          parm_SetDig(VALUE_opmode, MOD_RUN);
+         ErrorMessage::UnpostAll();
       }
    }
 
@@ -523,6 +535,9 @@ static void Ms1Task(void)
    static s32fp ilrms[2] = { 0, 0 };
    static int samples = 0;
    static int speedCnt = 0;
+
+   timeTick++;
+   ErrorMessage::SetTime(timeTick);
 
    for (int i = 0; i < 2; i++)
    {

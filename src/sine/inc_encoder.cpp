@@ -155,7 +155,7 @@ static int GetPulseTimeFiltered()
       }
    }
    //Ignore pulses when time is less than half of the last measurement
-   if (REV_CNT_CCR < (last_pulse_timespan / 4))
+   if (REV_CNT_CCR < (last_pulse_timespan / 16))
    {
       pulses = 0;
    }
