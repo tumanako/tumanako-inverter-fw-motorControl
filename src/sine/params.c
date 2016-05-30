@@ -45,7 +45,7 @@ static s32fp values[] =
 * @param[in] ParamVal New value of parameter
 * @return 0 if set ok, -1 if ParamVal outside of allowed range
 */
-char parm_Set(PARAM_NUM ParamNum, s32fp ParamVal)
+int parm_Set(PARAM_NUM ParamNum, s32fp ParamVal)
 {
     char res = -1;
 
@@ -85,12 +85,10 @@ int parm_GetInt(PARAM_NUM ParamNum)
 *
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
-* @return 0 if set ok, -1 if ParamVal out of allowed range
 */
-char parm_SetDig(PARAM_NUM ParamNum, int ParamVal)
+void parm_SetDig(PARAM_NUM ParamNum, int ParamVal)
 {
    values[ParamNum] = FP_FROMINT(ParamVal);
-   return 0;
 }
 
 /**
@@ -98,12 +96,10 @@ char parm_SetDig(PARAM_NUM ParamNum, int ParamVal)
 *
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
-* @return 0 if set ok, -1 if ParamVal out of allowed range
 */
-char parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
+void parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
 {
    values[ParamNum] = ParamVal;
-   return 0;
 }
 
 /**
@@ -144,7 +140,19 @@ const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum)
  * @retval 1 it is a parameter
  * @retval 0 otherwise
  */
-char parm_IsParam(PARAM_NUM ParamNum)
+int parm_IsParam(PARAM_NUM ParamNum)
 {
    return attribs[ParamNum].min != attribs[ParamNum].max;
+}
+
+/** Load default values for all parameters */
+void parm_LoadDefaults()
+{
+   const PARAM_ATTRIB *curAtr = attribs;
+
+   for (PARAM_NUM idx = 0; idx < PARAM_LAST; idx++, curAtr++)
+   {
+      if (curAtr->id > 0)
+         parm_SetFlt(idx, curAtr->def);
+   }
 }

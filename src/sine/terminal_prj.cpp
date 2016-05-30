@@ -30,6 +30,7 @@
 
 static void ParamGet(char *arg);
 static void ParamSet(char *arg);
+static void LoadDefaults(char *arg);
 static void GetAll(char *arg);
 static void PrintList(char *arg);
 static void PrintAtr(char *arg);
@@ -46,6 +47,7 @@ extern "C" const TERM_CMD TermCmds[] =
 {
   { "set", ParamSet },
   { "get", ParamGet },
+  { "defaults", LoadDefaults },
   { "all", GetAll },
   { "list", PrintList },
   { "atr",  PrintAtr },
@@ -153,6 +155,13 @@ static void ParamGet(char *arg)
    } while (',' == *comma);
 }
 
+static void LoadDefaults(char *arg)
+{
+   arg = arg;
+   parm_LoadDefaults();
+   printf("Defaults loaded\r\n");
+}
+
 static void GetAll(char *arg)
 {
    const PARAM_ATTRIB *pAtr;
@@ -250,7 +259,6 @@ static void LoadParameters(char *arg)
 static void PrintErrors(char *arg)
 {
    arg = arg;
-   ErrorMessage::Post(ERR_THROTTLE2);
    ErrorMessage::PrintAllErrors();
 }
 

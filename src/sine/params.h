@@ -53,15 +53,16 @@ extern "C"
 {
 #endif
 
-char parm_Set(PARAM_NUM ParamNum, s32fp ParamVal);
+int parm_Set(PARAM_NUM ParamNum, s32fp ParamVal);
 s32fp  parm_Get(PARAM_NUM ParamNum);
 int    parm_GetInt(PARAM_NUM ParamNum);
 s32fp  parm_GetScl(PARAM_NUM ParamNum);
-char parm_SetDig(PARAM_NUM ParamNum, int ParamVal);
-char parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
+void parm_SetDig(PARAM_NUM ParamNum, int ParamVal);
+void parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
 PARAM_NUM parm_NumFromString(const char *name);
 const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum);
-char parm_IsParam(PARAM_NUM ParamNum);
+int parm_IsParam(PARAM_NUM ParamNum);
+void parm_LoadDefaults();
 
 //User defined callback
 extern void parm_Change(PARAM_NUM ParamNum);

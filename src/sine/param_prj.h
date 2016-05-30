@@ -26,7 +26,7 @@
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
 #define CRUISEMODS "0=Button, 1=Switch"
 #define REGENMODS "0=OffThrottleAndPedal, 1=PedalPlusPot, 2=PotOnly"
-#define VER 2.96
+#define VER 3.00
 
 #define BUTTON 0
 #define MOD_OFF    0
