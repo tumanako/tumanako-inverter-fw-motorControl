@@ -41,6 +41,7 @@ class Throttle
       static int cruiseSpeed;
       static s32fp speedkp;
       static int speedflt;
+      static s32fp idleThrotLim;
 
    private:
       static int speedFiltered;

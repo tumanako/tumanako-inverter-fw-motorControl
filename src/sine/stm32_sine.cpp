@@ -61,9 +61,9 @@ extern "C" void tim1_brk_isr(void)
    parm_SetDig(VALUE_opmode, MOD_OFF);
    DigIo::Set(Pin::err_out);
 
-   if (DigIo::Get(Pin::emcystop_in))
+   if (!DigIo::Get(Pin::emcystop_in))
       ErrorMessage::Post(ERR_EMCYSTOP);
-   else if (DigIo::Get(Pin::mprot_in))
+   else if (!DigIo::Get(Pin::mprot_in))
       ErrorMessage::Post(ERR_MPROT);
    else
       ErrorMessage::Post(ERR_OVERCURRENT);
@@ -411,6 +411,7 @@ static void CalcThrottle()
    int pot2val = AnaIn::Get(Pin::throttle2);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
+
    parm_SetDig(VALUE_pot, potval);
    parm_SetDig(VALUE_pot2, pot2val);
 
@@ -423,11 +424,14 @@ static void CalcThrottle()
 
    Throttle::CheckAndLimitRange(&pot2val, 1);
 
-   throtSpnt = Throttle::CalcThrottle(potval, pot2val, parm_GetInt(VALUE_din_brake));
+   throtSpnt = Throttle::CalcThrottle(potval, pot2val, DigIo::Get(Pin::brake_in));
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
    derateSpnt = Throttle::TemperatureDerate(parm_Get(VALUE_tmphs));
 
-   finalSpnt = MAX(throtSpnt, idleSpnt);
+   if (parm_GetInt(PARAM_idlemode) == IDLE_MODE_ALWAYS || !DigIo::Get(Pin::brake_in))
+      finalSpnt = MAX(throtSpnt, idleSpnt);
+   else
+      finalSpnt = throtSpnt;
 
    if (Throttle::cruiseSpeed > 0 && Throttle::cruiseSpeed > Throttle::idleSpeed)
    {
@@ -609,6 +613,7 @@ extern void parm_Change(PARAM_NUM ParamNum)
    Throttle::idleSpeed = parm_GetInt(PARAM_idlespeed);
    Throttle::speedkp = parm_Get(PARAM_speedkp);
    Throttle::speedflt = parm_GetInt(PARAM_speedflt);
+   Throttle::idleThrotLim = parm_Get(PARAM_idlethrotlim);
 }
 
 extern "C" int main(void)

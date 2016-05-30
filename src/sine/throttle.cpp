@@ -32,6 +32,7 @@ int Throttle::cruiseSpeed;
 s32fp Throttle::speedkp;
 int Throttle::speedflt;
 int Throttle::speedFiltered;
+s32fp Throttle::idleThrotLim;
 
 bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
@@ -86,7 +87,7 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 int Throttle::CalcIdleSpeed(int speed)
 {
    int speederr = idleSpeed - speed;
-   return FP_TOINT(MIN(FP_FROMINT(50), speedkp * speederr));
+   return FP_TOINT(MIN(idleThrotLim, speedkp * speederr));
 }
 
 int Throttle::CalcCruiseSpeed(int speed)

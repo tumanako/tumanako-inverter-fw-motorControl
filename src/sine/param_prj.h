@@ -25,7 +25,7 @@
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
 #define CRUISEMODS "0=Button, 1=Switch"
-#define REGENMODS "0=OffThrottleAndPedal, 1=PedalPlusPot, 2=PotOnly"
+#define IDLEMODS "0=always, 1=nobrake"
 #define VER 3.00
 
 #define BUTTON 0
@@ -38,13 +38,16 @@
 #define PWM_FUNC_TMPHS 1
 #define PWM_FUNC_SPEED 2
 
+#define IDLE_MODE_ALWAYS 0
+#define IDLE_MODE_NOBRAKE 1
+
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 65
+//Next param id (increase when adding new parameter!): 67
 /*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -63,9 +66,11 @@
     PARAM_ENTRY(numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   18  ) \
-    PARAM_ENTRY(pot2min,      "dig",    0,      4095,   4095,   63  ) \
-    PARAM_ENTRY(pot2max,      "dig",    0,      4095,   4095,   64  ) \
+    PARAM_ENTRY(pot2min,     "dig",     0,      4095,   4095,   63  ) \
+    PARAM_ENTRY(pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
+    PARAM_ENTRY(idlethrotlim,"%",       0,      100,    50,     65  ) \
+    PARAM_ENTRY(idlemode,    IDLEMODS,  0,      1,      0,      66  ) \
     PARAM_ENTRY(speedkp,     "",        0,      100,    0.25,   53  ) \
     PARAM_ENTRY(speedflt,    "",        0,      16,     1,      57  ) \
     PARAM_ENTRY(cruisemode,  CRUISEMODS,0,      1,      0,      62  ) \

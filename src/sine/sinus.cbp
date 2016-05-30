@@ -60,6 +60,9 @@
 		<Unit filename="digio_prj.h">
 			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
+		<Unit filename="errormessage.cpp" />
+		<Unit filename="errormessage.h" />
+		<Unit filename="errormessage_prj.h" />
 		<Unit filename="foc.cpp">
 			<Option target="Release" />
 		</Unit>
@@ -161,10 +164,7 @@
 		<Unit filename="terminal.h">
 			<Option target="Release" />
 		</Unit>
-		<Unit filename="terminal_prj.c">
-			<Option compilerVar="CC" />
-			<Option target="Release" />
-		</Unit>
+		<Unit filename="terminal_prj.cpp" />
 		<Unit filename="test/Makefile">
 			<Option target="Test" />
 		</Unit>
