@@ -286,6 +286,7 @@ static void CalcAmpAndSlip(void)
       {
          fslipspnt = fslipmin;
       }
+      DigIo::Clear(Pin::brk_out);
    }
    else
    {
@@ -297,6 +298,11 @@ static void CalcAmpAndSlip(void)
       {
          ampnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * ampnom);
       }
+      //This works because ampnom = -potnom
+      if (ampnom >= -parm_Get(PARAM_brkout))
+         DigIo::Set(Pin::brk_out);
+      else
+         DigIo::Clear(Pin::brk_out);
    }
 
    ampnom = MIN(ampnom, FP_FROMINT(100));
@@ -427,6 +433,7 @@ static void CalcThrottle()
    throtSpnt = Throttle::CalcThrottle(potval, pot2val, DigIo::Get(Pin::brake_in));
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
    derateSpnt = Throttle::TemperatureDerate(parm_Get(VALUE_tmphs));
+   cruiseSpnt = Throttle::CalcCruiseSpeed(Encoder::GetSpeed());
 
    if (parm_GetInt(PARAM_idlemode) == IDLE_MODE_ALWAYS || !DigIo::Get(Pin::brake_in))
       finalSpnt = MAX(throtSpnt, idleSpnt);
@@ -435,7 +442,6 @@ static void CalcThrottle()
 
    if (Throttle::cruiseSpeed > 0 && Throttle::cruiseSpeed > Throttle::idleSpeed)
    {
-      cruiseSpnt = Throttle::CalcCruiseSpeed(Encoder::GetSpeed());
       if (throtSpnt < 0)
          finalSpnt = cruiseSpnt;
       else if (throtSpnt > 0)
