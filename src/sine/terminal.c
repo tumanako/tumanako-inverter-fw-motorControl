@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #include "my_string.h"
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/usart.h>

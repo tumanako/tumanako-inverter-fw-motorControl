@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
 #include "params.h"
@@ -24,6 +25,7 @@
 #include "hwdefs.h"
 
 #define NUM_PARAMS (PARAM_BLKSIZE - 8) / sizeof(KEY_VALUEPAIR32)
+#define PAGE_SIZE_WORDS (PARAM_BLKSIZE / 4)
 
 typedef struct
 {
@@ -74,7 +76,7 @@ uint32_t parm_save()
    flash_set_ws(2);
    flash_erase_page(PARAM_ADDRESS);
 
-   for (idx = 0; idx < 256; idx++)
+   for (idx = 0; idx < PAGE_SIZE_WORDS; idx++)
    {
       uint32_t* pData = ((uint32_t*)&parmPage) + idx;
       flash_program_word(PARAM_ADDRESS + idx * 4, *pData);

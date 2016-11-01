@@ -45,7 +45,7 @@ void AnaIn::Init()
    uint8_t channel_array[16];
    uint8_t numChan = 0;
 
-   adc_power_off(ADC1);
+   adc_off(ADC1);
    adc_enable_scan_mode(ADC1);
    adc_set_continuous_conversion_mode(ADC1);
    adc_set_right_aligned(ADC1);

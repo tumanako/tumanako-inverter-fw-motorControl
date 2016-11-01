@@ -24,35 +24,25 @@
 #define SNS_HS   "0=JCurve, 1=Semikron"
 #define SNS_M    "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
+#define ONOFF    "0=Off, 1=On"
 #define CRUISEMODS "0=Button, 1=Switch"
-#define IDLEMODS "0=always, 1=nobrake"
-#define VER 3.08
+#define VER 2.95
 
-#define BUTTON 0
 #define MOD_OFF    0
 #define MOD_RUN    1
 #define MOD_MANUAL 2
 #define MOD_BOOST  3
-
-#define PWM_FUNC_TMPM  0
-#define PWM_FUNC_TMPHS 1
-#define PWM_FUNC_SPEED 2
-
-#define IDLE_MODE_ALWAYS 0
-#define IDLE_MODE_NOBRAKE 1
-
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 68
-/*              name         unit       min     max     default id */
+//Next param id (increase when adding new parameter!): 63
+/*              name         unit       min     max     default ofs gain id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
     PARAM_ENTRY(fweak,       "Hz",      0,      400,    67,     2   ) \
-    PARAM_ENTRY(fpconst,     "Hz",      0,      400,    400,    60  ) \
     PARAM_ENTRY(fslipmin,    "Hz",      0,      100,    1,      37  ) \
     PARAM_ENTRY(fslipmax,    "Hz",      0,      100,    3,      33  ) \
     PARAM_ENTRY(polepairs,   "",        1,      16,     2,      32  ) \
@@ -63,16 +53,12 @@
     PARAM_ENTRY(pwmfrq,      PWMFRQS,   0,      4,      2,      13  ) \
     PARAM_ENTRY(pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
     PARAM_ENTRY(deadtime,    "dig",     0,      255,    28,     14  ) \
-    PARAM_ENTRY(numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
+    PARAM_ENTRY(numimp,      "Imp/rev", 8,      65536,  60,     15  ) \
     PARAM_ENTRY(potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(potmax,      "dig",     0,      4095,   4095,   18  ) \
-    PARAM_ENTRY(pot2min,     "dig",     0,      4095,   4095,   63  ) \
-    PARAM_ENTRY(pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
-    PARAM_ENTRY(idlethrotlim,"%",       0,      100,    50,     65  ) \
-    PARAM_ENTRY(idlemode,    IDLEMODS,  0,      1,      0,      66  ) \
-    PARAM_ENTRY(speedkp,     "",        0,      100,    0.25,   53  ) \
-    PARAM_ENTRY(speedflt,    "",        0,      16,     1,      57  ) \
+    PARAM_ENTRY(speedkp,     "",        0,      100,    1,      53  ) \
+    PARAM_ENTRY(speedflt,    "",        0,      16,     4,      57  ) \
     PARAM_ENTRY(cruisemode,  CRUISEMODS,0,      1,      0,      62  ) \
     PARAM_ENTRY(bmslimhigh,  "%",       0,      100,    50,     55  ) \
     PARAM_ENTRY(bmslimlow,   "%",       -100,   0,      -1,     56  ) \
@@ -80,7 +66,6 @@
     PARAM_ENTRY(brknom,      "%",       0,      100,    30,     19  ) \
     PARAM_ENTRY(brkmax,      "%",       0,      100,    30,     49  ) \
     PARAM_ENTRY(brkrampstr,  "Hz",      0,      400,    10,     39  ) \
-    PARAM_ENTRY(brkout,      "%",       -100,   -1,      -50,    67  ) \
     PARAM_ENTRY(udcsw,       "V",       0,      1000,   330,    20  ) \
     PARAM_ENTRY(udcmin,      "V",       0,      1000,   450,    42  ) \
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    43  ) \
@@ -96,6 +81,8 @@
     PARAM_ENTRY(speedgain,   "rpm/kHz", 0,      65535,  6000,   59  ) \
     PARAM_ENTRY(snshs,       SNS_HS,    0,      1,      0,      45  ) \
     PARAM_ENTRY(snsm,        SNS_M,     2,      3,      2,      46  ) \
+    PARAM_ENTRY(syncmode,    ONOFF,     0,      1,      0,      60  ) \
+    PARAM_ENTRY(syncofs,     "dig",     0,      65535,  0,      61  ) \
     PARAM_ENTRY(fslipspnt,   "Hz",      -100,   100,    0,      0   ) \
     PARAM_ENTRY(version,     "",        0,      0,      VER,    0   ) \
     PARAM_ENTRY(ampnom,      "%",       0,      100,    0,      0   ) \
@@ -116,9 +103,9 @@
     VALUE_ENTRY(t,           "Nm"    ) \
     VALUE_ENTRY(fstat,       "Hz"    ) \
     VALUE_ENTRY(speed,       "rpm"   ) \
+    VALUE_ENTRY(angle,       "dig"   ) \
     VALUE_ENTRY(amp,         "dig"   ) \
     VALUE_ENTRY(pot,         "dig"   ) \
-    VALUE_ENTRY(pot2,        "dig"   ) \
     VALUE_ENTRY(potnom,      "%"     ) \
     VALUE_ENTRY(dir,         DIRS    ) \
     VALUE_ENTRY(tmphs,       "°C"    ) \
@@ -132,5 +119,6 @@
     VALUE_ENTRY(din_emcystop,""      ) \
     VALUE_ENTRY(din_ocur,    ""      ) \
     VALUE_ENTRY(din_bms,     ""      ) \
+    VALUE_ENTRY(din_north,   ""      ) \
     VALUE_ENTRY(tm_meas,     "us"    ) \
 

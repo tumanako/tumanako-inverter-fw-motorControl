@@ -16,7 +16,7 @@
 			<SilentBuild command="$make -s -f $makefile $target" />
 		</MakeCommands>
 		<Build>
-			<Target title="Release">
+			<Target title="STM32F103">
 				<Option output="stm32_sine" prefix_auto="0" extension_auto="0" />
 				<Option object_output="obj/Release/" />
 				<Option type="1" />
@@ -39,20 +39,20 @@
 			</Target>
 		</Build>
 		<Unit filename="Makefile">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="anain.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="anain.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="anain_prj.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="digio.cpp">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="digio.h">
 			<Option target="&lt;{~None~}&gt;" />
@@ -60,111 +60,113 @@
 		<Unit filename="digio_prj.h">
 			<Option target="&lt;{~None~}&gt;" />
 		</Unit>
-		<Unit filename="errormessage.cpp" />
-		<Unit filename="errormessage.h" />
-		<Unit filename="errormessage_prj.h" />
 		<Unit filename="foc.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="foc.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="fu.cpp">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="fu.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="hwdefs.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="hwinit.cpp">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="hwinit.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="inc_encoder.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="inc_encoder.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="my_fp.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="my_fp.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="my_math.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="my_string.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="my_string.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="param_prj.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="param_save.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="param_save.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="params.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="params.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="printf.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="printf.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
+		<Unit filename="pwmgeneration.cpp" />
+		<Unit filename="pwmgeneration.h" />
 		<Unit filename="sine_core.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="sine_core.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="stm32_sine.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="stm32_sine.ld">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="stm32_timsched.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="stm32_timsched.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="temp_meas.cpp">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="temp_meas.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="terminal.c">
 			<Option compilerVar="CC" />
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
 		<Unit filename="terminal.h">
-			<Option target="Release" />
+			<Option target="STM32F103" />
 		</Unit>
-		<Unit filename="terminal_prj.cpp" />
+		<Unit filename="terminal_prj.c">
+			<Option compilerVar="CC" />
+			<Option target="STM32F103" />
+		</Unit>
 		<Unit filename="test/Makefile">
 			<Option target="Test" />
 		</Unit>
@@ -188,7 +190,7 @@
 		<Extensions>
 			<code_completion />
 			<debugger>
-				<remote_debugging target="Release">
+				<remote_debugging target="STM32F103">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 			</debugger>

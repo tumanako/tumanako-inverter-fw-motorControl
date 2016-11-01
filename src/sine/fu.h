@@ -11,6 +11,7 @@ public:
    static void SetWeakeningFrq(u32fp frq);
    static void SetMaxAmp(uint32_t maxAmp);
    static void SetMinFrq(u32fp frq);
+   static void SetMaxFrq(u32fp frq);
    static uint32_t GetAmp(u32fp frq);
    static uint32_t GetAmpPerc(u32fp frq, uint32_t perc);
 
@@ -21,6 +22,7 @@ private:
    static uint32_t maxAmp;
    static u32fp endFrq;
    static u32fp minFrq;
+   static u32fp maxFrq;
 };
 
 #endif // FU_H_INCLUDED

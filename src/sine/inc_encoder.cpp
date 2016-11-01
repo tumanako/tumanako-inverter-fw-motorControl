@@ -23,22 +23,27 @@
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/dma.h>
+#include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/gpio.h>
+#include <libopencm3/cm3/nvic.h>
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
-#define NUM_CTR_VAL 10
+#define NUM_CTR_VAL 100
 
 static void tim_setup();
 static void dma_setup();
 static int GetPulseTimeFiltered();
 
-static uint16_t timdata[NUM_CTR_VAL];
-static uint16_t angle = 0;
+static volatile uint16_t timdata[NUM_CTR_VAL];
+static volatile uint16_t angle = 0;
 static uint32_t last_pulse_timespan;
 static uint16_t filter = 0;
 static uint32_t angle_per_pulse = 0;
 static uint16_t imp_per_rev;
 static bool ignore = true;
+static volatile bool seenNorthSignal = false;
+static uint16_t northIgnore = 0;
 
 void Encoder::Init(void)
 {
@@ -46,11 +51,50 @@ void Encoder::Init(void)
    tim_setup();
    dma_setup();
    last_pulse_timespan = MAX_CNT;
+   EnableSyncMode();
+}
+
+void Encoder::EnableSyncMode()
+{
+	/* Configure the EXTI subsystem. */
+	seenNorthSignal = false;
+	exti_select_source(EXTI0, GPIOA);
+	exti_set_trigger(EXTI0, EXTI_TRIGGER_RISING);
+	exti_enable_request(EXTI0);
+}
+
+void Encoder::DisableSyncMode()
+{
+	/* Disable EXTI0 interrupt. */
+	seenNorthSignal = false;
+	northIgnore = 0;
+	exti_disable_request(EXTI0);
+}
+
+extern "C" void exti0_isr(void)
+{
+	exti_reset_request(EXTI0);
+
+	if (!northIgnore)
+	{
+	   angle = 0;
+	   northIgnore = 2;
+   }
+   else
+      northIgnore--;
+ 	gpio_toggle(GPIOC, GPIO12);
+	seenNorthSignal = true;
+}
+
+/** Since power up, have we seen the north marker? */
+bool Encoder::SeenNorthSignal()
+{
+   return seenNorthSignal;
 }
 
 void Encoder::Update()
 {
-   uint32_t numPulses = GetPulseTimeFiltered();
+   uint16_t numPulses = GetPulseTimeFiltered();
 
    angle += (int16_t)(numPulses * angle_per_pulse);
 }
@@ -118,19 +162,14 @@ static void tim_setup()
    timer_set_period(REV_CNT_TIMER, MAX_CNT);
    timer_update_on_overflow(REV_CNT_TIMER);
    timer_direction_up(REV_CNT_TIMER);
-   /*timer_ic_enable(REV_CNT_TIMER, REV_CNT_IC);
-   timer_ic_set_filter(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_DTF_DIV_32_N_6);
-   timer_ic_set_prescaler(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_PSC_OFF);
-   timer_ic_set_input(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_IN_TI2);*/
 
    /* Reset counter on input pulse. Filter constant must be larger than that of the capture input
       So that the counter value is first saved, then reset */
-   TIM_SMCR(REV_CNT_TIMER) = TIM_SMCR_SMS_RM | TIM_SMCR_TS_ETRF | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_32_N_8;
+   TIM_SMCR(REV_CNT_TIMER) = TIM_SMCR_SMS_RM | TIM_SMCR_TS_ETRF | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_2_N_8; //TIM_SMCR_ETF_DTS_DIV_32_N_8;
    /* Save timer value on input pulse with smaller filter constant */
-   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2 | TIM_CCMR2_IC3F_DTF_DIV_32_N_6;
-   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //1 << (1 + 4 * REV_CNT_IC);
+   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2 | TIM_SMCR_ETF_DTS_DIV_2_N_6;//TIM_CCMR2_IC3F_DTF_DIV_32_N_6;
+   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER;
 
-   //timer_enable_irq(REV_CNT_TIMER, TIM_DIER_CC3IE);
    timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
    timer_set_dma_on_compare_event(REV_CNT_TIMER);
 
@@ -142,6 +181,7 @@ static int GetPulseTimeFiltered()
 {
    static uint16_t lastN = NUM_CTR_VAL;
    uint16_t n = REV_CNT_DMA_CNDTR;
+   uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN?lastN - n:lastN + NUM_CTR_VAL - n;
 
    if (pulses > 0)
@@ -152,16 +192,18 @@ static int GetPulseTimeFiltered()
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3IF);
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
          ignore = true;
+         northIgnore = 0;
+         seenNorthSignal = false;
       }
    }
-   //Ignore pulses when time is less than half of the last measurement
-   if (REV_CNT_CCR < (last_pulse_timespan / 16))
+   //Ignore pulses when time is less than quarter of the last measurement (debouncing)
+   //if (measTm < (last_pulse_timespan / 4))
+   //{
+   //   pulses = 0;
+   //}
+   //else
    {
-      pulses = 0;
-   }
-   else
-   {
-      last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, REV_CNT_CCR, filter);
+      last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, measTm, filter);
    }
    lastN = n;
    return pulses;

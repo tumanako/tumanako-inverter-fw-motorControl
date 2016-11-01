@@ -1,7 +1,7 @@
 /*
  * This file is part of the tumanako_vc project.
  *
- * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
+ * Copyright (C) 2015 Johannes Huebner <dev@johanneshuebner.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,22 +16,23 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef PWMGENERATION_H
+#define PWMGENERATION_H
+
 #include <stdint.h>
+#include "my_fp.h"
 
-typedef struct
+class PwmGeneration
 {
-   char *cmd;
-   void (*CmdFunc)(char*);
-} TERM_CMD;
+   public:
+      static uint16_t GetAngle();
+      static void PwmInit();
+      static void EnableOutput();
+      static void DisableOutput();
+      static void SetAmpnom(int amp);
+      static void SetFslip(s32fp fslip);
+   private:
+      static uint16_t TimerSetup(uint16_t deadtime, int pwmpol);
+};
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
-void term_Run(uint32_t usart);
-void term_Send(char *str);
-
-#ifdef __cplusplus
-}
-#endif
+#endif // PWMGENERATION_H
