@@ -33,6 +33,8 @@ s32fp Throttle::speedkp;
 int Throttle::speedflt;
 int Throttle::speedFiltered;
 s32fp Throttle::idleThrotLim;
+int Throttle::brkPedalRamp;
+int Throttle::brkPedalRamped;
 
 bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
@@ -68,17 +70,22 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
       scaledBrkPedal = 1+ (scaledBrkPedal * potnom) / 100;
    }
 
+   potnom = potval - potmin[0];
+   potnom = ((100 + brknom) * potnom) / (potmax[0] - potmin[0]);
+   potnom -= brknom;
+   if (potnom < 0)
+      potnom = (potnom * scaledBrkMax) / brknom;
+
    if (brkpedal)
    {
-      potnom = scaledBrkPedal;
+      if (brkPedalRamped > scaledBrkPedal) //don't overshoot the final value
+         brkPedalRamped -= MIN(brkPedalRamp, brkPedalRamped - scaledBrkPedal);
+
+      potnom = brkPedalRamped;
    }
    else
    {
-      potnom = potval - potmin[0];
-      potnom = ((100 + brknom) * potnom) / (potmax[0] - potmin[0]);
-      potnom -= brknom;
-      if (potnom < 0)
-         potnom = (potnom * scaledBrkMax) / brknom;
+      brkPedalRamped = MIN(0, potnom);
    }
 
    return potnom;

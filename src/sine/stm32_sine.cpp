@@ -29,6 +29,7 @@
 #include <libopencm3/stm32/timer.h>
 #include "stm32_sine.h"
 #include "stm32_timsched.h"
+#include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
 #include "hwdefs.h"
@@ -254,6 +255,10 @@ static void Ms100Task(void)
    parm_SetDig(VALUE_din_reverse, DigIo::Get(Pin::rev_in));
    parm_SetDig(VALUE_din_emcystop, DigIo::Get(Pin::emcystop_in));
    parm_SetDig(VALUE_din_bms, DigIo::Get(Pin::bms_in));
+
+   s32fp data[2] = { parm_Get(VALUE_speed), parm_Get(VALUE_udc) };
+
+   can_send(0x180, (uint8_t*)data, sizeof(data));
 }
 
 static void CalcAmpAndSlip(void)
@@ -615,6 +620,7 @@ extern void parm_Change(PARAM_NUM ParamNum)
    Throttle::potmax[1] = parm_GetInt(PARAM_pot2max);
    Throttle::brknom = parm_GetInt(PARAM_brknom);
    Throttle::brknompedal = parm_GetInt(PARAM_brknompedal);
+   Throttle::brkPedalRamp = parm_GetInt(PARAM_brkpedalramp);
    Throttle::brkmax = parm_GetInt(PARAM_brkmax);
    Throttle::idleSpeed = parm_GetInt(PARAM_idlespeed);
    Throttle::speedkp = parm_Get(PARAM_speedkp);
@@ -632,6 +638,8 @@ extern "C" int main(void)
    init_timsched();
    AnaIn::Init();
    Encoder::Init();
+   term_Init(TERM_USART);
+   can_setup();
    parm_load();
    parm_Change(PARAM_LAST);
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);
@@ -642,7 +650,7 @@ extern "C" int main(void)
 
    DigIo::Set(Pin::prec_out);
 
-   term_Run(TERM_USART);
+   term_Run();
 
    return 0;
 }

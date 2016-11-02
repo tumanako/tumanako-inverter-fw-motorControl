@@ -56,7 +56,7 @@ void AnaIn::Init()
    for (volatile int i = 0; i < 80000; i++);
 
    adc_reset_calibration(ADC1);
-   adc_calibration(ADC1);
+   adc_calibrate(ADC1);
 
    for (pCur = ins; pCur->port != PORT_LAST; pCur++)
    {

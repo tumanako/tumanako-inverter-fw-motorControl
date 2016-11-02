@@ -26,7 +26,7 @@
 #define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
 #define CRUISEMODS "0=Button, 1=Switch"
 #define IDLEMODS "0=always, 1=nobrake"
-#define VER 3.08
+#define VER 3.16
 
 #define BUTTON 0
 #define MOD_OFF    0
@@ -47,7 +47,7 @@
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 68
+//Next param id (increase when adding new parameter!): 69
 /*              name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -77,10 +77,11 @@
     PARAM_ENTRY(bmslimhigh,  "%",       0,      100,    50,     55  ) \
     PARAM_ENTRY(bmslimlow,   "%",       -100,   0,      -1,     56  ) \
     PARAM_ENTRY(brknompedal, "%",       -100,   0,      -50,    38  ) \
+    PARAM_ENTRY(brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(brknom,      "%",       0,      100,    30,     19  ) \
     PARAM_ENTRY(brkmax,      "%",       0,      100,    30,     49  ) \
     PARAM_ENTRY(brkrampstr,  "Hz",      0,      400,    10,     39  ) \
-    PARAM_ENTRY(brkout,      "%",       -100,   -1,      -50,    67  ) \
+    PARAM_ENTRY(brkout,      "%",       -100,   -1,     -50,    67  ) \
     PARAM_ENTRY(udcsw,       "V",       0,      1000,   330,    20  ) \
     PARAM_ENTRY(udcmin,      "V",       0,      1000,   450,    42  ) \
     PARAM_ENTRY(udcmax,      "V",       0,      1000,   520,    43  ) \

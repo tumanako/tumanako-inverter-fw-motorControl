@@ -64,7 +64,7 @@ void ErrorMessage::SetTime(uint32_t time)
  @param msg message number */
 void ErrorMessage::Post(ERROR_MESSAGE_NUM msg)
 {
-   if (!posted[msg] && timeTick > 0)
+   if (!posted[msg])
    {
       errorBuffer[currentBufIdx].msg = msg;
       errorBuffer[currentBufIdx].time = timeTick;
@@ -74,7 +74,8 @@ void ErrorMessage::Post(ERROR_MESSAGE_NUM msg)
    }
 }
 
-/** Unpost all error message, i.e. make them postable again */
+/** Unpost all error message, i.e. make them postable again.
+ Does not reset the error buffer */
 void ErrorMessage::UnpostAll()
 {
    for (uint32_t i = 0; i < ERROR_MESSAGE_LAST; i++)

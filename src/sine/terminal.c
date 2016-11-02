@@ -33,10 +33,14 @@ static void term_send(uint32_t usart, const char *str);
 
 extern const TERM_CMD TermCmds[];
 static char inBuf[BUFSIZE];
-static uint32_t _usart;
+static uint32_t _usart = 0xffffffff;
 
+void term_Init(uint32_t usart)
+{
+   _usart = usart;
+}
 /** Run the terminal */
-void term_Run(uint32_t usart)
+void term_Run()
 {
    int idx = 0;
    char *argStart = NULL;
@@ -44,12 +48,11 @@ void term_Run(uint32_t usart)
    const TERM_CMD *pCurCmd = NULL;
    const TERM_CMD *pLastCmd = NULL;
    char c;
-   _usart = usart;
 
    while (1)
    {
-      c = usart_recv_blocking(usart);
-      usart_send_blocking(usart, c);
+      c = usart_recv_blocking(_usart);
+      usart_send_blocking(_usart, c);
 
       if ('\n' == c || '\r' == c || idx > (BUFSIZE - 2))
       {
@@ -63,7 +66,7 @@ void term_Run(uint32_t usart)
          }
          else if (idx > 0)
          {
-            term_send(usart, "Unknown command sequence\r\n");
+            term_send(_usart, "Unknown command sequence\r\n");
          }
          idx = 0;
       }
@@ -98,6 +101,7 @@ void term_Run(uint32_t usart)
 
 int putchar(int c)
 {
+   if (_usart == 0xffffffff) return -1;
    usart_send_blocking(_usart, c);
    return 0;
 }

@@ -29,7 +29,8 @@ extern "C"
 {
 #endif
 
-void term_Run(uint32_t usart);
+void term_Init(uint32_t usart);
+void term_Run();
 void term_Send(char *str);
 
 #ifdef __cplusplus

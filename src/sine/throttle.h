@@ -42,9 +42,11 @@ class Throttle
       static s32fp speedkp;
       static int speedflt;
       static s32fp idleThrotLim;
+      static int brkPedalRamp;
 
    private:
       static int speedFiltered;
+      static int brkPedalRamped;
 };
 
 #endif // THROTTLE_H
