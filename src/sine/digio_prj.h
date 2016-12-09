@@ -40,6 +40,8 @@
     DIG_IO_ENTRY(bms_in,      GPIOC, GPIO8,  PinMode::INPUT_PD)    \
     DIG_IO_ENTRY(speed_out,   GPIOC, GPIO9,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(brk_out,     GPIOA, GPIO7,  PinMode::OUTPUT)      \
+    DIG_IO_ENTRY(north_in,    GPIOA, GPIO0,  PinMode::INPUT_FLT)   \
+    DIG_IO_ENTRY(dir_in,      GPIOA, GPIO7,  PinMode::INPUT_FLT)   \
 
 #endif
 

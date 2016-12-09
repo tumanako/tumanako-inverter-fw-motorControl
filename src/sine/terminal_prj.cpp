@@ -77,7 +77,7 @@ static void PrintParamsJson(char *arg)
 
       if (parm_IsParam((PARAM_NUM)idx))
       {
-         printf("true,\"minimum\":%f,\"maximum\":%f,\"default\":%f}", pAtr->min, pAtr->max, pAtr->def);
+         printf("true,\"minimum\":%f,\"maximum\":%f,\"default\":%f,\"category\":\"%s\"}", pAtr->min, pAtr->max, pAtr->def, pAtr->category);
       }
       else
       {
@@ -224,7 +224,7 @@ static void StartInverter(char *arg)
 {
    arg = my_trim(arg);
    s32fp val = fp_atoi(arg);
-   if (val <= FP_FROMINT(3))
+   if (val < FP_FROMINT(MOD_LAST))
    {
       parm_SetFlt(VALUE_opmode, val);
       printf("Inverter started\r\n");

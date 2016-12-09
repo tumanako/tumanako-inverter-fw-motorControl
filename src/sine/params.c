@@ -20,8 +20,8 @@
 #include "params.h"
 #include "my_string.h"
 
-#define PARAM_ENTRY(name, unit, min, max, def, id) { #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id },
-#define VALUE_ENTRY(name, unit) { #name, unit, 0, 0, 0, 0 },
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) { category, #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id },
+#define VALUE_ENTRY(name, unit) { 0, #name, unit, 0, 0, 0, 0 },
 static const PARAM_ATTRIB attribs[] =
 {
     PARAM_LIST
@@ -29,7 +29,7 @@ static const PARAM_ATTRIB attribs[] =
 #undef PARAM_ENTRY
 #undef VALUE_ENTRY
 
-#define PARAM_ENTRY(name, unit, min, max, def, id) FP_FROMFLT(def),
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) FP_FROMFLT(def),
 #define VALUE_ENTRY(name, unit) 0,
 static s32fp values[] =
 {

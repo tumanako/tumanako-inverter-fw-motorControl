@@ -64,7 +64,7 @@ void ErrorMessage::SetTime(uint32_t time)
  @param msg message number */
 void ErrorMessage::Post(ERROR_MESSAGE_NUM msg)
 {
-   if (!posted[msg])
+   if (!posted[msg] && timeTick > 0)
    {
       errorBuffer[currentBufIdx].msg = msg;
       errorBuffer[currentBufIdx].time = timeTick;

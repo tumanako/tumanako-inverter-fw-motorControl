@@ -94,73 +94,9 @@ void nvic_setup(void)
 /**
 * Setup main PWM timer and timer for generating over current
 * reference values and external PWM
-*
-* @param[in] pwmdigits Number of binary digits to use (determines PWM frequency)
-* @param[in] deadtime Deadtime between bottom and top (coded value, consult STM32 manual)
-* @param[in] pwmpol Output Polarity. 0=Active High, 1=Active Low
-* @return PWM frequency
 */
-uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
+void tim_setup()
 {
-   const uint16_t pwmmax = 1U << pwmdigits;
-   /* disable timer */
-   timer_disable_counter(PWM_TIMER);
-   /* Center aligned PWM */
-   timer_set_alignment(PWM_TIMER, TIM_CR1_CMS_CENTER_1);
-   timer_enable_preload(PWM_TIMER);
-   /* PWM mode 1 and preload enable */
-   TIM_CCMR1(PWM_TIMER) = TIM_CCMR1_OC1M_PWM1 | TIM_CCMR1_OC1PE |
-                        TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
-   TIM_CCMR2(PWM_TIMER) = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
-
-   if (pwmpol)
-   {
-      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC1);
-      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC2);
-      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3);
-   }
-   else
-   {
-      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC1);
-      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC2);
-      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
-   }
-
-   tim_output_enable();
-
-   timer_disable_break_automatic_output(PWM_TIMER);
-   timer_enable_break_main_output(PWM_TIMER);
-   timer_set_break_polarity_high(PWM_TIMER);
-   timer_enable_break(PWM_TIMER);
-   timer_set_enabled_off_state_in_run_mode(PWM_TIMER);
-   timer_set_enabled_off_state_in_idle_mode(PWM_TIMER);
-
-   timer_set_deadtime(PWM_TIMER, deadtime);
-
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC1);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC2);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC3);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC1N);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC2N);
-   timer_set_oc_idle_state_unset(PWM_TIMER, TIM_OC3N);
-
-   timer_generate_event(PWM_TIMER, TIM_EGR_UG);
-
-   timer_clear_flag(PWM_TIMER, TIM_SR_BIF);
-   timer_enable_irq(PWM_TIMER, TIM_DIER_UIE);
-   timer_enable_irq(PWM_TIMER, TIM_DIER_BIE);
-
-   timer_set_prescaler(PWM_TIMER, 0);
-   /* PWM frequency */
-   timer_set_period(PWM_TIMER, pwmmax);
-   timer_set_repetition_counter(PWM_TIMER, 1);
-
-   timer_set_oc_value(PWM_TIMER, TIM_OC1, 0);
-   timer_set_oc_value(PWM_TIMER, TIM_OC2, 0);
-   timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
-
-   timer_enable_counter(PWM_TIMER);
-
    /*** Setup over/undercurrent and PWM output timer */
    timer_disable_counter(OVER_CUR_TIMER);
    //edge aligned PWM
@@ -189,32 +125,5 @@ uint16_t tim_setup(uint16_t pwmdigits, uint16_t deadtime, int pwmpol)
    /** setup gpio */
    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15 | GPIO7 | GPIO8 | GPIO9);
-
-   return PERIPH_CLK / (uint32_t)pwmmax;
 }
 
-/**
-* Enable timer PWM output
-*/
-void tim_output_enable()
-{
-   timer_enable_oc_output(PWM_TIMER, TIM_OC1);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC2);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC1N);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC2N);
-   timer_enable_oc_output(PWM_TIMER, TIM_OC3N);
-}
-
-/**
-* Disable timer PWM output
-*/
-void tim_output_disable()
-{
-   timer_disable_oc_output(PWM_TIMER, TIM_OC1);
-   timer_disable_oc_output(PWM_TIMER, TIM_OC2);
-   timer_disable_oc_output(PWM_TIMER, TIM_OC3);
-   timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
-   timer_disable_oc_output(PWM_TIMER, TIM_OC2N);
-   timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
-}

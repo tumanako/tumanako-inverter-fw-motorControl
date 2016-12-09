@@ -132,6 +132,8 @@
 		<Unit filename="printf.h">
 			<Option target="Release" />
 		</Unit>
+		<Unit filename="pwmgeneration.cpp" />
+		<Unit filename="pwmgeneration.h" />
 		<Unit filename="sine_core.cpp">
 			<Option target="Release" />
 		</Unit>

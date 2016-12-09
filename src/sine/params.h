@@ -20,7 +20,7 @@
 #include "param_prj.h"
 #include "my_fp.h"
 
-#define PARAM_ENTRY(name, unit, min, max, def, id) PARAM_##name,
+#define PARAM_ENTRY(category, name, unit, min, max, def, id) PARAM_##name,
 #define VALUE_ENTRY(name, unit) VALUE_##name,
 typedef enum
 {
@@ -40,12 +40,13 @@ typedef enum
 
 typedef struct
 {
-    char *name;
-    char *unit;
-    s32fp min;
-    s32fp max;
-    s32fp def;
-    uint32_t id;
+   char *category;
+   char *name;
+   char *unit;
+   s32fp min;
+   s32fp max;
+   s32fp def;
+   uint32_t id;
 } PARAM_ATTRIB;
 
 #ifdef __cplusplus
