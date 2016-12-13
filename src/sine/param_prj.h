@@ -70,20 +70,20 @@ enum _modes
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
-    PARAM_ENTRY(CAT_MOTOR,   fweak,       "Hz",      0,      400,    67,     2   ) \
+    PARAM_ENTRY(CAT_MOTOR,   fweak,       "Hz",      0,      400,    90,     2   ) \
     PARAM_ENTRY(CAT_MOTOR,   fpconst,     "Hz",      0,      400,    400,    60  ) \
     PARAM_ENTRY(CAT_MOTOR,   fslipmin,    "Hz",      0,      100,    1,      37  ) \
     PARAM_ENTRY(CAT_MOTOR,   fslipmax,    "Hz",      0,      100,    3,      33  ) \
     PARAM_ENTRY(CAT_MOTOR,   polepairs,   "",        1,      16,     2,      32  ) \
     PARAM_ENTRY(CAT_MOTOR,   ampmin,      "%",       0,      100,    10,     4   ) \
-    PARAM_ENTRY(CAT_MOTOR,   encflt,      "",        0,      16,     4,      6   ) \
+    PARAM_ENTRY(CAT_MOTOR,   encflt,      "",        0,      16,     1,      6   ) \
     PARAM_ENTRY(CAT_MOTOR,   fmin,        "Hz",      0,      400,    1,      34  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      400,    200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncmode,    ONOFF,     0,      1,      0,      69  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
     PARAM_ENTRY(CAT_MOTOR,   snsm,        SNS_M,     2,      3,      2,      46  ) \
-    PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      2,      13  ) \
+    PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      1,      13  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
     PARAM_ENTRY(CAT_INVERTER,deadtime,    "dig",     0,      255,    63,     14  ) \
     PARAM_ENTRY(CAT_INVERTER,ocurlim,     "A",       -1000,  1000,   -100,   22  ) \
@@ -94,7 +94,7 @@ enum _modes
     PARAM_ENTRY(CAT_INVERTER,udclim,      "V",       0,      1000,   540,    48  ) \
     PARAM_ENTRY(CAT_INVERTER,snshs,       SNS_HS,    0,      1,      0,      45  ) \
     PARAM_ENTRY(CAT_CHARGER, chargena,    ONOFF,     0,      1,      0,      74  ) \
-    PARAM_ENTRY(CAT_CHARGER, icharge,     "A",       0,      50,     0,      71  ) \
+    PARAM_ENTRY(CAT_CHARGER, chargecur,   "A",       0,      50,     0,      71  ) \
     PARAM_ENTRY(CAT_CHARGER, chargekp,    "dig",     0,      100,    80,     72  ) \
     PARAM_ENTRY(CAT_CHARGER, chargeflt,   "dig",     0,      10,     8,      73  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmin,      "dig",     0,      4095,   0,      17  ) \
@@ -111,7 +111,7 @@ enum _modes
     PARAM_ENTRY(CAT_AUTOM,   idlethrotlim,"%",       0,      100,    50,     65  ) \
     PARAM_ENTRY(CAT_AUTOM,   idlemode,    IDLEMODS,  0,      1,      0,      66  ) \
     PARAM_ENTRY(CAT_AUTOM,   speedkp,     "",        0,      100,    0.25,   53  ) \
-    PARAM_ENTRY(CAT_AUTOM,   speedflt,    "",        0,      16,     1,      57  ) \
+    PARAM_ENTRY(CAT_AUTOM,   speedflt,    "",        0,      16,     5,      57  ) \
     PARAM_ENTRY(CAT_AUTOM,   cruisemode,  CRUISEMODS,0,      1,      0,      62  ) \
     PARAM_ENTRY(CAT_DERATE,  bmslimhigh,  "%",       0,      100,    50,     55  ) \
     PARAM_ENTRY(CAT_DERATE,  bmslimlow,   "%",       -100,   0,      -1,     56  ) \

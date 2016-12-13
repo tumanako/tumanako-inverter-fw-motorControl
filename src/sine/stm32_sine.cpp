@@ -53,6 +53,7 @@
 static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
 static s32fp ilofs[2] = { 0, 0 };
+//Precise control of executing the boost controller
 static bool runBoostControl = false;
 
 static void CruiseControl()
@@ -293,14 +294,14 @@ static void CalcFancyValues()
    q = FP_MUL(fac, FP_MUL(uac, FOC::iq) / 1000);
    pf = MIN(FP_FROMINT(1), MAX(0, FP_DIV(FOC::id, is)));
 
-   if (parm_GetInt(VALUE_opmode) == MOD_BOOST)
-      idc = FP_MUL((FP_FROMINT(100) - parm_Get(PARAM_ampnom)), il1) / 100;
-   else
+   if (parm_GetInt(VALUE_opmode) != MOD_BOOST)
+   {
       idc = FP_MUL(FP_MUL(fac, FOC::id), FP_FROMFLT(0.7071));
+      parm_SetFlt(VALUE_idc, idc);
+   }
 
    parm_SetFlt(VALUE_id, FOC::id);
    parm_SetFlt(VALUE_iq, FOC::iq);
-   parm_SetFlt(VALUE_idc, idc);
    parm_SetFlt(VALUE_uac, uac);
    parm_SetFlt(VALUE_pf, pf);
    parm_SetFlt(VALUE_p, p);
@@ -390,7 +391,19 @@ static void Ms10Task(void)
       if (DigIo::Get(Pin::emcystop_in) &&
           DigIo::Get(Pin::mprot_in))
       {
-         if (DigIo::Get(Pin::start_in))
+         /* Switch to charge mode if
+          * - Charge mode is enabled
+          * - Fwd AND Rev are high
+          */
+         if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && parm_Get(PARAM_chargena))
+         {
+            DigIo::Set(Pin::dcsw_out);
+            DigIo::Clear(Pin::err_out);
+            DigIo::Clear(Pin::prec_out);
+            parm_SetDig(VALUE_opmode, MOD_BOOST);
+            ErrorMessage::UnpostAll();
+         }
+         else if (DigIo::Get(Pin::start_in))
          {
             DigIo::Set(Pin::dcsw_out);
             DigIo::Clear(Pin::err_out);
@@ -398,18 +411,6 @@ static void Ms10Task(void)
             parm_SetDig(VALUE_opmode, MOD_RUN);
             ErrorMessage::UnpostAll();
             runBoostControl = false;
-         }
-         /* Switch to charge mode if
-          * - Charge mode is enabled
-          * - Fwd AND Rev are high
-          */
-         else if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && parm_Get(PARAM_chargena))
-         {
-            DigIo::Set(Pin::dcsw_out);
-            DigIo::Clear(Pin::err_out);
-            DigIo::Clear(Pin::prec_out);
-            parm_SetDig(VALUE_opmode, MOD_BOOST);
-            ErrorMessage::UnpostAll();
          }
       }
    }
@@ -461,8 +462,9 @@ static void Ms1Task(void)
    static s32fp ilrms[2] = { 0, 0 };
    static int samples = 0;
    static int speedCnt = 0;
-   static s32fp il1Flt = 0;
+   static s32fp ilFlt = 0;
    static s32fp iSpntFlt = 0;
+   s32fp ilMax = 0;
 
    timeTick++;
    ErrorMessage::SetTime(timeTick);
@@ -494,11 +496,8 @@ static void Ms1Task(void)
          parm_SetFlt((PARAM_NUM)(VALUE_il1rms+i), ilrms[i]);
          ilrms[i] = 0;
       }
-      if (i == 0)
-      {
-         il = ABS(il) << 8;
-         il1Flt = IIRFILTER(il1Flt, il, parm_GetInt(PARAM_chargeflt));
-      }
+      il <<= 8;
+      ilMax = MAX(ilMax, il);
    }
 
    if (samples == 0)
@@ -519,10 +518,12 @@ static void Ms1Task(void)
 
    if (runBoostControl)
    {
-      iSpntFlt = IIRFILTER(iSpntFlt, parm_Get(PARAM_icharge) << 8, 11);
+      ilFlt = IIRFILTER(ilFlt, ilMax, parm_GetInt(PARAM_chargeflt));
+      iSpntFlt = IIRFILTER(iSpntFlt, parm_Get(PARAM_chargecur) << 8, 11);
 
-      s32fp ampnom = FP_MUL(parm_GetInt(PARAM_chargekp), (iSpntFlt - il1Flt));
+      s32fp ampnom = FP_MUL(parm_GetInt(PARAM_chargekp), (iSpntFlt - ilFlt));
       parm_SetFlt(PARAM_ampnom, ampnom);
+      parm_SetFlt(VALUE_idc, (FP_MUL((FP_FROMINT(100) - ampnom), ilFlt) / 100) >> 8);
       PwmGeneration::SetAmpnom(ampnom);
    }
    else
