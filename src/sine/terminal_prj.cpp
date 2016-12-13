@@ -25,6 +25,7 @@
 #include "printf.h"
 #include "param_save.h"
 #include "errormessage.h"
+#include "pwmgeneration.h"
 
 #define NUM_BUF_LEN 15
 
@@ -227,6 +228,7 @@ static void StartInverter(char *arg)
    if (val < FP_FROMINT(MOD_LAST))
    {
       parm_SetFlt(VALUE_opmode, val);
+      PwmGeneration::SetOpmode(FP_TOINT(val));
       printf("Inverter started\r\n");
    }
    else

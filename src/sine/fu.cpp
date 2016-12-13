@@ -1,6 +1,6 @@
 #include "fu.h"
 
-#define FRQ_DRT_STR FP_FROMINT(10)
+#define FRQ_DRT_STR FP_FROMINT(20)
 
 uint32_t MotorVoltage::boost;
 u32fp MotorVoltage::fac;

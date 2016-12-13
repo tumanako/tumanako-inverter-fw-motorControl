@@ -70,15 +70,15 @@ enum _modes
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
-    PARAM_ENTRY(CAT_MOTOR,   fweak,       "Hz",      0,      400,    90,     2   ) \
-    PARAM_ENTRY(CAT_MOTOR,   fpconst,     "Hz",      0,      400,    400,    60  ) \
-    PARAM_ENTRY(CAT_MOTOR,   fslipmin,    "Hz",      0,      100,    1,      37  ) \
-    PARAM_ENTRY(CAT_MOTOR,   fslipmax,    "Hz",      0,      100,    3,      33  ) \
+    PARAM_ENTRY(CAT_MOTOR,   fweak,       "Hz",      0,      1000,   90,     2   ) \
+    PARAM_ENTRY(CAT_MOTOR,   fpconst,     "Hz",      0,      1000,   1000,   60  ) \
+    PARAM_ENTRY(CAT_MOTOR,   fslipmin,    "Hz",      0,      10,     1,      37  ) \
+    PARAM_ENTRY(CAT_MOTOR,   fslipmax,    "Hz",      0,      10,     3,      33  ) \
     PARAM_ENTRY(CAT_MOTOR,   polepairs,   "",        1,      16,     2,      32  ) \
     PARAM_ENTRY(CAT_MOTOR,   ampmin,      "%",       0,      100,    10,     4   ) \
     PARAM_ENTRY(CAT_MOTOR,   encflt,      "",        0,      16,     1,      6   ) \
     PARAM_ENTRY(CAT_MOTOR,   fmin,        "Hz",      0,      400,    1,      34  ) \
-    PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      400,    200,    9   ) \
+    PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      1000,   200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncmode,    ONOFF,     0,      1,      0,      69  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
