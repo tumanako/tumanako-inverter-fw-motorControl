@@ -20,9 +20,12 @@
 #include "params.h"
 #include "my_string.h"
 
+namespace Param
+{
+
 #define PARAM_ENTRY(category, name, unit, min, max, def, id) { category, #name, unit, FP_FROMFLT(min), FP_FROMFLT(max), FP_FROMFLT(def), id },
 #define VALUE_ENTRY(name, unit) { 0, #name, unit, 0, 0, 0, 0 },
-static const PARAM_ATTRIB attribs[] =
+static const Attributes attribs[] =
 {
     PARAM_LIST
 };
@@ -45,7 +48,7 @@ static s32fp values[] =
 * @param[in] ParamVal New value of parameter
 * @return 0 if set ok, -1 if ParamVal outside of allowed range
 */
-int parm_Set(PARAM_NUM ParamNum, s32fp ParamVal)
+int Set(PARAM_NUM ParamNum, s32fp ParamVal)
 {
     char res = -1;
 
@@ -64,7 +67,7 @@ int parm_Set(PARAM_NUM ParamNum, s32fp ParamVal)
 * @param[in] ParamNum Parameter index
 * @return Parameters value
 */
-s32fp parm_Get(PARAM_NUM ParamNum)
+s32fp Get(PARAM_NUM ParamNum)
 {
     return values[ParamNum];
 }
@@ -75,7 +78,7 @@ s32fp parm_Get(PARAM_NUM ParamNum)
 * @param[in] ParamNum Parameter index
 * @return Parameters value
 */
-int parm_GetInt(PARAM_NUM ParamNum)
+int GetInt(PARAM_NUM ParamNum)
 {
     return FP_TOINT(values[ParamNum]);
 }
@@ -86,7 +89,7 @@ int parm_GetInt(PARAM_NUM ParamNum)
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
 */
-void parm_SetDig(PARAM_NUM ParamNum, int ParamVal)
+void SetDig(PARAM_NUM ParamNum, int ParamVal)
 {
    values[ParamNum] = FP_FROMINT(ParamVal);
 }
@@ -97,7 +100,7 @@ void parm_SetDig(PARAM_NUM ParamNum, int ParamVal)
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
 */
-void parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
+void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
 {
    values[ParamNum] = ParamVal;
 }
@@ -108,21 +111,20 @@ void parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal)
 * @param[in] name Parameters name
 * @return Parameter index if found, PARAM_INVALID otherwise
 */
-PARAM_NUM parm_NumFromString(const char *name)
+PARAM_NUM NumFromString(const char *name)
 {
-    PARAM_NUM ParamNum = PARAM_INVALID;
-    PARAM_NUM CurNum = 0;
-    const PARAM_ATTRIB *pCurAtr = attribs;
+    PARAM_NUM paramNum = PARAM_INVALID;
+    const Attributes *pCurAtr = attribs;
 
-    for (; CurNum < PARAM_LAST; CurNum++, pCurAtr++)
+    for (int i = 0; i < PARAM_LAST; i++, pCurAtr++)
     {
          if (0 == my_strcmp(pCurAtr->name, name))
          {
-             ParamNum = CurNum;
+             paramNum = (PARAM_NUM)i;
              break;
          }
     }
-    return ParamNum;
+    return paramNum;
 }
 
 /**
@@ -131,7 +133,7 @@ PARAM_NUM parm_NumFromString(const char *name)
 * @param[in] ParamNum Parameter index
 * @return Parameter attributes
 */
-const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum)
+const Attributes *GetAttrib(PARAM_NUM ParamNum)
 {
     return &attribs[ParamNum];
 }
@@ -140,19 +142,21 @@ const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum)
  * @retval 1 it is a parameter
  * @retval 0 otherwise
  */
-int parm_IsParam(PARAM_NUM ParamNum)
+int IsParam(PARAM_NUM ParamNum)
 {
    return attribs[ParamNum].min != attribs[ParamNum].max;
 }
 
 /** Load default values for all parameters */
-void parm_LoadDefaults()
+void LoadDefaults()
 {
-   const PARAM_ATTRIB *curAtr = attribs;
+   const Attributes *curAtr = attribs;
 
-   for (PARAM_NUM idx = 0; idx < PARAM_LAST; idx++, curAtr++)
+   for (int idx = 0; idx < PARAM_LAST; idx++, curAtr++)
    {
       if (curAtr->id > 0)
-         parm_SetFlt(idx, curAtr->def);
+         SetFlt((PARAM_NUM)idx, curAtr->def);
    }
+}
+
 }

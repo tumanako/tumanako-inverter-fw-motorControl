@@ -45,7 +45,7 @@ static int opmode;
 static void CalcNextAngleSync();
 static void CalcNextAngle();
 static void CalcNextAngleConstant();
-static void Boost();
+static void Charge();
 static void AcHeat();
 
 uint16_t PwmGeneration::GetAngle()
@@ -79,12 +79,12 @@ void PwmGeneration::SetOpmode(int _opmode)
          timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
          break;
       case MOD_BOOST:
-         timer_disable_oc_output(PWM_TIMER, TIM_OC1);
-         timer_disable_oc_output(PWM_TIMER, TIM_OC1N);
-         timer_disable_oc_output(PWM_TIMER, TIM_OC2);
+         DisableOutput();
          timer_enable_oc_output(PWM_TIMER, TIM_OC2N);
-         timer_disable_oc_output(PWM_TIMER, TIM_OC3);
-         timer_disable_oc_output(PWM_TIMER, TIM_OC3N);
+         break;
+      case MOD_BUCK:
+         DisableOutput();
+         timer_enable_oc_output(PWM_TIMER, TIM_OC2);
          break;
       case MOD_MANUAL:
       case MOD_RUN:
@@ -99,7 +99,7 @@ void PwmGeneration::SetOpmode(int _opmode)
 extern "C" void tim1_brk_isr(void)
 {
    timer_disable_irq(PWM_TIMER, TIM_DIER_BIE);
-   parm_SetDig(VALUE_opmode, MOD_OFF);
+   Param::SetDig(Param::opmode, MOD_OFF);
    DigIo::Set(Pin::err_out);
 
    if (!DigIo::Get(Pin::emcystop_in))
@@ -118,23 +118,23 @@ extern "C" void pwm_timer_isr(void)
 
    if (opmode == MOD_MANUAL || opmode == MOD_RUN || opmode == MOD_SINE)
    {
-      s32fp dir = parm_Get(VALUE_dir);
+      s32fp dir = Param::Get(Param::dir);
       uint8_t shiftForTimer = SineCore::BITS - pwmdigits;
 
       Encoder::Update();
 
       if (opmode == MOD_SINE)
          CalcNextAngleConstant();
-      else if (parm_GetInt(PARAM_syncmode))
+      else if (Param::GetInt(Param::syncmode))
          CalcNextAngleSync();
       else
          CalcNextAngle();
 
       uint32_t amp = MotorVoltage::GetAmpPerc(frq, FP_TOINT(ampnom));
       SineCore::SetAmp(amp);
-      parm_SetDig(VALUE_amp, amp);
-      parm_SetFlt(VALUE_fstat, frq);
-      //parm_SetDig(VALUE_angle, angle);
+      Param::SetDig(Param::amp, amp);
+      Param::SetFlt(Param::fstat, frq);
+      //Param::SetDig(Param::angle, angle);
       SineCore::Calc(angle);
 
       /* Match to PWM resolution */
@@ -142,7 +142,7 @@ extern "C" void pwm_timer_isr(void)
       SineCore::DutyCycles[1] >>= shiftForTimer;
       SineCore::DutyCycles[2] >>= shiftForTimer;
 
-      if (0 == parm_GetInt(VALUE_amp))
+      if (0 == Param::GetInt(Param::amp))
       {
           SineCore::DutyCycles[0] = SineCore::DutyCycles[1] = SineCore::DutyCycles[2] = 0;
       }
@@ -165,21 +165,21 @@ extern "C" void pwm_timer_isr(void)
          timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[1]);
       }
    }
-   else if (opmode == MOD_BOOST)
+   else if (opmode == MOD_BOOST || opmode == MOD_BUCK)
    {
-      Boost();
+      Charge();
    }
    else if (opmode == MOD_ACHEAT)
    {
       AcHeat();
    }
-   parm_SetDig(VALUE_tm_meas, (timer_get_counter(PWM_TIMER) - last)/72);
+   Param::SetDig(Param::tm_meas, (timer_get_counter(PWM_TIMER) - last)/72);
 }
 
 void PwmGeneration::PwmInit(void)
 {
-   pwmdigits = MIN_PWM_DIGITS + parm_GetInt(PARAM_pwmfrq);
-   pwmfrq = TimerSetup(parm_GetInt(PARAM_deadtime), parm_GetInt(PARAM_pwmpol));
+   pwmdigits = MIN_PWM_DIGITS + Param::GetInt(Param::pwmfrq);
+   pwmfrq = TimerSetup(Param::GetInt(Param::deadtime), Param::GetInt(Param::pwmpol));
    slipIncr = FRQ_TO_ANGLE(fslip);
    shiftForTimer = SineCore::BITS - pwmdigits;
 }
@@ -215,12 +215,12 @@ static void CalcNextAngleSync()
 {
    if (Encoder::SeenNorthSignal())
    {
-      uint32_t polePairs = parm_GetInt(PARAM_polepairs);
-      //s32fp potNom = parm_Get(VALUE_potnom);
-      uint16_t syncOfs = parm_GetInt(PARAM_syncofs);
+      uint32_t polePairs = Param::GetInt(Param::polepairs);
+      //s32fp potNom = Param::Get(Param::potnom);
+      uint16_t syncOfs = Param::GetInt(Param::syncofs);
       uint16_t motorAngle = Encoder::GetAngle();
 
-      //parm_SetDig(VALUE_angle, motorAngle);
+      //Param::SetDig(Param::angle, motorAngle);
 
       //For regen let the stator field lag the rotor
       //-> Phase shift by 180°
@@ -242,7 +242,7 @@ static void CalcNextAngleSync()
 static void CalcNextAngle()
 {
    static uint16_t slipAngle = 0;
-   uint32_t polePairs = parm_GetInt(PARAM_polepairs);
+   uint32_t polePairs = Param::GetInt(Param::polepairs);
    uint16_t motorAngle = Encoder::GetAngle();
 
    frq = polePairs * Encoder::GetFrq() + fslip;
@@ -261,7 +261,7 @@ static void CalcNextAngleConstant()
    if (frq < 0) frq = 0;
 }
 
-static void Boost()
+static void Charge()
 {
    int dc = ampnom * (1 << pwmdigits);
    dc = FP_TOINT(dc) / 100;
@@ -271,7 +271,7 @@ static void Boost()
    if (dc < 0)
       dc = 0;
 
-   parm_SetDig(VALUE_amp, dc);
+   Param::SetDig(Param::amp, dc);
 
    timer_set_oc_value(PWM_TIMER, TIM_OC2, dc);
 }
@@ -283,13 +283,13 @@ static void AcHeat()
 
    if (frq < 0) frq = 0;
 
-   parm_SetFlt(VALUE_fstat, frq);
-   //parm_SetDig(VALUE_angle, angle);
+   Param::SetFlt(Param::fstat, frq);
+   //Param::SetDig(Param::angle, angle);
    int val1 = SineCore::Sine(angle);
    int val2 = -SineCore::Sine(angle);
 
-   val1 = (val1 * ampnom) / 100 + 32768;
-   val2 = 32768;///(val1 * ampnom) / 100 + 32768;
+   val1 = FP_TOINT((val1 * ampnom) / 100) + 32768;
+   val2 = FP_TOINT((val2 * ampnom) / 100) + 32768;
    val1 >>= shiftForTimer;
    val2 >>= shiftForTimer;
 

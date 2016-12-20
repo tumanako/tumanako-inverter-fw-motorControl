@@ -51,13 +51,13 @@ uint32_t parm_save()
    CRC_CR |= CRC_CR_RESET;
 
    //Copy parameter values and keys to block structure
-   for (idx = 0; parm_IsParam((PARAM_NUM)idx); idx++)
+   for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx); idx++)
    {
-      const PARAM_ATTRIB *pAtr = parm_GetAttrib((PARAM_NUM)idx);
+      const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
       parmPage.data[idx].key = pAtr->id;
-      parmPage.data[idx].value = parm_Get((PARAM_NUM)idx);
+      parmPage.data[idx].value = Param::Get((Param::PARAM_NUM)idx);
       CRC_DR = pAtr->id;
-      CRC_DR = parm_Get((PARAM_NUM)idx);
+      CRC_DR = Param::Get((Param::PARAM_NUM)idx);
    }
    //Pad the remaining space and the CRC calculcator with 0's
    for (; idx < (NUM_PARAMS); idx++)
@@ -103,15 +103,15 @@ int parm_load()
 
    if (CRC_DR == parmPage->crc)
    {
-      for (unsigned int idx = 0; parm_IsParam((PARAM_NUM)idx); idx++)
+      for (unsigned int idx = 0; Param::IsParam((Param::PARAM_NUM)idx); idx++)
       {
-         const PARAM_ATTRIB *pAtr = parm_GetAttrib((PARAM_NUM)idx);
+         const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
 
          for (unsigned int idxPage = 0; idxPage < (NUM_PARAMS); idxPage++)
          {
             if (parmPage->data[idxPage].key == pAtr->id)
             {
-               parm_SetFlt((PARAM_NUM)idx, parmPage->data[idxPage].value);
+               Param::SetFlt((Param::PARAM_NUM)idx, parmPage->data[idxPage].value);
                break;
             }
          }

@@ -4,21 +4,20 @@
 #include <stdint.h>
 #include "anain_prj.h"
 
-#define ANA_IN_ENTRY(name, port, pin) name,
-namespace Pin {
+
+class AnaIn
+{
+public:
+   #define ANA_IN_ENTRY(name, port, pin) name,
    enum AnaIns
    {
        ANA_IN_LIST
        LAST
    };
-}
-#undef ANA_IN_ENTRY
+   #undef ANA_IN_ENTRY
 
-class AnaIn
-{
-public:
    static void Init(void);
-   static uint16_t Get(Pin::AnaIns);
+   static uint16_t Get(AnaIn::AnaIns);
 
 private:
    enum ports

@@ -67,7 +67,7 @@ static void CruiseControl()
    }
    else
    {
-      if (parm_GetInt(PARAM_cruisemode) == BUTTON)
+      if (Param::GetInt(Param::cruisemode) == BUTTON)
       {
          //Enable/update cruise control when button is pressed
          if (DigIo::Get(Pin::cruise_in))
@@ -96,11 +96,11 @@ static void CruiseControl()
 
 static void Ms100Task(void)
 {
-   int32_t dir = parm_GetInt(VALUE_dir);
+   int32_t dir = Param::GetInt(Param::dir);
 
    DigIo::Toggle(Pin::led_out);
 
-   parm_SetDig(VALUE_speed, Encoder::GetSpeed());
+   Param::SetDig(Param::speed, Encoder::GetSpeed());
 
    /* Only change direction when below certain rev */
    if (Encoder::GetSpeed() < 100)
@@ -125,35 +125,35 @@ static void Ms100Task(void)
    //If break pin is high and both mprot and emcystop are high than it must be over current
    if (DigIo::Get(Pin::emcystop_in) && DigIo::Get(Pin::mprot_in) && DigIo::Get(Pin::bk_in))
    {
-      parm_SetDig(VALUE_din_ocur, 1);
+      Param::SetDig(Param::din_ocur, 1);
    }
    else
    {
-      parm_SetDig(VALUE_din_ocur, 0);
+      Param::SetDig(Param::din_ocur, 0);
    }
 
    CruiseControl();
 
-   parm_SetDig(VALUE_dir, dir);
-   parm_SetDig(VALUE_din_cruise, DigIo::Get(Pin::cruise_in));
-   parm_SetDig(VALUE_din_start, DigIo::Get(Pin::start_in));
-   parm_SetDig(VALUE_din_brake, DigIo::Get(Pin::brake_in));
-   parm_SetDig(VALUE_din_mprot, DigIo::Get(Pin::mprot_in));
-   parm_SetDig(VALUE_din_forward, DigIo::Get(Pin::fwd_in));
-   parm_SetDig(VALUE_din_reverse, DigIo::Get(Pin::rev_in));
-   parm_SetDig(VALUE_din_emcystop, DigIo::Get(Pin::emcystop_in));
-   parm_SetDig(VALUE_din_bms, DigIo::Get(Pin::bms_in));
+   Param::SetDig(Param::dir, dir);
+   Param::SetDig(Param::din_cruise, DigIo::Get(Pin::cruise_in));
+   Param::SetDig(Param::din_start, DigIo::Get(Pin::start_in));
+   Param::SetDig(Param::din_brake, DigIo::Get(Pin::brake_in));
+   Param::SetDig(Param::din_mprot, DigIo::Get(Pin::mprot_in));
+   Param::SetDig(Param::din_forward, DigIo::Get(Pin::fwd_in));
+   Param::SetDig(Param::din_reverse, DigIo::Get(Pin::rev_in));
+   Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
+   Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in));
 
-   s32fp data[2] = { parm_Get(VALUE_speed), parm_Get(VALUE_udc) };
+   s32fp data[2] = { Param::Get(Param::speed), Param::Get(Param::udc) };
 
    can_send(0x180, (uint8_t*)data, sizeof(data));
 }
 
 static void CalcAmpAndSlip(void)
 {
-   s32fp fslipmin = parm_Get(PARAM_fslipmin);
-   s32fp ampmin = parm_Get(PARAM_ampmin);
-   s32fp potnom = parm_Get(VALUE_potnom);
+   s32fp fslipmin = Param::Get(Param::fslipmin);
+   s32fp ampmin = Param::Get(Param::ampmin);
+   s32fp potnom = Param::Get(Param::potnom);
    s32fp ampnom;
    s32fp fslipspnt;
 
@@ -163,10 +163,10 @@ static void CalcAmpAndSlip(void)
 
       if (potnom >= FP_FROMINT(50))
       {
-         s32fp fslipmax = parm_Get(PARAM_fslipmax);
-         s32fp fpconst =  parm_Get(PARAM_fpconst);
-         s32fp fstat = parm_Get(VALUE_fstat);
-         s32fp fweak = parm_Get(PARAM_fweak);
+         s32fp fslipmax = Param::Get(Param::fslipmax);
+         s32fp fpconst =  Param::Get(Param::fpconst);
+         s32fp fstat = Param::Get(Param::fstat);
+         s32fp fweak = Param::Get(Param::fweak);
          s32fp fslipdiff = fslipmax - fslipmin;
          //Derate the slip frequency above fpconst and uprate above fweak
          s32fp ffac = 2*(fstat > fweak?fpconst + fstat - 2 * fweak:fpconst - fstat);
@@ -183,7 +183,7 @@ static void CalcAmpAndSlip(void)
    }
    else
    {
-      u32fp brkrampstr = (u32fp)parm_Get(PARAM_brkrampstr);
+      u32fp brkrampstr = (u32fp)Param::Get(Param::brkrampstr);
 
       ampnom = -potnom;
       fslipspnt = -fslipmin;
@@ -192,7 +192,7 @@ static void CalcAmpAndSlip(void)
          ampnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * ampnom);
       }
       //This works because ampnom = -potnom
-      if (ampnom >= -parm_Get(PARAM_brkout))
+      if (ampnom >= -Param::Get(Param::brkout))
          DigIo::Set(Pin::brk_out);
       else
          DigIo::Clear(Pin::brk_out);
@@ -200,25 +200,25 @@ static void CalcAmpAndSlip(void)
 
    ampnom = MIN(ampnom, FP_FROMINT(100));
 
-   parm_SetFlt(PARAM_ampnom, IIRFILTER(parm_Get(PARAM_ampnom), ampnom, 3));
-   parm_SetFlt(PARAM_fslipspnt, IIRFILTER(parm_Get(PARAM_fslipspnt), fslipspnt, 3));
-   PwmGeneration::SetAmpnom(parm_Get(PARAM_ampnom));
-   PwmGeneration::SetFslip(parm_Get(PARAM_fslipspnt));
+   Param::SetFlt(Param::ampnom, IIRFILTER(Param::Get(Param::ampnom), ampnom, 3));
+   Param::SetFlt(Param::fslipspnt, IIRFILTER(Param::Get(Param::fslipspnt), fslipspnt, 3));
+   PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
+   PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
 }
 
 static void CalcAndOutputTemp()
 {
    static int temphs = 0;
    static int tempm = 0;
-   int pwmgain = parm_GetInt(PARAM_pwmgain);
-   int pwmofs = parm_GetInt(PARAM_pwmofs);
-   int pwmfunc = parm_GetInt(PARAM_pwmfunc);
+   int pwmgain = Param::GetInt(Param::pwmgain);
+   int pwmofs = Param::GetInt(Param::pwmofs);
+   int pwmfunc = Param::GetInt(Param::pwmfunc);
    int tmpout;
-   TempMeas::Sensors snshs = (TempMeas::Sensors)parm_GetInt(PARAM_snshs);
-   TempMeas::Sensors snsm = (TempMeas::Sensors)parm_GetInt(PARAM_snsm);
+   TempMeas::Sensors snshs = (TempMeas::Sensors)Param::GetInt(Param::snshs);
+   TempMeas::Sensors snsm = (TempMeas::Sensors)Param::GetInt(Param::snsm);
 
-   temphs = IIRFILTER(AnaIn::Get(Pin::tmphs), temphs, 15);
-   tempm = IIRFILTER(AnaIn::Get(Pin::tmpm), tempm, 18);
+   temphs = IIRFILTER(AnaIn::Get(AnaIn::tmphs), temphs, 15);
+   tempm = IIRFILTER(AnaIn::Get(AnaIn::tmpm), tempm, 18);
 
    s32fp tmpmf = TempMeas::Lookup(tempm, snsm);
    s32fp tmphsf = TempMeas::Lookup(temphs, snshs);
@@ -233,7 +233,7 @@ static void CalcAndOutputTemp()
          tmpout = FP_TOINT(tmphsf) * pwmgain + pwmofs;
          break;
       case PWM_FUNC_SPEED:
-         tmpout = FP_TOINT(tmpmf) * parm_Get(VALUE_speed) + pwmofs;
+         tmpout = FP_TOINT(tmpmf) * Param::Get(Param::speed) + pwmofs;
          break;
    }
 
@@ -241,20 +241,23 @@ static void CalcAndOutputTemp()
 
    timer_set_oc_value(OVER_CUR_TIMER, TIM_OC4, tmpout);
 
-   parm_SetFlt(VALUE_tmphs, tmphsf);
-   parm_SetFlt(VALUE_tmpm, tmpmf);
+   Param::SetFlt(Param::tmphs, tmphsf);
+   Param::SetFlt(Param::tmpm, tmpmf);
 }
 
 static s32fp ProcessUdc()
 {
    static int32_t udc = 0;
    s32fp udcfp;
-   s32fp udcmin = parm_Get(PARAM_udcmin);
-   s32fp udcmax = parm_Get(PARAM_udcmax);
-   s32fp udclim = parm_Get(PARAM_udclim);
-   s32fp udcgain = parm_Get(PARAM_udcgain);
+   s32fp udcmin = Param::Get(Param::udcmin);
+   s32fp udcmax = Param::Get(Param::udcmax);
+   s32fp udclim = Param::Get(Param::udclim);
+   s32fp udcgain = Param::Get(Param::udcgain);
 
-   udc = IIRFILTER(udc, AnaIn::Get(Pin::udc), 5);
+   //Calculate "12V" supply voltage from voltage divider on mprot pin
+   //1.2/(4.7+1.2)/3.34*4095 = 249 -> make it a bit less for pin losses etc
+   Param::SetFlt(Param::uaux, FP_DIV(AnaIn::Get(AnaIn::uaux), 248));
+   udc = IIRFILTER(udc, AnaIn::Get(AnaIn::udc), 1);
    udcfp = FP_DIV(FP_FROMINT(udc), udcgain);
 
    if (udcfp < udcmin || udcfp > udcmax)
@@ -264,11 +267,12 @@ static s32fp ProcessUdc()
 
    if (udcfp > udclim)
    {
-      parm_SetDig(VALUE_opmode, MOD_OFF);
+      Param::SetDig(Param::opmode, MOD_OFF);
       DigIo::Set(Pin::err_out);
+      ErrorMessage::Post(ERR_OVERVOLTAGE);
    }
 
-   parm_SetFlt(VALUE_udc, udcfp);
+   Param::SetFlt(Param::udc, udcfp);
 
    return udcfp;
 }
@@ -276,11 +280,11 @@ static s32fp ProcessUdc()
 static void CalcFancyValues()
 {
    const s32fp twoPi = FP_FROMFLT(2*3.141593);
-   s32fp amp = parm_Get(VALUE_amp);
-   s32fp speed = parm_Get(VALUE_speed);
-   s32fp il1 = parm_Get(VALUE_il1);
-   s32fp il2 = parm_Get(VALUE_il2);
-   s32fp udc = parm_Get(VALUE_udc);
+   s32fp amp = Param::Get(Param::amp);
+   s32fp speed = Param::Get(Param::speed);
+   s32fp il1 = Param::Get(Param::il1);
+   s32fp il2 = Param::Get(Param::il2);
+   s32fp udc = Param::Get(Param::udc);
    s32fp fac = FP_DIV(amp, FP_FROMINT(SineCore::MAXAMP));
    s32fp uac = FP_MUL(fac, FP_MUL(udc, FP_FROMFLT(0.7071)));
    s32fp idc, is, p, q, s, pf, t;
@@ -294,31 +298,31 @@ static void CalcFancyValues()
    q = FP_MUL(fac, FP_MUL(uac, FOC::iq) / 1000);
    pf = MIN(FP_FROMINT(1), MAX(0, FP_DIV(FOC::id, is)));
 
-   if (parm_GetInt(VALUE_opmode) != MOD_BOOST)
+   if (Param::GetInt(Param::opmode) < MOD_BOOST)
    {
       idc = FP_MUL(FP_MUL(fac, FOC::id), FP_FROMFLT(0.7071));
-      parm_SetFlt(VALUE_idc, idc);
+      Param::SetFlt(Param::idc, idc);
    }
 
-   parm_SetFlt(VALUE_id, FOC::id);
-   parm_SetFlt(VALUE_iq, FOC::iq);
-   parm_SetFlt(VALUE_uac, uac);
-   parm_SetFlt(VALUE_pf, pf);
-   parm_SetFlt(VALUE_p, p);
-   parm_SetFlt(VALUE_q, q);
-   parm_SetFlt(VALUE_s, s);
-   parm_SetFlt(VALUE_t, t);
+   Param::SetFlt(Param::id, FOC::id);
+   Param::SetFlt(Param::iq, FOC::iq);
+   Param::SetFlt(Param::uac, uac);
+   Param::SetFlt(Param::pf, pf);
+   Param::SetFlt(Param::p, p);
+   Param::SetFlt(Param::q, q);
+   Param::SetFlt(Param::s, s);
+   Param::SetFlt(Param::t, t);
 }
 
 static void CalcThrottle()
 {
-   int potval = AnaIn::Get(Pin::throttle1);
-   int pot2val = AnaIn::Get(Pin::throttle2);
+   int potval = AnaIn::Get(AnaIn::throttle1);
+   int pot2val = AnaIn::Get(AnaIn::throttle2);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
 
-   parm_SetDig(VALUE_pot, potval);
-   parm_SetDig(VALUE_pot2, pot2val);
+   Param::SetDig(Param::pot, potval);
+   Param::SetDig(Param::pot2, pot2val);
 
    /* Error light on implausible value */
    if (!Throttle::CheckAndLimitRange(&potval, 0))
@@ -331,10 +335,10 @@ static void CalcThrottle()
 
    throtSpnt = Throttle::CalcThrottle(potval, pot2val, DigIo::Get(Pin::brake_in));
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
-   derateSpnt = Throttle::TemperatureDerate(parm_Get(VALUE_tmphs));
+   derateSpnt = Throttle::TemperatureDerate(Param::Get(Param::tmphs));
    cruiseSpnt = Throttle::CalcCruiseSpeed(Encoder::GetSpeed());
 
-   if (parm_GetInt(PARAM_idlemode) == IDLE_MODE_ALWAYS || !DigIo::Get(Pin::brake_in))
+   if (Param::GetInt(Param::idlemode) == IDLE_MODE_ALWAYS || !DigIo::Get(Pin::brake_in))
       finalSpnt = MAX(throtSpnt, idleSpnt);
    else
       finalSpnt = throtSpnt;
@@ -347,12 +351,12 @@ static void CalcThrottle()
          finalSpnt = MAX(cruiseSpnt, throtSpnt);
    }
 
-   if (parm_GetInt(VALUE_din_bms))
+   if (Param::GetInt(Param::din_bms))
    {
       if (finalSpnt >= 0)
-         finalSpnt = MIN(finalSpnt, parm_GetInt(PARAM_bmslimhigh));
+         finalSpnt = MIN(finalSpnt, Param::GetInt(Param::bmslimhigh));
       else
-         finalSpnt = MAX(finalSpnt, parm_GetInt(PARAM_bmslimlow));
+         finalSpnt = MAX(finalSpnt, Param::GetInt(Param::bmslimlow));
    }
 
    if (derateSpnt < 100)
@@ -364,13 +368,14 @@ static void CalcThrottle()
       DigIo::Set(Pin::err_out);
    }
 
-   parm_SetDig(VALUE_potnom, finalSpnt);
+   Param::SetDig(Param::potnom, finalSpnt);
 }
 
 static void Ms10Task(void)
 {
    static int initWait = 0;
-   int opmode = parm_GetInt(VALUE_opmode);
+   int opmode = Param::GetInt(Param::opmode);
+   int chargemode = Param::GetInt(Param::chargemode);
    s32fp udc = ProcessUdc();
 
    CalcThrottle();
@@ -386,7 +391,7 @@ static void Ms10Task(void)
     * - start pin is high
     * - motor protection switch and emcystop is high (=inactive)
     */
-   if (udc >= parm_Get(PARAM_udcsw) && parm_GetInt(VALUE_potnom) <= 0)
+   if (udc >= Param::Get(Param::udcsw) && Param::GetInt(Param::potnom) <= 0)
    {
       if (DigIo::Get(Pin::emcystop_in) &&
           DigIo::Get(Pin::mprot_in))
@@ -395,12 +400,13 @@ static void Ms10Task(void)
           * - Charge mode is enabled
           * - Fwd AND Rev are high
           */
-         if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && parm_Get(PARAM_chargena))
+         if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && chargemode >= MOD_BOOST)
          {
-            DigIo::Set(Pin::dcsw_out);
+            if (chargemode == MOD_BOOST)
+               DigIo::Set(Pin::dcsw_out);
             DigIo::Clear(Pin::err_out);
             DigIo::Clear(Pin::prec_out);
-            parm_SetDig(VALUE_opmode, MOD_BOOST);
+            Param::SetDig(Param::opmode, chargemode);
             ErrorMessage::UnpostAll();
          }
          else if (DigIo::Get(Pin::start_in))
@@ -408,7 +414,7 @@ static void Ms10Task(void)
             DigIo::Set(Pin::dcsw_out);
             DigIo::Clear(Pin::err_out);
             DigIo::Clear(Pin::prec_out);
-            parm_SetDig(VALUE_opmode, MOD_RUN);
+            Param::SetDig(Param::opmode, MOD_RUN);
             ErrorMessage::UnpostAll();
             runBoostControl = false;
          }
@@ -419,7 +425,7 @@ static void Ms10Task(void)
    {
       initWait = 50;
 
-      parm_SetDig(VALUE_amp, 0);
+      Param::SetDig(Param::amp, 0);
       PwmGeneration::SetOpmode(MOD_OFF);
       DigIo::Clear(Pin::dcsw_out);
       Throttle::cruiseSpeed = -1;
@@ -429,7 +435,7 @@ static void Ms10Task(void)
    {
       PwmGeneration::PwmInit(); //this applies new deadtime and pwmfrq
       PwmGeneration::SetOpmode(opmode);
-      runBoostControl = opmode == MOD_BOOST;
+      runBoostControl = (opmode == MOD_BOOST || opmode == MOD_BUCK);
       DigIo::Clear(Pin::err_out);
       initWait = -1;
    }
@@ -441,11 +447,11 @@ static void Ms10Task(void)
 
 static void SetCurrentLimitThreshold()
 {
-   s32fp ocurlim = parm_Get(PARAM_ocurlim);
+   s32fp ocurlim = Param::Get(Param::ocurlim);
    //We use the average offset and gain values because we only
    //have one reference channel per polarity
    s32fp iofs = (ilofs[0] + ilofs[1]) / 2;
-   s32fp igain= (parm_Get(PARAM_il1gain) + parm_Get(PARAM_il2gain)) / 2;
+   s32fp igain= (Param::Get(Param::il1gain) + Param::Get(Param::il2gain)) / 2;
 
    ocurlim = FP_MUL(igain, ocurlim);
    int limNeg = FP_TOINT(iofs-ocurlim);
@@ -465,6 +471,7 @@ static void Ms1Task(void)
    static s32fp ilFlt = 0;
    static s32fp iSpntFlt = 0;
    s32fp ilMax = 0;
+   int opmode = Param::GetInt(Param::opmode);
 
    timeTick++;
    ErrorMessage::SetTime(timeTick);
@@ -472,9 +479,9 @@ static void Ms1Task(void)
    for (int i = 0; i < 2; i++)
    {
       s32fp il;
-      il = FP_FROMINT(AnaIn::Get((Pin::AnaIns)(Pin::il1+i)));
+      il = FP_FROMINT(AnaIn::Get((AnaIn::AnaIns)(AnaIn::il1+i)));
 
-      if (MOD_OFF == parm_GetInt(VALUE_opmode))
+      if (MOD_OFF == opmode)
       {
          ilofs[i] = il;
          SetCurrentLimitThreshold();
@@ -482,9 +489,9 @@ static void Ms1Task(void)
 
       il -= ilofs[i];
 
-      il = FP_DIV(il, parm_Get((PARAM_NUM)(PARAM_il1gain+i)));
+      il = FP_DIV(il, Param::Get((Param::PARAM_NUM)(Param::il1gain+i)));
 
-      parm_SetFlt((PARAM_NUM)(VALUE_il1+i), il);
+      Param::SetFlt((Param::PARAM_NUM)(Param::il1+i), il);
 
       il = ABS(il);
 
@@ -493,7 +500,7 @@ static void Ms1Task(void)
       if (samples == 0)
       {
          ilrms[i] = FP_MUL(ilrms[i], FP_FROMFLT(SQRT2OV1));
-         parm_SetFlt((PARAM_NUM)(VALUE_il1rms+i), ilrms[i]);
+         Param::SetFlt((Param::PARAM_NUM)(Param::il1rms+i), ilrms[i]);
          ilrms[i] = 0;
       }
       il <<= 8;
@@ -509,7 +516,7 @@ static void Ms1Task(void)
    if (speedCnt == 0)
    {
       DigIo::Toggle(Pin::speed_out);
-      speedCnt = parm_GetInt(PARAM_speedgain) / (2 * parm_GetInt(VALUE_speed));
+      speedCnt = Param::GetInt(Param::speedgain) / (2 * Param::GetInt(Param::speed));
    }
    else
    {
@@ -518,12 +525,15 @@ static void Ms1Task(void)
 
    if (runBoostControl)
    {
-      ilFlt = IIRFILTER(ilFlt, ilMax, parm_GetInt(PARAM_chargeflt));
-      iSpntFlt = IIRFILTER(iSpntFlt, parm_Get(PARAM_chargecur) << 8, 11);
+      ilFlt = IIRFILTER(ilFlt, ilMax, Param::GetInt(Param::chargeflt));
+      iSpntFlt = IIRFILTER(iSpntFlt, Param::Get(Param::chargecur) << 8, 11);
 
-      s32fp ampnom = FP_MUL(parm_GetInt(PARAM_chargekp), (iSpntFlt - ilFlt));
-      parm_SetFlt(PARAM_ampnom, ampnom);
-      parm_SetFlt(VALUE_idc, (FP_MUL((FP_FROMINT(100) - ampnom), ilFlt) / 100) >> 8);
+      s32fp ampnom = FP_MUL(Param::GetInt(Param::chargekp), (iSpntFlt - ilFlt));
+      Param::SetFlt(Param::ampnom, ampnom);
+      if (opmode == MOD_BOOST)
+         Param::SetFlt(Param::idc, (FP_MUL((FP_FROMINT(100) - ampnom), ilFlt) / 100) >> 8);
+      else
+         Param::SetFlt(Param::idc, ilFlt >> 8);
       PwmGeneration::SetAmpnom(ampnom);
    }
    else
@@ -533,15 +543,15 @@ static void Ms1Task(void)
 }
 
 /** This function is called when the user changes a parameter */
-extern void parm_Change(PARAM_NUM paramNum)
+extern void parm_Change(Param::PARAM_NUM paramNum)
 {
-   if (PARAM_fslipspnt == paramNum)
-      PwmGeneration::SetFslip(parm_Get(PARAM_fslipspnt));
-   else if (PARAM_ampnom == paramNum)
-      PwmGeneration::SetAmpnom(parm_Get(PARAM_ampnom));
-   else if (PARAM_syncmode == paramNum)
+   if (Param::fslipspnt == paramNum)
+      PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
+   else if (Param::ampnom == paramNum)
+      PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
+   else if (Param::syncmode == paramNum)
    {
-      if (parm_GetInt(PARAM_syncmode))
+      if (Param::GetInt(Param::syncmode))
          Encoder::EnableSyncMode();
       else
          Encoder::DisableSyncMode();
@@ -550,27 +560,27 @@ extern void parm_Change(PARAM_NUM paramNum)
    {
       SetCurrentLimitThreshold();
 
-      Encoder::SetFilterConst(parm_GetInt(PARAM_encflt));
-      Encoder::SetImpulsesPerTurn(parm_GetInt(PARAM_numimp));
+      Encoder::SetFilterConst(Param::GetInt(Param::encflt));
+      Encoder::SetImpulsesPerTurn(Param::GetInt(Param::numimp));
 
-      MotorVoltage::SetWeakeningFrq(parm_Get(PARAM_fweak));
-      MotorVoltage::SetBoost(parm_GetInt(PARAM_boost));
-      MotorVoltage::SetMinFrq(parm_Get(PARAM_fmin));
-      MotorVoltage::SetMaxFrq(parm_Get(PARAM_fmax));
-      SineCore::SetMinPulseWidth(parm_GetInt(PARAM_minpulse));
+      MotorVoltage::SetWeakeningFrq(Param::Get(Param::fweak));
+      MotorVoltage::SetBoost(Param::GetInt(Param::boost));
+      MotorVoltage::SetMinFrq(Param::Get(Param::fmin));
+      MotorVoltage::SetMaxFrq(Param::Get(Param::fmax));
+      SineCore::SetMinPulseWidth(Param::GetInt(Param::minpulse));
 
-      Throttle::potmin[0] = parm_GetInt(PARAM_potmin);
-      Throttle::potmax[0] = parm_GetInt(PARAM_potmax);
-      Throttle::potmin[1] = parm_GetInt(PARAM_pot2min);
-      Throttle::potmax[1] = parm_GetInt(PARAM_pot2max);
-      Throttle::brknom = parm_GetInt(PARAM_brknom);
-      Throttle::brknompedal = parm_GetInt(PARAM_brknompedal);
-      Throttle::brkPedalRamp = parm_GetInt(PARAM_brkpedalramp);
-      Throttle::brkmax = parm_GetInt(PARAM_brkmax);
-      Throttle::idleSpeed = parm_GetInt(PARAM_idlespeed);
-      Throttle::speedkp = parm_Get(PARAM_speedkp);
-      Throttle::speedflt = parm_GetInt(PARAM_speedflt);
-      Throttle::idleThrotLim = parm_Get(PARAM_idlethrotlim);
+      Throttle::potmin[0] = Param::GetInt(Param::potmin);
+      Throttle::potmax[0] = Param::GetInt(Param::potmax);
+      Throttle::potmin[1] = Param::GetInt(Param::pot2min);
+      Throttle::potmax[1] = Param::GetInt(Param::pot2max);
+      Throttle::brknom = Param::GetInt(Param::brknom);
+      Throttle::brknompedal = Param::GetInt(Param::brknompedal);
+      Throttle::brkPedalRamp = Param::GetInt(Param::brkpedalramp);
+      Throttle::brkmax = Param::GetInt(Param::brkmax);
+      Throttle::idleSpeed = Param::GetInt(Param::idlespeed);
+      Throttle::speedkp = Param::Get(Param::speedkp);
+      Throttle::speedflt = Param::GetInt(Param::speedflt);
+      Throttle::idleThrotLim = Param::Get(Param::idlethrotlim);
    }
 }
 
@@ -578,24 +588,26 @@ extern "C" int main(void)
 {
    clock_setup();
    tim_setup();
+   AnaIn::Init();
    DigIo::Init();
    usart_setup();
    nvic_setup();
    PwmGeneration::PwmInit();
    init_timsched();
-   AnaIn::Init();
    Encoder::Init();
    term_Init(TERM_USART);
    can_setup();
    parm_load();
-   parm_Change(PARAM_LAST);
+   parm_Change(Param::PARAM_LAST);
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);
 
    create_task(Ms100Task, PRIO_GRP1, 0, 100);
    create_task(Ms10Task,  PRIO_GRP1, 1, 10);
    create_task(Ms1Task,   PRIO_GRP1, 2, 1);
 
-   DigIo::Set(Pin::prec_out);
+   //Always enable prechagre except in buck mode.
+   if (!(DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && Param::GetInt(Param::chargemode) == MOD_BUCK))
+      DigIo::Set(Pin::prec_out);
 
    term_Run();
 

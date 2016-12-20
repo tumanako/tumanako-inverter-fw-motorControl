@@ -26,6 +26,7 @@
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/cm3/nvic.h>
+#include "errormessage.h"
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
@@ -200,6 +201,7 @@ static int GetPulseTimeFiltered()
    if (measTm < (last_pulse_timespan / 16))
    {
       pulses = 0;
+      ErrorMessage::Post(ERR_ENCODER);
    }
    else
    {

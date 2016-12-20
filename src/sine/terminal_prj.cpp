@@ -64,18 +64,18 @@ extern "C" const TERM_CMD TermCmds[] =
 
 static void PrintParamsJson(char *arg)
 {
-   const PARAM_ATTRIB *pAtr;
+   const Param::Attributes *pAtr;
    char comma = ' ';
 
    arg = arg;
    printf("{");
-   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib((PARAM_NUM)idx);
+      pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
 
-      printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,\"isparam\":",comma, pAtr->name, pAtr->unit, parm_Get((PARAM_NUM)idx));
+      printf("%c\r\n   \"%s\": {\"unit\":\"%s\",\"value\":%f,\"isparam\":",comma, pAtr->name, pAtr->unit, Param::Get((Param::PARAM_NUM)idx));
 
-      if (parm_IsParam((PARAM_NUM)idx))
+      if (Param::IsParam((Param::PARAM_NUM)idx))
       {
          printf("true,\"minimum\":%f,\"maximum\":%f,\"default\":%f,\"category\":\"%s\"}", pAtr->min, pAtr->max, pAtr->def, pAtr->category);
       }
@@ -90,33 +90,33 @@ static void PrintParamsJson(char *arg)
 
 static void PrintList(char *arg)
 {
-   const PARAM_ATTRIB *pAtr;
+   const Param::Attributes *pAtr;
 
    arg = arg;
 
    printf("Available parameters and values\r\n");
 
-   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib((PARAM_NUM)idx);
+      pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
       printf("%s [%s]\r\n", pAtr->name, pAtr->unit);
    }
 }
 
 static void PrintAtr(char *arg)
 {
-   const PARAM_ATTRIB *pAtr;
+   const Param::Attributes *pAtr;
 
    arg = arg;
 
    printf("Parameter attributes\r\n");
    printf("Name\t\tmin - max [default]\r\n");
 
-   for (uint32_t idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t idx = 0; idx < Param::PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib((PARAM_NUM)idx);
+      pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
       /* Only display for params */
-      if (parm_IsParam((PARAM_NUM)idx))
+      if (Param::IsParam((Param::PARAM_NUM)idx))
       {
          printf("%s\t\t%f - %f [%f]\r\n", pAtr->name,pAtr->min,pAtr->max,pAtr->def);
       }
@@ -125,7 +125,7 @@ static void PrintAtr(char *arg)
 
 static void ParamGet(char *arg)
 {
-   PARAM_NUM idx;
+   Param::PARAM_NUM idx;
    s32fp val;
    char* comma;
    char orig;
@@ -138,14 +138,14 @@ static void ParamGet(char *arg)
       orig = *comma;
       *comma = 0;
 
-      idx = parm_NumFromString(arg);
+      idx = Param::NumFromString(arg);
 
       *comma = orig;
       arg = comma + 1;
 
-      if (PARAM_INVALID != idx)
+      if (Param::PARAM_INVALID != idx)
       {
-         val = parm_Get(idx);
+         val = Param::Get(idx);
          printf("%f\r\n", val);
       }
       else
@@ -158,20 +158,20 @@ static void ParamGet(char *arg)
 static void LoadDefaults(char *arg)
 {
    arg = arg;
-   parm_LoadDefaults();
+   Param::LoadDefaults();
    printf("Defaults loaded\r\n");
 }
 
 static void GetAll(char *arg)
 {
-   const PARAM_ATTRIB *pAtr;
+   const Param::Attributes *pAtr;
 
    arg = arg;
 
-   for (uint32_t  idx = 0; idx < PARAM_LAST; idx++)
+   for (uint32_t  idx = 0; idx < Param::PARAM_LAST; idx++)
    {
-      pAtr = parm_GetAttrib((PARAM_NUM)idx);
-      printf("%s\t\t%f\r\n", pAtr->name, parm_Get((PARAM_NUM)idx));
+      pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
+      printf("%s\t\t%f\r\n", pAtr->name, Param::Get((Param::PARAM_NUM)idx));
    }
 }
 
@@ -179,7 +179,7 @@ static void ParamSet(char *arg)
 {
    char *pParamVal;
    s32fp val;
-   PARAM_NUM idx;
+   Param::PARAM_NUM idx;
 
    arg = my_trim(arg);
    pParamVal = (char *)my_strchr(arg, ' ');
@@ -194,11 +194,11 @@ static void ParamSet(char *arg)
    pParamVal++;
 
    val = fp_atoi(pParamVal);
-   idx = parm_NumFromString(arg);
+   idx = Param::NumFromString(arg);
 
-   if (PARAM_INVALID != idx)
+   if (Param::PARAM_INVALID != idx)
    {
-       if (0 == parm_Set(idx, val))
+       if (0 == Param::Set(idx, val))
        {
           printf("Set OK\r\n");
        }
@@ -216,7 +216,7 @@ static void ParamSet(char *arg)
 static void StopInverter(char *arg)
 {
     arg = arg;
-    parm_SetDig(VALUE_opmode, 0);
+    Param::SetDig(Param::opmode, 0);
     printf("Inverter halted.\r\n");
 }
 
@@ -226,7 +226,7 @@ static void StartInverter(char *arg)
    s32fp val = fp_atoi(arg);
    if (val < FP_FROMINT(MOD_LAST))
    {
-      parm_SetFlt(VALUE_opmode, val);
+      Param::SetFlt(Param::opmode, val);
       printf("Inverter started\r\n");
    }
    else
@@ -247,7 +247,7 @@ static void LoadParameters(char *arg)
    arg = arg;
    if (0 == parm_load())
    {
-      parm_Change((PARAM_NUM)0);
+      parm_Change((Param::PARAM_NUM)0);
       printf("Parameters loaded\r\n");
    }
    else

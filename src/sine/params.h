@@ -16,58 +16,57 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+#ifndef PARAM_H_INCLUDED
+#define PARAM_H_INCLUDED
 
 #include "param_prj.h"
 #include "my_fp.h"
 
-#define PARAM_ENTRY(category, name, unit, min, max, def, id) PARAM_##name,
-#define VALUE_ENTRY(name, unit) VALUE_##name,
-typedef enum
+namespace Param
 {
-    PARAM_LIST
-    PARAM_LAST,
-    PARAM_INVALID
-} PARAM_NUM;
-#undef PARAM_ENTRY
-#undef VALUE_ENTRY
+   #define PARAM_ENTRY(category, name, unit, min, max, def, id) name,
+   #define VALUE_ENTRY(name, unit) name,
+   typedef enum
+   {
+       PARAM_LIST
+       PARAM_LAST,
+       PARAM_INVALID
+   } PARAM_NUM;
+   #undef PARAM_ENTRY
+   #undef VALUE_ENTRY
 
-typedef enum
-{
-    TYPE_PARAM,
-    TYPE_VALUE,
-    TYPE_LAST
-} PARAM_TYPE;
+   typedef enum
+   {
+       TYPE_PARAM,
+       TYPE_VALUE,
+       TYPE_LAST
+   } PARAM_TYPE;
 
-typedef struct
-{
-   char *category;
-   char *name;
-   char *unit;
-   s32fp min;
-   s32fp max;
-   s32fp def;
-   uint32_t id;
-} PARAM_ATTRIB;
+   typedef struct
+   {
+      char const *category;
+      char const *name;
+      char const *unit;
+      s32fp min;
+      s32fp max;
+      s32fp def;
+      uint32_t id;
+   } Attributes;
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+   int Set(PARAM_NUM ParamNum, s32fp ParamVal);
+   s32fp  Get(PARAM_NUM ParamNum);
+   int    GetInt(PARAM_NUM ParamNum);
+   s32fp  GetScl(PARAM_NUM ParamNum);
+   void SetDig(PARAM_NUM ParamNum, int ParamVal);
+   void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
+   PARAM_NUM NumFromString(const char *name);
+   const Attributes *GetAttrib(PARAM_NUM ParamNum);
+   int IsParam(PARAM_NUM ParamNum);
+   void LoadDefaults();
 
-int parm_Set(PARAM_NUM ParamNum, s32fp ParamVal);
-s32fp  parm_Get(PARAM_NUM ParamNum);
-int    parm_GetInt(PARAM_NUM ParamNum);
-s32fp  parm_GetScl(PARAM_NUM ParamNum);
-void parm_SetDig(PARAM_NUM ParamNum, int ParamVal);
-void parm_SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
-PARAM_NUM parm_NumFromString(const char *name);
-const PARAM_ATTRIB *parm_GetAttrib(PARAM_NUM ParamNum);
-int parm_IsParam(PARAM_NUM ParamNum);
-void parm_LoadDefaults();
+}
 
 //User defined callback
-extern void parm_Change(PARAM_NUM ParamNum);
+extern void parm_Change(Param::PARAM_NUM ParamNum);
 
-#ifdef __cplusplus
-}
-#endif
+#endif //PARAM_H_INCLUDED

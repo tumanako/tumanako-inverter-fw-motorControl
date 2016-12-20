@@ -17,16 +17,17 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define OPMODES "0=OFF, 1=RUN, 2=MANUAL_RUN, 3=BOOST, 4=SINE, 5=ACHEAT"
-#define PWMFRQS  "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
-#define PWMPOLS  "0=ACTHIGH, 1=ACTLOW"
-#define DIRS     "-1=REV, 0=NEUTRAL, 1=FWD"
-#define SNS_HS   "0=JCurve, 1=Semikron"
-#define SNS_M    "2=KTY83-110, 3=KTY84-130"
-#define PWMFUNCS "0=tmpm, 1=tmphs, 2=speed"
-#define CRUISEMODS "0=Button, 1=Switch"
-#define IDLEMODS "0=always, 1=nobrake"
-#define ONOFF    "0=Off, 1=On"
+#define OPMODES     "0=Off, 1=Run, 2=ManualRun, 3=Boost, 4=Buck, 5=Sine, 6=AcHeat"
+#define PWMFRQS     "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
+#define PWMPOLS     "0=ACTHIGH, 1=ACTLOW"
+#define DIRS        "-1=REV, 0=NEUTRAL, 1=FWD"
+#define SNS_HS      "0=JCurve, 1=Semikron"
+#define SNS_M       "2=KTY83-110, 3=KTY84-130"
+#define PWMFUNCS    "0=tmpm, 1=tmphs, 2=speed"
+#define CRUISEMODS  "0=Button, 1=Switch"
+#define IDLEMODS    "0=always, 1=nobrake"
+#define ONOFF       "0=Off, 1=On"
+#define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -38,7 +39,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.19
+#define VER 3.23
 
 #define BUTTON 0
 
@@ -48,6 +49,7 @@ enum _modes
    MOD_RUN,
    MOD_MANUAL,
    MOD_BOOST,
+   MOD_BUCK,
    MOD_SINE,
    MOD_ACHEAT,
    MOD_LAST
@@ -93,7 +95,7 @@ enum _modes
     PARAM_ENTRY(CAT_INVERTER,udcgain,     "dig/V",   0,      4095,   6.175,  29  ) \
     PARAM_ENTRY(CAT_INVERTER,udclim,      "V",       0,      1000,   540,    48  ) \
     PARAM_ENTRY(CAT_INVERTER,snshs,       SNS_HS,    0,      1,      0,      45  ) \
-    PARAM_ENTRY(CAT_CHARGER, chargena,    ONOFF,     0,      1,      0,      74  ) \
+    PARAM_ENTRY(CAT_CHARGER, chargemode,  CHARGEMODS,0,      4,      0,      74  ) \
     PARAM_ENTRY(CAT_CHARGER, chargecur,   "A",       0,      50,     0,      71  ) \
     PARAM_ENTRY(CAT_CHARGER, chargekp,    "dig",     0,      100,    80,     72  ) \
     PARAM_ENTRY(CAT_CHARGER, chargeflt,   "dig",     0,      10,     8,      73  ) \
@@ -122,7 +124,7 @@ enum _modes
     PARAM_ENTRY(CAT_PWM,     pwmgain,     "dig/C",   -65535, 65535,  100,    40  ) \
     PARAM_ENTRY(CAT_PWM,     pwmofs,      "dig",     -65535, 65535,  0,      41  ) \
     PARAM_ENTRY(CAT_PWM,     speedgain,   "rpm/kHz", 0,      65535,  6000,   59  ) \
-    PARAM_ENTRY(CAT_TEST,    fslipspnt,   "Hz",      -100,   1000,    0,      0   ) \
+    PARAM_ENTRY(CAT_TEST,    fslipspnt,   "Hz",      -100,   1000,   0,      0   ) \
     PARAM_ENTRY(CAT_TEST,    ampnom,      "%",       0,      100,    0,      0   ) \
     PARAM_ENTRY(CAT_TEST,    version,     "",        0,      0,      VER,    0   ) \
     VALUE_ENTRY(opmode,      OPMODES ) \
@@ -149,6 +151,7 @@ enum _modes
     VALUE_ENTRY(dir,         DIRS    ) \
     VALUE_ENTRY(tmphs,       "°C"    ) \
     VALUE_ENTRY(tmpm,        "°C"    ) \
+    VALUE_ENTRY(uaux,        "V"     ) \
     VALUE_ENTRY(din_cruise,  ""      ) \
     VALUE_ENTRY(din_start,   ""      ) \
     VALUE_ENTRY(din_brake,   ""      ) \

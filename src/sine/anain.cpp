@@ -105,7 +105,7 @@ void AnaIn::Init()
 * @param[in] in channel index
 * @return Filtered value
 */
-uint16_t AnaIn::Get(Pin::AnaIns in)
+uint16_t AnaIn::Get(AnaIn::AnaIns in)
 {
    #if NUM_SAMPLES == 1
    return values[in];
