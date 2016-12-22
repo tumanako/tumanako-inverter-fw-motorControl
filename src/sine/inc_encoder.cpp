@@ -38,7 +38,7 @@ static int GetPulseTimeFiltered();
 
 static volatile uint16_t timdata[NUM_CTR_VAL];
 static volatile uint16_t angle = 0;
-static uint32_t last_pulse_timespan;
+static uint32_t last_pulse_timespan = 0xffff;
 static uint16_t filter = 0;
 static uint32_t angle_per_pulse = 0;
 static uint16_t imp_per_rev;
@@ -181,6 +181,7 @@ static void tim_setup()
 static int GetPulseTimeFiltered()
 {
    static uint16_t lastN = NUM_CTR_VAL;
+   static uint16_t encFails = 0;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN?lastN - n:lastN + NUM_CTR_VAL - n;
@@ -198,10 +199,12 @@ static int GetPulseTimeFiltered()
       }
    }
    //Ignore pulses when time is less than quarter of the last measurement (debouncing)
-   if (measTm < (last_pulse_timespan / 16))
+   if (measTm < (last_pulse_timespan / 16) && !ignore)
    {
       pulses = 0;
-      ErrorMessage::Post(ERR_ENCODER);
+      encFails++;
+      if (encFails > 10)
+         ErrorMessage::Post(ERR_ENCODER);
    }
    else
    {
