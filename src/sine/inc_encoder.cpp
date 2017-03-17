@@ -27,64 +27,34 @@
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/cm3/nvic.h>
 #include "errormessage.h"
-
+#include "params.h"
 #define TWO_PI 65536
 #define MAX_CNT 65535
 #define NUM_CTR_VAL 100
 
-static void tim_setup();
-static void dma_setup();
+static void InitTimerSingleChannelMode();
+static void InitTimerABZMode();
+static void DMASetup();
 static int GetPulseTimeFiltered();
 
 static volatile uint16_t timdata[NUM_CTR_VAL];
 static volatile uint16_t angle = 0;
-static uint32_t last_pulse_timespan = 0xffff;
+static uint32_t lastPulseTimespan = 0xffff;
 static uint16_t filter = 0;
-static uint32_t angle_per_pulse = 0;
-static uint16_t imp_per_rev;
+static uint32_t anglePerPulse = 0;
+static uint16_t pulsesPerTurn = 0;
+static uint32_t turnsSinceLastSample = 0;
+static u32fp lastFrequency = 0;
 static bool ignore = true;
-static volatile bool seenNorthSignal = false;
-static uint16_t northIgnore = 0;
+static bool abzMode;
+static bool syncMode;
+static bool seenNorthSignal = false;
 
 void Encoder::Init(void)
 {
    rcc_peripheral_enable_clock(&RCC_APB1ENR, REV_CNT_RCC_ENR);
-   tim_setup();
-   dma_setup();
-   last_pulse_timespan = MAX_CNT;
-   EnableSyncMode();
-}
-
-void Encoder::EnableSyncMode()
-{
-	/* Configure the EXTI subsystem. */
-	seenNorthSignal = false;
-	exti_select_source(EXTI0, GPIOA);
-	exti_set_trigger(EXTI0, EXTI_TRIGGER_RISING);
-	exti_enable_request(EXTI0);
-}
-
-void Encoder::DisableSyncMode()
-{
-	/* Disable EXTI0 interrupt. */
-	seenNorthSignal = false;
-	northIgnore = 0;
-	exti_disable_request(EXTI0);
-}
-
-extern "C" void exti0_isr(void)
-{
-	exti_reset_request(EXTI0);
-
-	if (!northIgnore)
-	{
-	   angle = 0;
-	   northIgnore = 2;
-   }
-   else
-      northIgnore--;
- 	gpio_toggle(GPIOC, GPIO12);
-	seenNorthSignal = true;
+   abzMode = true; //Make sure SetMode does something
+   SetMode(false, false);
 }
 
 /** Since power up, have we seen the north marker? */
@@ -93,43 +63,32 @@ bool Encoder::SeenNorthSignal()
    return seenNorthSignal;
 }
 
-void Encoder::Update()
+/** Use pulse timing (single channel mode) or ABZ encoder mode
+ * @param useAbzMode use ABZ mode, single channel otherwise
+ * @param useSyncMode reset counter on first edge of ETR */
+void Encoder::SetMode(bool useAbzMode, bool useSyncMode)
 {
-   uint16_t numPulses = GetPulseTimeFiltered();
+   if (useAbzMode == abzMode && useSyncMode == syncMode) return;
 
-   angle += (int16_t)(numPulses * angle_per_pulse);
-}
-
-/** Returns current angle of motor shaft to some arbitrary 0-axis
- * @return angle in digit (2Pi=65536)
-*/
-uint16_t Encoder::GetAngle()
-{
-   uint32_t time_since_last_pulse = timer_get_counter(REV_CNT_TIMER);
-   uint16_t interpolated_angle = ignore?0:(angle_per_pulse * time_since_last_pulse) / last_pulse_timespan;
-
-   return angle + interpolated_angle;
-}
-
-u32fp Encoder::GetFrq()
-{
-   if (ignore) return 0;
-   return FP_FROMINT(1000000) / (last_pulse_timespan * imp_per_rev);
-}
-
-/** Get current speed in rpm */
-uint32_t Encoder::GetSpeed()
-{
-   if (ignore) return 0;
-   return 60000000 / (last_pulse_timespan * imp_per_rev);
+   abzMode = useAbzMode;
+   syncMode = useSyncMode;
+   if (abzMode)
+      InitTimerABZMode();
+   else
+      InitTimerSingleChannelMode();
 }
 
 /** set number of impulses per shaft rotation
   */
 void Encoder::SetImpulsesPerTurn(uint16_t imp)
 {
-   imp_per_rev = imp;
-   angle_per_pulse = TWO_PI / imp;
+   if (imp == pulsesPerTurn) return;
+
+   pulsesPerTurn = imp;
+   anglePerPulse = TWO_PI / imp;
+
+   if (abzMode)
+      InitTimerABZMode();
 }
 
 /** set filter constant of filter after pulse counter */
@@ -138,21 +97,111 @@ void Encoder::SetFilterConst(uint8_t flt)
    filter = flt;
 }
 
-static void dma_setup()
+void Encoder::UpdateRotorAngle(int dir)
 {
-   //We use DMA only for counting events, the values are ignored
-   REV_CNT_DMA_CPAR = (uint32_t)&REV_CNT_CCR;
-   REV_CNT_DMA_CMAR = (uint32_t)timdata;
-   REV_CNT_DMA_CNDTR = NUM_CTR_VAL;
-   REV_CNT_DMA_CCR |= DMA_CCR_MSIZE_16BIT;
-   REV_CNT_DMA_CCR |= DMA_CCR_PSIZE_16BIT;
-   REV_CNT_DMA_CCR |= DMA_CCR_MINC;
-   REV_CNT_DMA_CCR |= DMA_CCR_CIRC;
-   REV_CNT_DMA_CCR |= DMA_CCR_EN;
+   if (abzMode)
+   {
+      static uint16_t lastAngle = 0;
+      uint32_t cntVal = timer_get_counter(REV_CNT_TIMER);
+      cntVal *= TWO_PI;
+      cntVal /= pulsesPerTurn * 4;
+      angle = (uint16_t)cntVal;
+
+      //dir = (TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN) ? -1 : 1;
+
+      uint16_t angleDiff = (angle - lastAngle) & 0xFFFF;
+      if ((TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN))
+         angleDiff = (lastAngle - angle) & 0xFFFF;
+      lastAngle = angle;
+      turnsSinceLastSample += angleDiff;
+   }
+   else
+   {
+      uint16_t numPulses = GetPulseTimeFiltered();
+
+      angle += (int16_t)(dir * numPulses * anglePerPulse);
+   }
 }
 
-static void tim_setup()
+/** Return rotor frequency in Hz.
+ * This function must be called at an interval that is short enough to obtain
+ * a recent sample of the rotor frequency and long enough to allow a sufficient
+ * number of pulses to be generated even at low speeds.
+ * @param timeBase calling frequency in ms */
+void Encoder::UpdateRotorFrequency(int timeBase)
 {
+   if (abzMode && timeBase > 0)
+   {
+      //65536 is one turn
+      lastFrequency = ((1000 * turnsSinceLastSample) / timeBase) >> (16 - FRAC_DIGITS);
+      turnsSinceLastSample = 0;
+   }
+}
+
+/** Returns current angle of motor shaft to some arbitrary 0-axis
+ * @return angle in digit (2Pi=65536)
+*/
+uint16_t Encoder::GetRotorAngle(int dir)
+{
+   if (abzMode)
+   {
+      return angle;
+   }
+   else
+   {
+      uint32_t timeSinceLastPulse = timer_get_counter(REV_CNT_TIMER);
+      uint16_t interpolatedAngle = ignore?0:(anglePerPulse * timeSinceLastPulse) / lastPulseTimespan;
+
+      return angle + dir * interpolatedAngle;
+   }
+}
+
+
+/** Return rotor frequency in Hz
+ * @pre in ABZ encoder mode UpdateRotorFrequency must be called at a regular interval */
+u32fp Encoder::GetRotorFrequency()
+{
+   if (abzMode)
+   {
+      return lastFrequency;
+   }
+   else
+   {
+      if (ignore) return 0;
+      return FP_FROMINT(1000000) / (lastPulseTimespan * pulsesPerTurn);
+   }
+}
+
+/** Get current speed in rpm */
+uint32_t Encoder::GetSpeed()
+{
+   if (abzMode)
+   {
+      return FP_TOINT(60 * lastFrequency);
+   }
+   else
+   {
+      if (ignore) return 0;
+      return 60000000 / (lastPulseTimespan * pulsesPerTurn);
+   }
+}
+
+static void DMASetup()
+{
+   //We use DMA only for counting events, the values are ignored
+   dma_set_peripheral_address(DMA1, REV_CNT_DMACHAN, (uint32_t)&REV_CNT_CCR);
+   dma_set_memory_address(DMA1, REV_CNT_DMACHAN, (uint32_t)timdata);
+   dma_set_peripheral_size(DMA1, REV_CNT_DMACHAN, DMA_CCR_PSIZE_16BIT);
+   dma_set_memory_size(DMA1, REV_CNT_DMACHAN, DMA_CCR_MSIZE_16BIT);
+   dma_set_number_of_data(DMA1, REV_CNT_DMACHAN, NUM_CTR_VAL);
+   dma_enable_memory_increment_mode(DMA1, REV_CNT_DMACHAN);
+   dma_enable_circular_mode(DMA1, REV_CNT_DMACHAN);
+   dma_enable_channel(DMA1, REV_CNT_DMACHAN);
+}
+
+static void InitTimerSingleChannelMode()
+{
+   timer_reset(REV_CNT_TIMER);
    //Some explanation: HCLK=72MHz
    //APB1-Prescaler is 2 -> 36MHz
    //Timer clock source is ABP1*2 because APB1 prescaler > 1
@@ -166,16 +215,52 @@ static void tim_setup()
 
    /* Reset counter on input pulse. Filter constant must be larger than that of the capture input
       So that the counter value is first saved, then reset */
-   TIM_SMCR(REV_CNT_TIMER) = TIM_SMCR_SMS_RM | TIM_SMCR_TS_ETRF | TIM_SMCR_ETP | TIM_SMCR_ETF_DTS_DIV_32_N_8;
+   timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
+   timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_RISING);
+   timer_slave_set_trigger(REV_CNT_TIMER, TIM_SMCR_TS_ETRF);
+   timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);
+
    /* Save timer value on input pulse with smaller filter constant */
-   TIM_CCMR2(REV_CNT_TIMER) = REV_CNT_CCMR2 | TIM_CCMR2_IC3F_DTF_DIV_32_N_6;
-   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER;
+   timer_ic_set_filter(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_DTF_DIV_32_N_6);
+   timer_ic_set_input(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_IN_TI1);
+   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //No function yet
+   timer_ic_enable(REV_CNT_TIMER, REV_CNT_IC);
 
    timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
    timer_set_dma_on_compare_event(REV_CNT_TIMER);
 
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
    timer_enable_counter(REV_CNT_TIMER);
+   DMASetup();
+}
+
+static void InitTimerABZMode()
+{
+   timer_reset(REV_CNT_TIMER);
+	timer_set_period(REV_CNT_TIMER, 4 * pulsesPerTurn);
+
+	//In sync mode start out in reset mode and switch to encoder
+	//mode once the north marker has been detected
+	if (syncMode)
+   {
+      timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
+      timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_RISING);
+      timer_slave_set_trigger(REV_CNT_TIMER, TIM_SMCR_TS_ETRF);
+      timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);
+      //timer_enable_irq(REV_CNT_TIMER, );
+   }
+   else
+	{
+      timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_EM3); // encoder mode
+	}
+
+	timer_ic_set_input(REV_CNT_TIMER, TIM_IC1, TIM_IC_IN_TI1);
+	timer_ic_set_input(REV_CNT_TIMER, TIM_IC2, TIM_IC_IN_TI2);
+	timer_ic_set_filter(REV_CNT_TIMER, TIM_IC2, TIM_IC_DTF_DIV_32_N_8);
+	timer_ic_set_filter(REV_CNT_TIMER, TIM_IC3, TIM_IC_DTF_DIV_32_N_8);
+   timer_ic_enable(REV_CNT_TIMER, TIM_IC1);
+   timer_ic_enable(REV_CNT_TIMER, TIM_IC2);
+	timer_enable_counter(REV_CNT_TIMER);
 }
 
 static int GetPulseTimeFiltered()
@@ -191,15 +276,13 @@ static int GetPulseTimeFiltered()
       ignore = false;
       if (timer_get_flag(REV_CNT_TIMER, TIM_SR_UIF))
       {
-         timer_clear_flag(REV_CNT_TIMER, TIM_SR_CC3IF);
+         timer_clear_flag(REV_CNT_TIMER, REV_CNT_SR);
          timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
          ignore = true;
-         northIgnore = 0;
-         seenNorthSignal = false;
       }
    }
    //Ignore pulses when time is less than quarter of the last measurement (debouncing)
-   if (measTm < (last_pulse_timespan / 16) && !ignore)
+   if (measTm < (lastPulseTimespan / 16) && !ignore)
    {
       pulses = 0;
       encFails++;
@@ -208,7 +291,7 @@ static int GetPulseTimeFiltered()
    }
    else
    {
-      last_pulse_timespan = ignore?MAX_CNT:IIRFILTER(last_pulse_timespan, measTm, filter);
+      lastPulseTimespan = ignore?MAX_CNT:IIRFILTER(lastPulseTimespan, measTm, filter);
    }
    lastN = n;
    return pulses;

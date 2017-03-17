@@ -23,7 +23,8 @@
 #include "param_save.h"
 #include "hwdefs.h"
 
-#define NUM_PARAMS (PARAM_BLKSIZE - 8) / sizeof(KEY_VALUEPAIR32)
+#define NUM_PARAMS ((PARAM_BLKSIZE - 8) / sizeof(KEY_VALUEPAIR32))
+#define PARAM_WORDS (PARAM_BLKSIZE / 4)
 
 typedef struct
 {
@@ -51,7 +52,7 @@ uint32_t parm_save()
    CRC_CR |= CRC_CR_RESET;
 
    //Copy parameter values and keys to block structure
-   for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx); idx++)
+   for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx) && idx < NUM_PARAMS; idx++)
    {
       const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
       parmPage.data[idx].key = pAtr->id;
@@ -60,7 +61,7 @@ uint32_t parm_save()
       CRC_DR = Param::Get((Param::PARAM_NUM)idx);
    }
    //Pad the remaining space and the CRC calculcator with 0's
-   for (; idx < (NUM_PARAMS); idx++)
+   for (; idx < NUM_PARAMS; idx++)
    {
       parmPage.data[idx].key = 0;
       parmPage.data[idx].value = 0;
@@ -74,7 +75,7 @@ uint32_t parm_save()
    flash_set_ws(2);
    flash_erase_page(PARAM_ADDRESS);
 
-   for (idx = 0; idx < 256; idx++)
+   for (idx = 0; idx < PARAM_WORDS; idx++)
    {
       uint32_t* pData = ((uint32_t*)&parmPage) + idx;
       flash_program_word(PARAM_ADDRESS + idx * 4, *pData);
@@ -107,7 +108,7 @@ int parm_load()
       {
          const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
 
-         for (unsigned int idxPage = 0; idxPage < (NUM_PARAMS); idxPage++)
+         for (unsigned int idxPage = 0; idxPage < NUM_PARAMS; idxPage++)
          {
             if (parmPage->data[idxPage].key == pAtr->id)
             {
@@ -118,8 +119,6 @@ int parm_load()
       }
       return 0;
    }
-   else
-   {
-      return -1;
-   }
+
+   return -1;
 }

@@ -8,15 +8,15 @@ class Encoder
 {
    public:
       static void Init(void);
+      static void SetMode(bool useAbzMode, bool useSyncMode);
       static bool SeenNorthSignal();
-      static void Update();
-      static uint16_t GetAngle();
+      static void UpdateRotorAngle(int dir);
+      static void UpdateRotorFrequency(int timeBase);
+      static uint16_t GetRotorAngle(int dir);
       static uint32_t GetSpeed();
-      static u32fp GetFrq();
+      static u32fp GetRotorFrequency();
       static void SetFilterConst(uint8_t flt);
       static void SetImpulsesPerTurn(uint16_t imp);
-      static void EnableSyncMode();
-      static void DisableSyncMode();
 };
 
 #endif // INC_ENCODER_H_INCLUDED

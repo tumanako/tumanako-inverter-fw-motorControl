@@ -25,9 +25,10 @@
 #define SNS_M       "2=KTY83-110, 3=KTY84-130"
 #define PWMFUNCS    "0=tmpm, 1=tmphs, 2=speed"
 #define CRUISEMODS  "0=Button, 1=Switch"
-#define IDLEMODS    "0=always, 1=nobrake"
+#define IDLEMODS    "0=always, 1=nobrake, 2=cruise"
 #define ONOFF       "0=Off, 1=On"
 #define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
+#define ENCMODES    "0=Single, 1=ABZ"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -39,9 +40,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.25
-
-#define BUTTON 0
+#define VER 3.30
 
 enum _modes
 {
@@ -55,20 +54,22 @@ enum _modes
    MOD_LAST
 };
 
+#define BUTTON 0
+
 #define PWM_FUNC_TMPM  0
 #define PWM_FUNC_TMPHS 1
 #define PWM_FUNC_SPEED 2
 
 #define IDLE_MODE_ALWAYS 0
 #define IDLE_MODE_NOBRAKE 1
-
+#define IDLE_MODE_CRUISE 2
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 75
+//Next param id (increase when adding new parameter!): 76
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -79,6 +80,7 @@ enum _modes
     PARAM_ENTRY(CAT_MOTOR,   polepairs,   "",        1,      16,     2,      32  ) \
     PARAM_ENTRY(CAT_MOTOR,   ampmin,      "%",       0,      100,    10,     4   ) \
     PARAM_ENTRY(CAT_MOTOR,   encflt,      "",        0,      16,     1,      6   ) \
+    PARAM_ENTRY(CAT_MOTOR,   encmode,     ENCMODES,  0,      1,      0,      75  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmin,        "Hz",      0,      400,    1,      34  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      1000,   200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
@@ -111,7 +113,7 @@ enum _modes
     PARAM_ENTRY(CAT_REGEN,   brkout,      "%",       -100,   -1,     -50,    67  ) \
     PARAM_ENTRY(CAT_AUTOM,   idlespeed,   "rpm",     -100,   1000,   -100,   54  ) \
     PARAM_ENTRY(CAT_AUTOM,   idlethrotlim,"%",       0,      100,    50,     65  ) \
-    PARAM_ENTRY(CAT_AUTOM,   idlemode,    IDLEMODS,  0,      1,      0,      66  ) \
+    PARAM_ENTRY(CAT_AUTOM,   idlemode,    IDLEMODS,  0,      2,      0,      66  ) \
     PARAM_ENTRY(CAT_AUTOM,   speedkp,     "",        0,      100,    0.25,   53  ) \
     PARAM_ENTRY(CAT_AUTOM,   speedflt,    "",        0,      16,     5,      57  ) \
     PARAM_ENTRY(CAT_AUTOM,   cruisemode,  CRUISEMODS,0,      1,      0,      62  ) \

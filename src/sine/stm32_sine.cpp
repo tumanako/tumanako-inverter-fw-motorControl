@@ -54,7 +54,7 @@ static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
 static s32fp ilofs[2] = { 0, 0 };
 //Precise control of executing the boost controller
-static bool runBoostControl = false;
+static bool runChargeControl = false;
 
 static void CruiseControl()
 {
@@ -187,9 +187,9 @@ static void CalcAmpAndSlip(void)
 
       ampnom = -potnom;
       fslipspnt = -fslipmin;
-      if (Encoder::GetFrq() < brkrampstr)
+      if (Encoder::GetRotorFrequency() < brkrampstr)
       {
-         ampnom = FP_TOINT(FP_DIV(Encoder::GetFrq(), brkrampstr) * ampnom);
+         ampnom = FP_TOINT(FP_DIV(Encoder::GetRotorFrequency(), brkrampstr) * ampnom);
       }
       //This works because ampnom = -potnom
       if (ampnom >= -Param::Get(Param::brkout))
@@ -257,7 +257,7 @@ static s32fp ProcessUdc()
    //Calculate "12V" supply voltage from voltage divider on mprot pin
    //1.2/(4.7+1.2)/3.34*4095 = 249 -> make it a bit less for pin losses etc
    Param::SetFlt(Param::uaux, FP_DIV(AnaIn::Get(AnaIn::uaux), 248));
-   udc = IIRFILTER(udc, AnaIn::Get(AnaIn::udc), 1);
+   udc = IIRFILTER(udc, AnaIn::Get(AnaIn::udc), 2);
    udcfp = FP_DIV(FP_FROMINT(udc), udcgain);
 
    if (udcfp < udcmin || udcfp > udcmax)
@@ -318,8 +318,8 @@ static void CalcThrottle()
 {
    int potval = AnaIn::Get(AnaIn::throttle1);
    int pot2val = AnaIn::Get(AnaIn::throttle2);
+   bool brake = DigIo::Get(Pin::brake_in);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
-
 
    Param::SetDig(Param::pot, potval);
    Param::SetDig(Param::pot2, pot2val);
@@ -333,12 +333,14 @@ static void CalcThrottle()
 
    Throttle::CheckAndLimitRange(&pot2val, 1);
 
-   throtSpnt = Throttle::CalcThrottle(potval, pot2val, DigIo::Get(Pin::brake_in));
+   throtSpnt = Throttle::CalcThrottle(potval, pot2val, brake);
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
    derateSpnt = Throttle::TemperatureDerate(Param::Get(Param::tmphs));
    cruiseSpnt = Throttle::CalcCruiseSpeed(Encoder::GetSpeed());
 
-   if (Param::GetInt(Param::idlemode) == IDLE_MODE_ALWAYS || !DigIo::Get(Pin::brake_in))
+   if (Param::GetInt(Param::idlemode) == IDLE_MODE_ALWAYS ||
+       (Param::GetInt(Param::idlemode) == IDLE_MODE_NOBRAKE && !brake) ||
+       (Param::GetInt(Param::idlemode) == IDLE_MODE_CRUISE && !brake && DigIo::Get(Pin::cruise_in)))
       finalSpnt = MAX(throtSpnt, idleSpnt);
    else
       finalSpnt = throtSpnt;
@@ -354,9 +356,9 @@ static void CalcThrottle()
    if (Param::GetInt(Param::din_bms))
    {
       if (finalSpnt >= 0)
-         finalSpnt = MIN(finalSpnt, Param::GetInt(Param::bmslimhigh));
+         finalSpnt = (finalSpnt * Param::GetInt(Param::bmslimhigh)) / 100;
       else
-         finalSpnt = MAX(finalSpnt, Param::GetInt(Param::bmslimlow));
+         finalSpnt = -(finalSpnt * Param::GetInt(Param::bmslimlow)) / 100;
    }
 
    if (derateSpnt < 100)
@@ -380,6 +382,7 @@ static void Ms10Task(void)
 
    CalcThrottle();
    CalcAndOutputTemp();
+   Encoder::UpdateRotorFrequency(10);
 
    if (MOD_RUN == opmode)
    {
@@ -402,6 +405,7 @@ static void Ms10Task(void)
           */
          if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && chargemode >= MOD_BOOST)
          {
+            //Do NOT close main relay in buck mode!!
             if (chargemode == MOD_BOOST)
                DigIo::Set(Pin::dcsw_out);
             DigIo::Clear(Pin::err_out);
@@ -416,7 +420,7 @@ static void Ms10Task(void)
             DigIo::Clear(Pin::prec_out);
             Param::SetDig(Param::opmode, MOD_RUN);
             ErrorMessage::UnpostAll();
-            runBoostControl = false;
+            runChargeControl = false;
          }
       }
    }
@@ -429,13 +433,13 @@ static void Ms10Task(void)
       PwmGeneration::SetOpmode(MOD_OFF);
       DigIo::Clear(Pin::dcsw_out);
       Throttle::cruiseSpeed = -1;
-      runBoostControl = false;
+      runChargeControl = false;
    }
    else if (0 == initWait)
    {
       PwmGeneration::PwmInit(); //this applies new deadtime and pwmfrq
-      PwmGeneration::SetOpmode(opmode);
-      runBoostControl = (opmode == MOD_BOOST || opmode == MOD_BUCK);
+      PwmGeneration::SetOpmode(opmode); //this enables the outputs for the given mode
+      runChargeControl = (opmode == MOD_BOOST || opmode == MOD_BUCK);
       DigIo::Clear(Pin::err_out);
       initWait = -1;
    }
@@ -523,7 +527,7 @@ static void Ms1Task(void)
       speedCnt--;
    }
 
-   if (runBoostControl)
+   if (runChargeControl)
    {
       ilFlt = IIRFILTER(ilFlt, ilMax, Param::GetInt(Param::chargeflt));
       iSpntFlt = IIRFILTER(iSpntFlt, Param::Get(Param::chargecur) << 8, 11);
@@ -534,6 +538,9 @@ static void Ms1Task(void)
          Param::SetFlt(Param::idc, (FP_MUL((FP_FROMINT(100) - ampnom), ilFlt) / 100) >> 8);
       else
          Param::SetFlt(Param::idc, ilFlt >> 8);
+      ampnom = MIN(ampnom, FP_FROMINT(Throttle::TemperatureDerate(Param::Get(Param::tmphs))));
+      ampnom = MAX(0, ampnom);
+      ampnom = MIN(FP_FROMINT(96), ampnom);
       PwmGeneration::SetAmpnom(ampnom);
    }
    else
@@ -549,18 +556,12 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
    else if (Param::ampnom == paramNum)
       PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
-   else if (Param::syncmode == paramNum)
-   {
-      if (Param::GetInt(Param::syncmode))
-         Encoder::EnableSyncMode();
-      else
-         Encoder::DisableSyncMode();
-   }
    else
    {
       SetCurrentLimitThreshold();
 
       Encoder::SetFilterConst(Param::GetInt(Param::encflt));
+      Encoder::SetMode((bool)Param::GetInt(Param::encmode), (bool)Param::GetInt(Param::syncmode));
       Encoder::SetImpulsesPerTurn(Param::GetInt(Param::numimp));
 
       MotorVoltage::SetWeakeningFrq(Param::Get(Param::fweak));
@@ -605,7 +606,7 @@ extern "C" int main(void)
    create_task(Ms10Task,  PRIO_GRP1, 1, 10);
    create_task(Ms1Task,   PRIO_GRP1, 2, 1);
 
-   //Always enable prechagre except in buck mode.
+   //Always enable precharge except in buck mode.
    if (!(DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && Param::GetInt(Param::chargemode) == MOD_BUCK))
       DigIo::Set(Pin::prec_out);
 
