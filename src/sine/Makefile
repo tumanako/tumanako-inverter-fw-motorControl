@@ -57,10 +57,10 @@ Debug:images
 Release: images
 cleanDebug:clean
 images: $(BINARY)
-	@printf "  OBJCOPY $(BINARY).bin\n"
-	$(Q)$(OBJCOPY) -Obinary $(BINARY) $(BINARY).bin
-	@printf "  OBJCOPY $(BINARY).hex\n"
-	$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY).hex
+	@printf "  OBJCOPY $(BINARY)$(HWCONFIG).bin\n"
+	$(Q)$(OBJCOPY) -Obinary $(BINARY) $(BINARY)$(HWCONFIG).bin
+	@printf "  OBJCOPY $(BINARY)$(HWCONFIG).hex\n"
+	$(Q)$(OBJCOPY) -Oihex $(BINARY) $(BINARY)$(HWCONFIG).hex
 	$(Q)$(SIZE) $(BINARY)
 #@printf "  OBJCOPY $(BINARY).srec\n"
 #$(Q)$(OBJCOPY) -Osrec $(BINARY) $(BINARY).srec

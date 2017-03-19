@@ -28,27 +28,29 @@
 #include <libopencm3/cm3/nvic.h>
 #include "errormessage.h"
 #include "params.h"
+
 #define TWO_PI 65536
 #define MAX_CNT 65535
-#define NUM_CTR_VAL 100
+#define MAX_REVCNT_VALUES 16
 
 static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
 static void DMASetup();
 static int GetPulseTimeFiltered();
 
-static volatile uint16_t timdata[NUM_CTR_VAL];
+static volatile uint16_t timdata[MAX_REVCNT_VALUES];
 static volatile uint16_t angle = 0;
-static uint32_t lastPulseTimespan = 0xffff;
+static uint32_t lastPulseTimespan = 0;
 static uint16_t filter = 0;
 static uint32_t anglePerPulse = 0;
 static uint16_t pulsesPerTurn = 0;
 static uint32_t turnsSinceLastSample = 0;
 static u32fp lastFrequency = 0;
-static bool ignore = true;
+//static bool ignore = true;
 static bool abzMode;
 static bool syncMode;
 static bool seenNorthSignal = false;
+static uint32_t minPulseTime = 0;
 
 void Encoder::Init(void)
 {
@@ -76,6 +78,11 @@ void Encoder::SetMode(bool useAbzMode, bool useSyncMode)
       InitTimerABZMode();
    else
       InitTimerSingleChannelMode();
+}
+
+void Encoder::SetMinPulseTime(uint32_t time)
+{
+   minPulseTime = time;
 }
 
 /** set number of impulses per shaft rotation
@@ -107,8 +114,6 @@ void Encoder::UpdateRotorAngle(int dir)
       cntVal /= pulsesPerTurn * 4;
       angle = (uint16_t)cntVal;
 
-      //dir = (TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN) ? -1 : 1;
-
       uint16_t angleDiff = (angle - lastAngle) & 0xFFFF;
       if ((TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN))
          angleDiff = (lastAngle - angle) & 0xFFFF;
@@ -117,7 +122,7 @@ void Encoder::UpdateRotorAngle(int dir)
    }
    else
    {
-      uint16_t numPulses = GetPulseTimeFiltered();
+      int16_t numPulses = GetPulseTimeFiltered();
 
       angle += (int16_t)(dir * numPulses * anglePerPulse);
    }
@@ -150,7 +155,7 @@ uint16_t Encoder::GetRotorAngle(int dir)
    else
    {
       uint32_t timeSinceLastPulse = timer_get_counter(REV_CNT_TIMER);
-      uint16_t interpolatedAngle = ignore?0:(anglePerPulse * timeSinceLastPulse) / lastPulseTimespan;
+      uint16_t interpolatedAngle = lastPulseTimespan < MAX_CNT ? (anglePerPulse * timeSinceLastPulse) / lastPulseTimespan : 0;
 
       return angle + dir * interpolatedAngle;
    }
@@ -167,7 +172,7 @@ u32fp Encoder::GetRotorFrequency()
    }
    else
    {
-      if (ignore) return 0;
+      if (lastPulseTimespan == MAX_CNT) return 0;
       return FP_FROMINT(1000000) / (lastPulseTimespan * pulsesPerTurn);
    }
 }
@@ -181,7 +186,7 @@ uint32_t Encoder::GetSpeed()
    }
    else
    {
-      if (ignore) return 0;
+      if (lastPulseTimespan == MAX_CNT) return 0;
       return 60000000 / (lastPulseTimespan * pulsesPerTurn);
    }
 }
@@ -189,11 +194,12 @@ uint32_t Encoder::GetSpeed()
 static void DMASetup()
 {
    //We use DMA only for counting events, the values are ignored
+   dma_disable_channel(DMA1, REV_CNT_DMACHAN);
    dma_set_peripheral_address(DMA1, REV_CNT_DMACHAN, (uint32_t)&REV_CNT_CCR);
    dma_set_memory_address(DMA1, REV_CNT_DMACHAN, (uint32_t)timdata);
    dma_set_peripheral_size(DMA1, REV_CNT_DMACHAN, DMA_CCR_PSIZE_16BIT);
    dma_set_memory_size(DMA1, REV_CNT_DMACHAN, DMA_CCR_MSIZE_16BIT);
-   dma_set_number_of_data(DMA1, REV_CNT_DMACHAN, NUM_CTR_VAL);
+   dma_set_number_of_data(DMA1, REV_CNT_DMACHAN, MAX_REVCNT_VALUES);
    dma_enable_memory_increment_mode(DMA1, REV_CNT_DMACHAN);
    dma_enable_circular_mode(DMA1, REV_CNT_DMACHAN);
    dma_enable_channel(DMA1, REV_CNT_DMACHAN);
@@ -210,20 +216,19 @@ static void InitTimerSingleChannelMode()
    //Prescaler is div-1 => 71
    timer_set_prescaler(REV_CNT_TIMER, 71);
    timer_set_period(REV_CNT_TIMER, MAX_CNT);
-   timer_update_on_overflow(REV_CNT_TIMER);
    timer_direction_up(REV_CNT_TIMER);
 
    /* Reset counter on input pulse. Filter constant must be larger than that of the capture input
       So that the counter value is first saved, then reset */
    timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
-   timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_RISING);
+   timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_FALLING);
    timer_slave_set_trigger(REV_CNT_TIMER, TIM_SMCR_TS_ETRF);
    timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);
 
    /* Save timer value on input pulse with smaller filter constant */
    timer_ic_set_filter(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_DTF_DIV_32_N_6);
    timer_ic_set_input(REV_CNT_TIMER, REV_CNT_IC, TIM_IC_IN_TI1);
-   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //No function yet
+   TIM_CCER(REV_CNT_TIMER) |= REV_CNT_CCER; //No API function yet available
    timer_ic_enable(REV_CNT_TIMER, REV_CNT_IC);
 
    timer_enable_irq(REV_CNT_TIMER, REV_CNT_DMAEN);
@@ -237,7 +242,7 @@ static void InitTimerSingleChannelMode()
 static void InitTimerABZMode()
 {
    timer_reset(REV_CNT_TIMER);
-	timer_set_period(REV_CNT_TIMER, 4 * pulsesPerTurn);
+	timer_set_period(REV_CNT_TIMER, 4 * pulsesPerTurn); //2 channels and 2 edges -> 4 times the number of base pulses
 
 	//In sync mode start out in reset mode and switch to encoder
 	//mode once the north marker has been detected
@@ -265,34 +270,35 @@ static void InitTimerABZMode()
 
 static int GetPulseTimeFiltered()
 {
-   static uint16_t lastN = NUM_CTR_VAL;
-   static uint16_t encFails = 0;
+   static int lastN = 0;
+   static int encFails = 0;
+   static int noUpdate = 2000;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
-   int pulses = n <= lastN?lastN - n:lastN + NUM_CTR_VAL - n;
+   int pulses = n <= lastN?lastN - n:lastN + MAX_REVCNT_VALUES - n;
+   lastN = n;
 
-   if (pulses > 0)
+   if (pulses == 0)
+      noUpdate++;
+   else
+      noUpdate = 0;
+
+   if (measTm >= minPulseTime)
    {
-      ignore = false;
-      if (timer_get_flag(REV_CNT_TIMER, TIM_SR_UIF))
-      {
-         timer_clear_flag(REV_CNT_TIMER, REV_CNT_SR);
-         timer_clear_flag(REV_CNT_TIMER, TIM_SR_UIF);
-         ignore = true;
-      }
+      lastPulseTimespan = IIRFILTER(lastPulseTimespan, measTm, filter);
+      if (noUpdate > 1999)
+         lastPulseTimespan = MAX_CNT;
    }
-   //Ignore pulses when time is less than quarter of the last measurement (debouncing)
-   if (measTm < (lastPulseTimespan / 16) && !ignore)
+   else if (measTm > 0)
    {
       pulses = 0;
       encFails++;
       if (encFails > 10)
+      {
          ErrorMessage::Post(ERR_ENCODER);
+         encFails = 0;
+      }
    }
-   else
-   {
-      lastPulseTimespan = ignore?MAX_CNT:IIRFILTER(lastPulseTimespan, measTm, filter);
-   }
-   lastN = n;
+
    return pulses;
 }

@@ -558,11 +558,14 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
    else
    {
+      //Allow ~20% more
+      int minPulseTime = (800000 * Param::GetInt(Param::polepairs)) / (Param::GetInt(Param::fmax) * Param::GetInt(Param::numimp));
       SetCurrentLimitThreshold();
 
       Encoder::SetFilterConst(Param::GetInt(Param::encflt));
       Encoder::SetMode((bool)Param::GetInt(Param::encmode), (bool)Param::GetInt(Param::syncmode));
       Encoder::SetImpulsesPerTurn(Param::GetInt(Param::numimp));
+      Encoder::SetMinPulseTime(minPulseTime);
 
       MotorVoltage::SetWeakeningFrq(Param::Get(Param::fweak));
       MotorVoltage::SetBoost(Param::GetInt(Param::boost));
