@@ -200,8 +200,8 @@ static void CalcAmpAndSlip(void)
 
    ampnom = MIN(ampnom, FP_FROMINT(100));
 
-   Param::SetFlt(Param::ampnom, IIRFILTER(Param::Get(Param::ampnom), ampnom, 3));
-   Param::SetFlt(Param::fslipspnt, IIRFILTER(Param::Get(Param::fslipspnt), fslipspnt, 3));
+   Param::SetFlt(Param::ampnom, ampnom);
+   Param::SetFlt(Param::fslipspnt, fslipspnt);
    PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
    PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
 }
@@ -579,8 +579,8 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Throttle::potmax[1] = Param::GetInt(Param::pot2max);
       Throttle::brknom = Param::GetInt(Param::brknom);
       Throttle::brknompedal = Param::GetInt(Param::brknompedal);
-      Throttle::brkPedalRamp = Param::GetInt(Param::brkpedalramp);
       Throttle::brkmax = Param::GetInt(Param::brkmax);
+      Throttle::potflt = Param::GetInt(Param::potflt);
       Throttle::idleSpeed = Param::GetInt(Param::idlespeed);
       Throttle::speedkp = Param::Get(Param::speedkp);
       Throttle::speedflt = Param::GetInt(Param::speedflt);

@@ -20,6 +20,7 @@
  */
 
 #include "my_fp.h"
+#include "my_math.h"
 #include "test_list.h"
 #include "string.h"
 
@@ -47,9 +48,19 @@ static void TestAtoi()
    ASSERT(fp_atoi("2.155") == FP_FROMFLT(2.15));
 }
 
+static void TestMedian3()
+{
+   ASSERT(MEDIAN3(1,2,3) == 2);
+   ASSERT(MEDIAN3(3,2,1) == 2);
+   ASSERT(MEDIAN3(1,3,2) == 2);
+   ASSERT(MEDIAN3(2,3,1) == 2);
+   ASSERT(MEDIAN3(2,1,3) == 2);
+}
+
 void FPTest::RunTest()
 {
    TestMacros();
    TestItoa();
    TestAtoi();
+   TestMedian3();
 }

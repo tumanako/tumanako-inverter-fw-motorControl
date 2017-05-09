@@ -32,9 +32,8 @@ int Throttle::cruiseSpeed;
 s32fp Throttle::speedkp;
 int Throttle::speedflt;
 int Throttle::speedFiltered;
+int Throttle::potflt;
 s32fp Throttle::idleThrotLim;
-int Throttle::brkPedalRamp;
-int Throttle::brkPedalRamped;
 
 bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
@@ -57,6 +56,7 @@ bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 
 int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 {
+   static int potNomFlt = 0;
    int potnom = 0;
    int scaledBrkMax = brkmax;
    int scaledBrkPedal = brknompedal;
@@ -67,7 +67,7 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
       //potnom = (100 * potnom) / (potmax[1] - potmin[1]);
       //Never reach 0, because that can spin up the motor
       scaledBrkMax = 1 + (scaledBrkMax * potnom) / 100;
-      scaledBrkPedal = 1+ (scaledBrkPedal * potnom) / 100;
+      scaledBrkPedal = 1 + (scaledBrkPedal * potnom) / 100;
    }
 
    potnom = potval - potmin[0];
@@ -78,17 +78,11 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 
    if (brkpedal)
    {
-      if (brkPedalRamped > scaledBrkPedal) //don't overshoot the final value
-         brkPedalRamped -= MIN(brkPedalRamp, brkPedalRamped - scaledBrkPedal);
-
-      potnom = brkPedalRamped;
-   }
-   else
-   {
-      brkPedalRamped = MIN(0, potnom);
+      potnom = scaledBrkPedal;
    }
 
-   return potnom;
+   potNomFlt = IIRFILTER(potNomFlt, potnom * 256, potflt);
+   return potNomFlt / 256;
 }
 
 int Throttle::CalcIdleSpeed(int speed)

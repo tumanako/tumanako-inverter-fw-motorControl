@@ -139,21 +139,7 @@ uint16_t AnaIn::Get(AnaIn::AnaIns in)
 
 int AnaIn::median3(int a, int b, int c)
 {
-   int med;
-   if (a > b)
-   {
-      if (b > c) med = b;
-      else if (a > c) med = c;
-      else med = a;
-   }
-   else
-   {
-      if (a > c) med = a;
-      else if (b > c) med = c;
-      else med = b;
-   }
-
-   return med;
+   return MEDIAN3(a,b,c);
 }
 
 uint8_t AnaIn::AdcChFromPort(int command_port, int command_bit)

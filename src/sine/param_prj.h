@@ -69,7 +69,7 @@ enum _modes
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 76
+//Next param id (increase when adding new parameter!): 77
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -103,10 +103,10 @@ enum _modes
     PARAM_ENTRY(CAT_CHARGER, chargeflt,   "dig",     0,      10,     8,      73  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmax,      "dig",     0,      4095,   4095,   18  ) \
+    PARAM_ENTRY(CAT_THROTTLE,potflt,      "dig",     0,      8,     3,       76  ) \
     PARAM_ENTRY(CAT_REGEN,   pot2min,     "dig",     0,      4095,   4095,   63  ) \
     PARAM_ENTRY(CAT_REGEN,   pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
-    PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(CAT_REGEN,   brknom,      "%",       0,      100,    30,     19  ) \
     PARAM_ENTRY(CAT_REGEN,   brkmax,      "%",       0,      100,    30,     49  ) \
     PARAM_ENTRY(CAT_REGEN,   brkrampstr,  "Hz",      0,      400,    10,     39  ) \

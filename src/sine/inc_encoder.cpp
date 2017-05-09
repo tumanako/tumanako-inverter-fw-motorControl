@@ -31,7 +31,7 @@
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
-#define MAX_REVCNT_VALUES 16
+#define MAX_REVCNT_VALUES 3
 
 static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
@@ -272,22 +272,25 @@ static int GetPulseTimeFiltered()
 {
    static int lastN = 0;
    static int encFails = 0;
-   static int noUpdate = 2000;
+   //static int noUpdate = 2000;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN?lastN - n:lastN + MAX_REVCNT_VALUES - n;
    lastN = n;
 
-   if (pulses == 0)
+   /*if (pulses == 0)
       noUpdate++;
    else
-      noUpdate = 0;
+      noUpdate = 0;*/
 
    if (measTm >= minPulseTime)
    {
-      lastPulseTimespan = IIRFILTER(lastPulseTimespan, measTm, filter);
-      if (noUpdate > 1999)
-         lastPulseTimespan = MAX_CNT;
+      int a = timdata[0];
+      int b = timdata[1];
+      int c = timdata[2];
+      lastPulseTimespan = MEDIAN3(a,b,c); //IIRFILTER(lastPulseTimespan, measTm, filter);
+      //if (noUpdate > 1999)
+        // lastPulseTimespan = MAX_CNT;
    }
    else if (measTm > 0)
    {
