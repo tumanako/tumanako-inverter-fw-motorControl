@@ -46,12 +46,20 @@ static const uint16_t Kty83[] = { KTY83 };
 /* Temp sensor KTY84-130 */
 static const uint16_t Kty84[] = { KTY84 };
 
+/* Temp sensor embedded in Tesla rear motor */
+static const uint16_t Tesla100k[] = { TESLA_100K };
+
+/* Temp sensor embedded in Tesla rear heatsink */
+static const uint16_t Tesla52k[] = { TESLA_52K };
+
 static const TEMP_SENSOR sensors[] =
 {
-   { -25, 106, 5,  sizeof(JCurve) / sizeof(JCurve[0]),     NTC, JCurve },
-   { 0,   100, 5,  sizeof(Semikron) / sizeof(Semikron[0]), PTC, Semikron },
-   { -50, 170, 10, sizeof(Kty83) / sizeof(Kty83[0]),       PTC, Kty83  },
-   { -40, 300, 10, sizeof(Kty84) / sizeof(Kty84[0]),       PTC, Kty84  },
+   { -25, 106, 5,  sizeof(JCurve) / sizeof(JCurve[0]),      NTC, JCurve },
+   { 0,   100, 5,  sizeof(Semikron) / sizeof(Semikron[0]),  PTC, Semikron },
+   { -50, 170, 10, sizeof(Kty83) / sizeof(Kty83[0]),        PTC, Kty83  },
+   { -40, 300, 10, sizeof(Kty84) / sizeof(Kty84[0]),        PTC, Kty84  },
+   { -20, 190, 5,  sizeof(Tesla100k) / sizeof(Tesla100k[0]),PTC, Tesla100k  },
+   { 0,   100, 10, sizeof(Tesla52k) / sizeof(Tesla52k[0]),  PTC, Tesla52k  },
 };
 
 s32fp TempMeas::Lookup(int digit, Sensors sensorId)
@@ -59,17 +67,16 @@ s32fp TempMeas::Lookup(int digit, Sensors sensorId)
    if (sensorId >= TEMP_LAST) return 0;
 
    const TEMP_SENSOR * sensor = &sensors[sensorId];
-   unsigned int Idx;
    uint16_t last = sensor->lookup[0] + (sensor->coeff == NTC?-1:+1);
 
-   for (Idx = 0; Idx < sensor->tabSize; Idx++)
+   for (uint32_t i = 0; i < sensor->tabSize; i++)
    {
-      uint16_t cur = sensor->lookup[Idx];
+      uint16_t cur = sensor->lookup[i];
       if ((sensor->coeff == NTC && cur >= digit) || (sensor->coeff == PTC && cur <= digit))
       {
          s32fp a = FP_FROMINT(sensor->coeff == NTC?cur - digit:digit - cur);
          s32fp b = FP_FROMINT(sensor->coeff == NTC?cur - last:last - cur);
-         return FP_FROMINT(sensor->step * Idx + sensor->tempMin) - sensor->step * FP_DIV(a, b);
+         return FP_FROMINT(sensor->step * i + sensor->tempMin) - sensor->step * FP_DIV(a, b);
       }
       last = cur;
    }

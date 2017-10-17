@@ -25,6 +25,7 @@
 #include "fu.h"
 #include "errormessage.h"
 #include "digio.h"
+#include "anain.h"
 #include "my_math.h"
 
 #define SHIFT_180DEG 32768
@@ -111,9 +112,33 @@ extern "C" void tim1_brk_isr(void)
 
 extern "C" void pwm_timer_isr(void)
 {
+   static s32fp ilMaxFlt = 0;
+   extern s32fp ilofs[2];
+   s32fp ilAbs[3];
    uint16_t last = timer_get_counter(PWM_TIMER);
    /* Clear interrupt pending flag */
    TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
+
+   for (int i = 0; i < 2; i++)
+   {
+      s32fp il;
+      il = FP_FROMINT(AnaIn::Get((AnaIn::AnaIns)(AnaIn::il1+i)));
+
+      il -= ilofs[i];
+
+      il = FP_DIV(il, Param::Get((Param::PARAM_NUM)(Param::il1gain+i)));
+
+      ilAbs[i] = il;
+   }
+
+   ilAbs[2] = -ilAbs[0] - ilAbs[1];
+   s32fp offset = SineCore::CalcSVPWMOffset(ilAbs[0], ilAbs[1], ilAbs[2]) / 2;
+   ilAbs[0] = ABS(ilAbs[0]);
+   ilAbs[1] = ABS(ilAbs[1]);
+   ilAbs[2] = ABS(ilAbs[2]);
+   s32fp ilMax = MAX(MAX(ilAbs[0], ilAbs[1]), ilAbs[2]) - ABS(offset);
+   ilMaxFlt = IIRFILTER(ilMaxFlt, ilMax, 1);
+   Param::SetFlt(Param::ilmax, ilMaxFlt);
 
    if (opmode == MOD_MANUAL || opmode == MOD_RUN || opmode == MOD_SINE)
    {
@@ -130,10 +155,19 @@ extern "C" void pwm_timer_isr(void)
          CalcNextAngle(dir);
 
       uint32_t amp = MotorVoltage::GetAmpPerc(frq, FP_TOINT(ampnom));
+      /*s32fp err = ampnom - ilMaxFlt;
+      int amp = FP_MUL(Param::Get(Param::chargekp), err);
+      int amp2 = (Param::Get(Param::fmax) - frq) * 10;
+      amp = MIN(amp, amp2);
+      amp = MIN(amp, SineCore::MAXAMP);
+      amp = MAX(amp, 0);
+
+      if (frq < Param::Get(Param::fmin))
+         amp = 0;*/
+
       SineCore::SetAmp(amp);
       Param::SetDig(Param::amp, amp);
       Param::SetFlt(Param::fstat, frq);
-      //Param::SetDig(Param::angle, angle);
       SineCore::Calc(angle);
 
       /* Match to PWM resolution */
@@ -141,7 +175,8 @@ extern "C" void pwm_timer_isr(void)
       SineCore::DutyCycles[1] >>= shiftForTimer;
       SineCore::DutyCycles[2] >>= shiftForTimer;
 
-      if (0 == Param::GetInt(Param::amp) || dir == 0)
+      /* Shut down PWM on zero voltage request */
+      if (0 == amp || 0 == dir)
       {
           SineCore::DutyCycles[0] = SineCore::DutyCycles[1] = SineCore::DutyCycles[2] = 0;
       }
@@ -149,22 +184,6 @@ extern "C" void pwm_timer_isr(void)
       timer_set_oc_value(PWM_TIMER, TIM_OC1, SineCore::DutyCycles[0]);
       timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[1]);
       timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[2]);
-
-      /*if (dir == 0 )
-      {
-         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[0]);
-         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[0]);
-      }
-      else if (dir > 0 )
-      {
-         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[1]);
-         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[2]);
-      }
-      else if (dir < 0 )
-      {
-         timer_set_oc_value(PWM_TIMER, TIM_OC2, SineCore::DutyCycles[2]);
-         timer_set_oc_value(PWM_TIMER, TIM_OC3, SineCore::DutyCycles[1]);
-      }*/
    }
    else if (opmode == MOD_BOOST || opmode == MOD_BUCK)
    {
@@ -299,10 +318,8 @@ static void AcHeat()
 }
 
 /**
-* Setup main PWM timer and timer for generating over current
-* reference values and external PWM
+* Setup main PWM timer
 *
-* @param[in] pwmdigits Number of binary digits to use (determines PWM frequency)
 * @param[in] deadtime Deadtime between bottom and top (coded value, consult STM32 manual)
 * @param[in] pwmpol Output Polarity. 0=Active High, 1=Active Low
 * @return PWM frequency

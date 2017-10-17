@@ -128,6 +128,28 @@ PARAM_NUM NumFromString(const char *name)
 }
 
 /**
+* Get the paramater index from a parameters unique id
+*
+* @param[in] id Parameters unique id
+* @return Parameter index if found, PARAM_INVALID otherwise
+*/
+PARAM_NUM NumFromId(uint32_t id)
+{
+    PARAM_NUM paramNum = PARAM_INVALID;
+    const Attributes *pCurAtr = attribs;
+
+    for (int i = 0; i < PARAM_LAST; i++, pCurAtr++)
+    {
+         if (pCurAtr->id == id)
+         {
+             paramNum = (PARAM_NUM)i;
+             break;
+         }
+    }
+    return paramNum;
+}
+
+/**
 * Get the parameter attributes
 *
 * @param[in] ParamNum Parameter index

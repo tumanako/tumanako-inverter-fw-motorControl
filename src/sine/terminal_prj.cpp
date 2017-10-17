@@ -26,6 +26,7 @@
 #include "param_save.h"
 #include "errormessage.h"
 #include "pwmgeneration.h"
+#include "stm32_can.h"
 
 #define NUM_BUF_LEN 15
 
@@ -41,6 +42,7 @@ static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
 static void Help(char *arg);
 static void PrintParamsJson(char *arg);
+static void MapCanTx(char *arg);
 static void PrintErrors(char *arg);
 static void Reset(char *arg);
 
@@ -58,10 +60,56 @@ extern "C" const TERM_CMD TermCmds[] =
   { "load", LoadParameters },
   { "help", Help },
   { "json", PrintParamsJson },
+  { "cantx", MapCanTx },
   { "errors", PrintErrors },
   { "reset", Reset },
   { NULL, NULL }
 };
+//cantx param id offset len
+static void MapCanTx(char *arg)
+{
+   Param::PARAM_NUM paramIdx;
+   int values[4];
+
+   arg = my_trim(arg);
+
+   for (int i = -1; i < 4; i++)
+   {
+      char *ending = (char *)my_strchr(arg, ' ');
+
+      if (0 == *ending && i < 3)
+      {
+         printf("Missing argument\r\n");
+         return;
+      }
+
+      *ending = 0;
+
+      if (i < 0)
+         paramIdx = Param::NumFromString(arg);
+      else
+         values[i] = my_atoi(arg);
+      arg = ending + 1;
+   }
+
+   printf("%d,%d,%d,%d\r\n", paramIdx, values[0], values[1], values[2]);
+
+   if (Param::PARAM_INVALID != paramIdx)
+   {
+       if (can_addsend(paramIdx, values[0], values[1], values[2], values[3]) < 0)
+       {
+          printf("Value out of range\r\n");
+       }
+       else
+       {
+          printf("Set OK\r\n");
+       }
+   }
+   else
+   {
+       printf("Unknown parameter %s\r\n", arg);
+   }
+}
 
 static void PrintParamsJson(char *arg)
 {

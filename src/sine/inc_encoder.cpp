@@ -46,7 +46,7 @@ static uint32_t anglePerPulse = 0;
 static uint16_t pulsesPerTurn = 0;
 static uint32_t turnsSinceLastSample = 0;
 static u32fp lastFrequency = 0;
-//static bool ignore = true;
+static bool ignore = true;
 static bool abzMode;
 static bool syncMode;
 static bool seenNorthSignal = false;
@@ -155,7 +155,7 @@ uint16_t Encoder::GetRotorAngle(int dir)
    else
    {
       uint32_t timeSinceLastPulse = timer_get_counter(REV_CNT_TIMER);
-      uint16_t interpolatedAngle = lastPulseTimespan < MAX_CNT ? (anglePerPulse * timeSinceLastPulse) / lastPulseTimespan : 0;
+      uint16_t interpolatedAngle = ignore ? (anglePerPulse * timeSinceLastPulse) / lastPulseTimespan : 0;
 
       return angle + dir * interpolatedAngle;
    }
@@ -172,7 +172,7 @@ u32fp Encoder::GetRotorFrequency()
    }
    else
    {
-      if (lastPulseTimespan == MAX_CNT) return 0;
+      if (ignore) return 0;
       return FP_FROMINT(1000000) / (lastPulseTimespan * pulsesPerTurn);
    }
 }
@@ -186,7 +186,7 @@ uint32_t Encoder::GetSpeed()
    }
    else
    {
-      if (lastPulseTimespan == MAX_CNT) return 0;
+      if (ignore) return 0;
       return 60000000 / (lastPulseTimespan * pulsesPerTurn);
    }
 }
@@ -248,59 +248,83 @@ static void InitTimerABZMode()
 	//mode once the north marker has been detected
 	if (syncMode)
    {
-      timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
+      /*timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
       timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_RISING);
       timer_slave_set_trigger(REV_CNT_TIMER, TIM_SMCR_TS_ETRF);
-      timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);
+      timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);*/
       //timer_enable_irq(REV_CNT_TIMER, );
+      exti_select_source(EXTI2, GPIOD);
+      nvic_enable_irq(NVIC_EXTI2_IRQ);
+      exti_set_trigger(EXTI2, EXTI_TRIGGER_RISING);
+      exti_enable_request(EXTI2);
    }
    else
-	{
-      timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_EM3); // encoder mode
-	}
+   {
+      nvic_disable_irq(NVIC_EXTI2_IRQ);
+   }
 
+   timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_EM3); // encoder mode
 	timer_ic_set_input(REV_CNT_TIMER, TIM_IC1, TIM_IC_IN_TI1);
 	timer_ic_set_input(REV_CNT_TIMER, TIM_IC2, TIM_IC_IN_TI2);
+	timer_ic_set_filter(REV_CNT_TIMER, TIM_IC1, TIM_IC_DTF_DIV_32_N_8);
 	timer_ic_set_filter(REV_CNT_TIMER, TIM_IC2, TIM_IC_DTF_DIV_32_N_8);
-	timer_ic_set_filter(REV_CNT_TIMER, TIM_IC3, TIM_IC_DTF_DIV_32_N_8);
    timer_ic_enable(REV_CNT_TIMER, TIM_IC1);
    timer_ic_enable(REV_CNT_TIMER, TIM_IC2);
 	timer_enable_counter(REV_CNT_TIMER);
+}
+
+extern "C" void exti2_isr(void)
+{
+   timer_set_counter(REV_CNT_TIMER, 0);
+	exti_reset_request(EXTI2);
 }
 
 static int GetPulseTimeFiltered()
 {
    static int lastN = 0;
    static int encFails = 0;
-   //static int noUpdate = 2000;
+   static int noMovement = 0;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN?lastN - n:lastN + MAX_REVCNT_VALUES - n;
    lastN = n;
+   int a = timdata[0], b = timdata[1], c = timdata[2];
+   int median = MEDIAN3(a, b, c);
+   int min = MIN(MIN(a, b), c);
 
-   /*if (pulses == 0)
-      noUpdate++;
-   else
-      noUpdate = 0;*/
-
-   if (measTm >= minPulseTime)
+   if (pulses > 0)
    {
-      int a = timdata[0];
-      int b = timdata[1];
-      int c = timdata[2];
-      lastPulseTimespan = MEDIAN3(a,b,c); //IIRFILTER(lastPulseTimespan, measTm, filter);
-      //if (noUpdate > 1999)
-        // lastPulseTimespan = MAX_CNT;
+      noMovement = 0;
+      ignore = false;
    }
-   else if (measTm > 0)
+   else
    {
-      pulses = 0;
+      noMovement++;
+   }
+
+   //If we haven't seen movement for 1000 cycles, we assume the motor is stopped
+   //The time that 1000 cycles corresponds to is dependent from the calling
+   //frequency, i.e. the PWM frequency. The results proved ok for 8.8kHz
+   if (noMovement > 1000)
+   {
+      ignore = true;
+   }
+
+   //spike detection, a factor of 4 between adjacent pulses is most likely caused by interference
+   if (median > (4 * min))
+   {
+      lastPulseTimespan = median;
+
       encFails++;
-      if (encFails > 10)
+      if (encFails > 50 && min > 0)
       {
          ErrorMessage::Post(ERR_ENCODER);
          encFails = 0;
       }
+   }
+   else
+   {
+      lastPulseTimespan = IIRFILTER(lastPulseTimespan, measTm, filter);
    }
 
    return pulses;

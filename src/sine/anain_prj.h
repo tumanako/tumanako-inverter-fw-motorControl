@@ -27,6 +27,11 @@
    ANA_IN_ENTRY(il2,       PORTB, PIN0)
 #endif
 
+#ifdef HWCONFIG_TESLA
+#define ANA_IN_LIST \
+   COMMON_ANA_IN_LIST \
+   ANA_IN_ENTRY(il2,       PORTB, PIN0)
+#endif
 
 
 #endif // ANAIN_PRJ_H_INCLUDED

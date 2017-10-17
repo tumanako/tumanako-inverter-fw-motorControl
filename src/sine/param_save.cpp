@@ -78,7 +78,7 @@ uint32_t parm_save()
    for (idx = 0; idx < PARAM_WORDS; idx++)
    {
       uint32_t* pData = ((uint32_t*)&parmPage) + idx;
-      flash_program_word(PARAM_ADDRESS + idx * 4, *pData);
+      flash_program_word(PARAM_ADDRESS + idx * sizeof(uint32_t), *pData);
    }
    flash_lock();
    return CRC_DR;
@@ -104,17 +104,12 @@ int parm_load()
 
    if (CRC_DR == parmPage->crc)
    {
-      for (unsigned int idx = 0; Param::IsParam((Param::PARAM_NUM)idx); idx++)
+      for (unsigned int idxPage = 0; idxPage < NUM_PARAMS; idxPage++)
       {
-         const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
-
-         for (unsigned int idxPage = 0; idxPage < NUM_PARAMS; idxPage++)
+         Param::PARAM_NUM idx = Param::NumFromId(parmPage->data[idxPage].key);
+         if (idx != Param::PARAM_INVALID)
          {
-            if (parmPage->data[idxPage].key == pAtr->id)
-            {
-               Param::SetFlt((Param::PARAM_NUM)idx, parmPage->data[idxPage].value);
-               break;
-            }
+            Param::SetFlt(idx, parmPage->data[idxPage].value);
          }
       }
       return 0;

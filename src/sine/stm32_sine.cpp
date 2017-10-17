@@ -18,12 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
-/*
- * History:
- * Example from libopencm3 expanded to make tumanako arm tester
- * Added sine wave generation, removed testing code
- */
 #include <stdint.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
@@ -46,15 +40,80 @@
 #include "my_math.h"
 #include "errormessage.h"
 #include "pwmgeneration.h"
+#include "printf.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
 
 static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
-static s32fp ilofs[2] = { 0, 0 };
+ s32fp ilofs[2] = { 0, 0 };
 //Precise control of executing the boost controller
 static bool runChargeControl = false;
+
+#ifdef HWCONFIG_TESLA
+static void GetTemps(s32fp& tmphs, s32fp &tmpm)
+{
+   static int tmphsMax = 0, tmpmMax = 0;
+   static int input = 0;
+
+   int tmphsi = AnaIn::Get(AnaIn::tmphs);
+   int tmpmi = AnaIn::Get(AnaIn::tmpm);
+
+   switch (input)
+   {
+      case 0:
+         DigIo::Clear(Pin::temp0_out);
+         DigIo::Clear(Pin::temp1_out);
+         input = 1;
+         //Handle mux inputs 11
+         tmphs = 0; //not connected
+         tmpm = TempMeas::Lookup(tmpmi, TempMeas::TEMP_TESLA_100K);
+         break;
+      case 1:
+         DigIo::Set(Pin::temp0_out);
+         DigIo::Clear(Pin::temp1_out);
+         tmphsMax = 0;
+         tmpmMax = 0;
+         input = 2;
+         //Handle mux inputs 00
+         tmphs = TempMeas::Lookup(tmphsi, TempMeas::TEMP_TESLA_52K);
+         tmpm = 0; //don't know yet
+         break;
+      case 2:
+         DigIo::Clear(Pin::temp0_out);
+         DigIo::Set(Pin::temp1_out);
+         input = 3;
+         //Handle mux inputs 01
+         tmphs = TempMeas::Lookup(tmphsi, TempMeas::TEMP_TESLA_52K);
+         tmpm = 0; //don't know yet
+         break;
+      case 3:
+         DigIo::Set(Pin::temp0_out);
+         DigIo::Set(Pin::temp1_out);
+         input = 0;
+         //Handle mux inputs 10
+         tmphs = TempMeas::Lookup(tmphsi, TempMeas::TEMP_TESLA_52K);
+         tmpm = TempMeas::Lookup(tmpmi, TempMeas::TEMP_TESLA_100K);
+         break;
+   }
+
+   tmphs = tmphsMax = MAX(tmphsMax, tmphs);
+   tmpm = tmpmMax = MAX(tmpmMax, tmpm);
+}
+#else
+static void GetTemps(s32fp& tmphs, s32fp &tmpm)
+{
+   TempMeas::Sensors snshs = (TempMeas::Sensors)Param::GetInt(Param::snshs);
+   TempMeas::Sensors snsm = (TempMeas::Sensors)Param::GetInt(Param::snsm);
+
+   int tmphsi = AnaIn::Get(AnaIn::tmphs);
+   int tmpmi = AnaIn::Get(AnaIn::tmpm);
+
+   tmpm = TempMeas::Lookup(tmpmi, snsm);
+   tmphs = TempMeas::Lookup(tmphsi, snshs);
+}
+#endif // HWCONFIG_TESLA
 
 static void CruiseControl()
 {
@@ -62,7 +121,7 @@ static void CruiseControl()
 
    //Always disable cruise control when brake pedal is pressed
    if (DigIo::Get(Pin::brake_in))
-    {
+   {
       Throttle::cruiseSpeed = -1;
    }
    else
@@ -144,9 +203,10 @@ static void Ms100Task(void)
    Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
    Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in));
 
-   s32fp data[2] = { Param::Get(Param::speed), Param::Get(Param::udc) };
+   //s32fp data[2] = { Param::Get(Param::speed), Param::Get(Param::udc) };
 
-   can_send(0x180, (uint8_t*)data, sizeof(data));
+   //can_send(0x180, (uint8_t*)data, sizeof(data));
+   can_sendall();
 }
 
 static void CalcAmpAndSlip(void)
@@ -200,40 +260,38 @@ static void CalcAmpAndSlip(void)
 
    ampnom = MIN(ampnom, FP_FROMINT(100));
 
-   Param::SetFlt(Param::ampnom, ampnom);
-   Param::SetFlt(Param::fslipspnt, fslipspnt);
+   Param::SetFlt(Param::ampnom, IIRFILTER(Param::Get(Param::ampnom), ampnom, 3));
+   Param::SetFlt(Param::fslipspnt, IIRFILTER(Param::Get(Param::fslipspnt), fslipspnt, 3));
    PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
    PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
 }
 
 static void CalcAndOutputTemp()
 {
-   static int temphs = 0;
-   static int tempm = 0;
+   static int temphsFlt = 0;
+   static int tempmFlt = 0;
    int pwmgain = Param::GetInt(Param::pwmgain);
    int pwmofs = Param::GetInt(Param::pwmofs);
    int pwmfunc = Param::GetInt(Param::pwmfunc);
    int tmpout;
-   TempMeas::Sensors snshs = (TempMeas::Sensors)Param::GetInt(Param::snshs);
-   TempMeas::Sensors snsm = (TempMeas::Sensors)Param::GetInt(Param::snsm);
+   s32fp tmphs = 0, tmpm = 0;
 
-   temphs = IIRFILTER(AnaIn::Get(AnaIn::tmphs), temphs, 15);
-   tempm = IIRFILTER(AnaIn::Get(AnaIn::tmpm), tempm, 18);
+   GetTemps(tmphs, tmpm);
 
-   s32fp tmpmf = TempMeas::Lookup(tempm, snsm);
-   s32fp tmphsf = TempMeas::Lookup(temphs, snshs);
+   temphsFlt = IIRFILTER(tmphs, temphsFlt, 15);
+   tempmFlt = IIRFILTER(tmpm, tempmFlt, 18);
 
    switch (pwmfunc)
    {
       default:
       case PWM_FUNC_TMPM:
-         tmpout = FP_TOINT(tmpmf) * pwmgain + pwmofs;
+         tmpout = FP_TOINT(tmpm) * pwmgain + pwmofs;
          break;
       case PWM_FUNC_TMPHS:
-         tmpout = FP_TOINT(tmphsf) * pwmgain + pwmofs;
+         tmpout = FP_TOINT(tmphs) * pwmgain + pwmofs;
          break;
       case PWM_FUNC_SPEED:
-         tmpout = FP_TOINT(tmpmf) * Param::Get(Param::speed) + pwmofs;
+         tmpout = Param::Get(Param::speed) * pwmgain + pwmofs;
          break;
    }
 
@@ -241,8 +299,8 @@ static void CalcAndOutputTemp()
 
    timer_set_oc_value(OVER_CUR_TIMER, TIM_OC4, tmpout);
 
-   Param::SetFlt(Param::tmphs, tmphsf);
-   Param::SetFlt(Param::tmpm, tmpmf);
+   Param::SetFlt(Param::tmphs, tmphs);
+   Param::SetFlt(Param::tmpm, tmpm);
 }
 
 static s32fp ProcessUdc()
@@ -253,12 +311,13 @@ static s32fp ProcessUdc()
    s32fp udcmax = Param::Get(Param::udcmax);
    s32fp udclim = Param::Get(Param::udclim);
    s32fp udcgain = Param::Get(Param::udcgain);
+   int udcofs = Param::GetInt(Param::udcofs);
 
    //Calculate "12V" supply voltage from voltage divider on mprot pin
    //1.2/(4.7+1.2)/3.34*4095 = 249 -> make it a bit less for pin losses etc
    Param::SetFlt(Param::uaux, FP_DIV(AnaIn::Get(AnaIn::uaux), 248));
    udc = IIRFILTER(udc, AnaIn::Get(AnaIn::udc), 2);
-   udcfp = FP_DIV(FP_FROMINT(udc), udcgain);
+   udcfp = FP_DIV(FP_FROMINT(udc - udcofs), udcgain);
 
    if (udcfp < udcmin || udcfp > udcmax)
       DigIo::Set(Pin::vtg_out);
@@ -352,7 +411,7 @@ static void CalcThrottle()
       else if (throtSpnt > 0)
          finalSpnt = MAX(cruiseSpnt, throtSpnt);
    }
-
+#ifndef HWCONFIG_TESLA
    if (Param::GetInt(Param::din_bms))
    {
       if (finalSpnt >= 0)
@@ -360,7 +419,7 @@ static void CalcThrottle()
       else
          finalSpnt = -(finalSpnt * Param::GetInt(Param::bmslimlow)) / 100;
    }
-
+#endif
    if (derateSpnt < 100)
    {
       if (finalSpnt >= 0)
@@ -403,7 +462,7 @@ static void Ms10Task(void)
           * - Charge mode is enabled
           * - Fwd AND Rev are high
           */
-         if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && chargemode >= MOD_BOOST)
+         if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && !DigIo::Get(Pin::bms_in) && chargemode >= MOD_BOOST)
          {
             //Do NOT close main relay in buck mode!!
             if (chargemode == MOD_BOOST)
@@ -424,6 +483,14 @@ static void Ms10Task(void)
          }
       }
    }
+
+#ifndef HWCONFIG_TESLA
+   if (opmode >= MOD_BOOST && DigIo::Get(Pin::bms_in))
+   {
+      opmode = MOD_OFF;
+      Param::SetDig(Param::opmode, opmode);
+   }
+#endif
 
    if (MOD_OFF == opmode)
    {
@@ -495,6 +562,7 @@ static void Ms1Task(void)
 
       il = FP_DIV(il, Param::Get((Param::PARAM_NUM)(Param::il1gain+i)));
 
+      //ilAbs[i] = il;
       Param::SetFlt((Param::PARAM_NUM)(Param::il1+i), il);
 
       il = ABS(il);
@@ -547,6 +615,14 @@ static void Ms1Task(void)
    {
       iSpntFlt = 0;
    }
+
+   /*ilAbs[2] = -ilAbs[0] - ilAbs[1];
+   ilAbs[0] = ABS(ilAbs[0]);
+   ilAbs[1] = ABS(ilAbs[1]);
+   ilAbs[2] = ABS(ilAbs[2]);
+   ilMax = MAX(MAX(ilAbs[0], ilAbs[1]), ilAbs[2]);
+   ilMaxFlt = IIRFILTER(ilMaxFlt, ilMax, 1);
+   Param::SetFlt(Param::ilmax, ilMaxFlt);*/
 }
 
 /** This function is called when the user changes a parameter */
@@ -579,8 +655,8 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Throttle::potmax[1] = Param::GetInt(Param::pot2max);
       Throttle::brknom = Param::GetInt(Param::brknom);
       Throttle::brknompedal = Param::GetInt(Param::brknompedal);
+      Throttle::brkPedalRamp = Param::GetInt(Param::brkpedalramp);
       Throttle::brkmax = Param::GetInt(Param::brkmax);
-      Throttle::potflt = Param::GetInt(Param::potflt);
       Throttle::idleSpeed = Param::GetInt(Param::idlespeed);
       Throttle::speedkp = Param::Get(Param::speedkp);
       Throttle::speedflt = Param::GetInt(Param::speedflt);

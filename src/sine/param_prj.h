@@ -69,7 +69,7 @@ enum _modes
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 77
+//Next param id (increase when adding new parameter!): 78
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -95,6 +95,7 @@ enum _modes
     PARAM_ENTRY(CAT_INVERTER,il1gain,     "dig/A",   -100,   100,    -4.7,   27  ) \
     PARAM_ENTRY(CAT_INVERTER,il2gain,     "dig/A",   -100,   100,    -4.7,   28  ) \
     PARAM_ENTRY(CAT_INVERTER,udcgain,     "dig/V",   0,      4095,   6.175,  29  ) \
+    PARAM_ENTRY(CAT_INVERTER,udcofs,      "dig",     0,      4095,   0,      77  ) \
     PARAM_ENTRY(CAT_INVERTER,udclim,      "V",       0,      1000,   540,    48  ) \
     PARAM_ENTRY(CAT_INVERTER,snshs,       SNS_HS,    0,      1,      0,      45  ) \
     PARAM_ENTRY(CAT_CHARGER, chargemode,  CHARGEMODS,0,      4,      0,      74  ) \
@@ -103,10 +104,10 @@ enum _modes
     PARAM_ENTRY(CAT_CHARGER, chargeflt,   "dig",     0,      10,     8,      73  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmax,      "dig",     0,      4095,   4095,   18  ) \
-    PARAM_ENTRY(CAT_THROTTLE,potflt,      "dig",     0,      8,     3,       76  ) \
     PARAM_ENTRY(CAT_REGEN,   pot2min,     "dig",     0,      4095,   4095,   63  ) \
     PARAM_ENTRY(CAT_REGEN,   pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
+    PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(CAT_REGEN,   brknom,      "%",       0,      100,    30,     19  ) \
     PARAM_ENTRY(CAT_REGEN,   brkmax,      "%",       0,      100,    30,     49  ) \
     PARAM_ENTRY(CAT_REGEN,   brkrampstr,  "Hz",      0,      400,    10,     39  ) \
@@ -134,6 +135,7 @@ enum _modes
     VALUE_ENTRY(idc,         "A"     ) \
     VALUE_ENTRY(il1,         "A"     ) \
     VALUE_ENTRY(il2,         "A"     ) \
+    VALUE_ENTRY(ilmax,       "A"     ) \
     VALUE_ENTRY(uac,         "V"     ) \
     VALUE_ENTRY(il1rms,      "A"     ) \
     VALUE_ENTRY(il2rms,      "A"     ) \

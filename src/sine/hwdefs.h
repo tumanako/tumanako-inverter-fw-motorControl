@@ -28,6 +28,7 @@
 //Address of parameter block in flash
 #define PARAM_ADDRESS 0x0801FC00
 #define PARAM_BLKSIZE 1024
+#define CANMAP_ADDRESS 0x0801F800
 
 #ifdef HWCONFIG_REV1
 #define REV_CNT_IC         TIM_IC3
@@ -38,7 +39,7 @@
 #define REV_CNT_DMACHAN    2
 #define REV_CNT_DMA_CNDTR  DMA1_CNDTR2
 #endif
-#ifdef HWCONFIG_REV2
+#if defined(HWCONFIG_REV2) || defined(HWCONFIG_TESLA)
 #define REV_CNT_IC         TIM_IC1
 #define REV_CNT_CCR        TIM3_CCR1
 #define REV_CNT_CCER       TIM_CCER_CC1P

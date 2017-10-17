@@ -51,27 +51,46 @@
 					<SilentBuild command="HWCONFIG=HWCONFIG_REV2 make &gt; $(CMD_NULL)" />
 				</MakeCommands>
 			</Target>
+			<Target title="Tesla Board">
+				<Option output="stm32_sine" prefix_auto="0" extension_auto="0" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="armelfgcc" />
+				<MakeCommands>
+					<Build command="HWCONFIG=HWCONFIG_TESLA make" />
+					<CompileFile command="HWCONFIG=HWCONFIG_TESLA $make -f  $file" />
+					<Clean command="make clean" />
+					<DistClean command="$make -f $makefile distclean$target" />
+					<AskRebuildNeeded command="$make -q" />
+					<SilentBuild command="HWCONFIG=HWCONFIG_TESLA make &gt; $(CMD_NULL)" />
+				</MakeCommands>
+			</Target>
 		</Build>
 		<Unit filename="Makefile">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="anain.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="anain.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="anain_prj.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="digio.cpp">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="digio.h">
 			<Option target="&lt;{~None~}&gt;" />
@@ -85,136 +104,168 @@
 		<Unit filename="foc.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="foc.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="fu.cpp">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="fu.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="hwdefs.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="hwinit.cpp">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="hwinit.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="inc_encoder.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="inc_encoder.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="my_fp.c">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="my_fp.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="my_math.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="my_string.c">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="my_string.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="param_prj.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="param_save.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="param_save.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="params.cpp" />
 		<Unit filename="params.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="printf.c">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="printf.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="pwmgeneration.cpp" />
 		<Unit filename="pwmgeneration.h" />
 		<Unit filename="sine_core.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="sine_core.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
-		<Unit filename="stm32_can.c">
-			<Option compilerVar="CC" />
+		<Unit filename="stm32_can.cpp">
+			<Option target="Rev 1 Board" />
+			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="stm32_can.h" />
 		<Unit filename="stm32_sine.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="stm32_sine.ld">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="stm32_timsched.c">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="stm32_timsched.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="temp_meas.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="temp_meas.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="terminal.c">
 			<Option compilerVar="CC" />
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="terminal.h">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
+			<Option target="Tesla Board" />
 		</Unit>
 		<Unit filename="terminal_prj.cpp" />
 		<Unit filename="test/Makefile">
@@ -244,6 +295,9 @@
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 				<remote_debugging target="Rev 2 Board">
+					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
+				</remote_debugging>
+				<remote_debugging target="Tesla Board">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 			</debugger>

@@ -60,6 +60,7 @@ namespace Param
    void SetDig(PARAM_NUM ParamNum, int ParamVal);
    void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
    PARAM_NUM NumFromString(const char *name);
+   PARAM_NUM NumFromId(uint32_t id);
    const Attributes *GetAttrib(PARAM_NUM ParamNum);
    int IsParam(PARAM_NUM ParamNum);
    void LoadDefaults();
