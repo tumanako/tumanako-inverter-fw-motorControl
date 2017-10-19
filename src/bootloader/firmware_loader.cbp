@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="firmware loader" />
+		<Option makefile_is_custom="1" />
+		<Option pch_mode="2" />
+		<Option compiler="armelfgcc" />
+		<MakeCommands>
+			<Build command="make -f $makefile" />
+			<CompileFile command="$make -f $makefile $file" />
+			<Clean command="$make -f $makefile clean" />
+			<DistClean command="$make -f $makefile distclean$target" />
+			<AskRebuildNeeded command="$make -q -f $makefile" />
+			<SilentBuild command="$make -s -f $makefile" />
+		</MakeCommands>
+		<Build>
+			<Target title="Release">
+				<Option output="stm32_loader" prefix_auto="0" extension_auto="0" />
+				<Option object_output="obj/Release/" />
+				<Option type="1" />
+				<Option compiler="armelfgcc" />
+				<MakeCommands>
+					<Build command="make" />
+					<CompileFile command="$make -f  $file" />
+					<Clean command="make clean" />
+					<DistClean command="$make -f $makefile distclean$target" />
+					<AskRebuildNeeded command="$make -q -f $makefile" />
+					<SilentBuild command="$make -s -f $makefile" />
+				</MakeCommands>
+			</Target>
+		</Build>
+		<Unit filename="Makefile" />
+		<Unit filename="hwdefs.h" />
+		<Unit filename="stm32_loader.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="stm32_loader.ld" />
+		<Extensions>
+			<code_completion />
+			<debugger />
+			<envvars />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

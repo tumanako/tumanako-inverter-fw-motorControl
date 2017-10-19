@@ -19,7 +19,6 @@
 #include "hwdefs.h"
 #include "inc_encoder.h"
 #include "my_math.h"
-
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/dma.h>
@@ -37,6 +36,7 @@ static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
 static void DMASetup();
 static int GetPulseTimeFiltered();
+static void GetMinMaxTime(int& min, int& max);
 
 static volatile uint16_t timdata[MAX_REVCNT_VALUES];
 static volatile uint16_t angle = 0;
@@ -248,11 +248,6 @@ static void InitTimerABZMode()
 	//mode once the north marker has been detected
 	if (syncMode)
    {
-      /*timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_RM); // reset mode
-      timer_slave_set_polarity(REV_CNT_TIMER, TIM_ET_RISING);
-      timer_slave_set_trigger(REV_CNT_TIMER, TIM_SMCR_TS_ETRF);
-      timer_slave_set_filter(REV_CNT_TIMER, TIM_IC_DTF_DIV_32_N_8);*/
-      //timer_enable_irq(REV_CNT_TIMER, );
       exti_select_source(EXTI2, GPIOD);
       nvic_enable_irq(NVIC_EXTI2_IRQ);
       exti_set_trigger(EXTI2, EXTI_TRIGGER_RISING);
@@ -286,11 +281,13 @@ static int GetPulseTimeFiltered()
    static int noMovement = 0;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
-   int pulses = n <= lastN?lastN - n:lastN + MAX_REVCNT_VALUES - n;
+   int pulses = n <= lastN ? lastN - n : lastN + MAX_REVCNT_VALUES - n;
    lastN = n;
-   int a = timdata[0], b = timdata[1], c = timdata[2];
-   int median = MEDIAN3(a, b, c);
-   int min = MIN(MIN(a, b), c);
+
+   int max = 0;
+   int min = 0xFFFF;
+
+   GetMinMaxTime(min, max);
 
    if (pulses > 0)
    {
@@ -311,9 +308,14 @@ static int GetPulseTimeFiltered()
    }
 
    //spike detection, a factor of 4 between adjacent pulses is most likely caused by interference
-   if (median > (4 * min))
+   if (max > (4 * min))
    {
-      lastPulseTimespan = median;
+      ignore = true;
+      pulses = 0;
+   }
+   else if (max > (2 * min))
+   {
+      lastPulseTimespan = max;
 
       encFails++;
       if (encFails > 50 && min > 0)
@@ -328,4 +330,13 @@ static int GetPulseTimeFiltered()
    }
 
    return pulses;
+}
+
+static void GetMinMaxTime(int& min, int& max)
+{
+   for (int i = 0; i < MAX_REVCNT_VALUES; i++)
+   {
+      min = MIN(min, timdata[i]);
+      max = MAX(max, timdata[i]);
+   }
 }
