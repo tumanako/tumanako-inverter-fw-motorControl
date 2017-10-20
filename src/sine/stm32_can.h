@@ -2,18 +2,22 @@
 #define STM32_CAN_H_INCLUDED
 #include "params.h"
 
-#ifdef __cplusplus
-extern "C"
+#define CAN_ERR_INVALID_ID -1
+#define CAN_ERR_INVALID_OFS -2
+#define CAN_ERR_INVALID_LEN -3
+#define CAN_ERR_MAXMAP -4
+#define CAN_ERR_MAXITEMS -5
+
+namespace Can
 {
-#endif
-
-void can_setup(void);
-void can_send(uint32_t canId, uint8_t* data, uint32_t len);
-void can_sendall();
-int can_addsend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
-
-#ifdef __cplusplus
+   void Clear(void);
+   void Setup(void);
+   void Send(uint32_t canId, uint8_t* data, uint32_t len);
+   void SendAll();
+   void Save();
+   int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
+   int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
 }
-#endif
+
 
 #endif

@@ -206,7 +206,7 @@ static void Ms100Task(void)
    //s32fp data[2] = { Param::Get(Param::speed), Param::Get(Param::udc) };
 
    //can_send(0x180, (uint8_t*)data, sizeof(data));
-   can_sendall();
+   Can::SendAll();
 }
 
 static void CalcAmpAndSlip(void)
@@ -676,7 +676,7 @@ extern "C" int main(void)
    init_timsched();
    Encoder::Init();
    term_Init(TERM_USART);
-   can_setup();
+   Can::Setup();
    parm_load();
    parm_Change(Param::PARAM_LAST);
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);

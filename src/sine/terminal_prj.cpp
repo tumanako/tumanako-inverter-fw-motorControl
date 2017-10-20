@@ -42,7 +42,7 @@ static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
 static void Help(char *arg);
 static void PrintParamsJson(char *arg);
-static void MapCanTx(char *arg);
+static void MapCan(char *arg);
 static void PrintErrors(char *arg);
 static void Reset(char *arg);
 
@@ -60,24 +60,34 @@ extern "C" const TERM_CMD TermCmds[] =
   { "load", LoadParameters },
   { "help", Help },
   { "json", PrintParamsJson },
-  { "cantx", MapCanTx },
+  { "can", MapCan },
   { "errors", PrintErrors },
   { "reset", Reset },
   { NULL, NULL }
 };
-//cantx param id offset len
-static void MapCanTx(char *arg)
+
+//cantx param id offset len gain
+static void MapCan(char *arg)
 {
-   Param::PARAM_NUM paramIdx;
+   Param::PARAM_NUM paramIdx = Param::PARAM_INVALID;
    int values[4];
+   bool tx = false;
+   const int numArgs = 4;
 
    arg = my_trim(arg);
 
-   for (int i = -1; i < 4; i++)
+   if (arg[0] == 'c')
+   {
+      Can::Clear();
+      printf("All message definitions cleared\r\n");
+      return;
+   }
+
+   for (int i = -2; i < numArgs; i++)
    {
       char *ending = (char *)my_strchr(arg, ' ');
 
-      if (0 == *ending && i < 3)
+      if (0 == *ending && i < (numArgs - 1))
       {
          printf("Missing argument\r\n");
          return;
@@ -85,29 +95,52 @@ static void MapCanTx(char *arg)
 
       *ending = 0;
 
-      if (i < 0)
+      if (i == -2)
+         tx = arg[0] == 't';
+      else if (i == -1)
          paramIdx = Param::NumFromString(arg);
       else
          values[i] = my_atoi(arg);
       arg = ending + 1;
    }
 
-   printf("%d,%d,%d,%d\r\n", paramIdx, values[0], values[1], values[2]);
-
    if (Param::PARAM_INVALID != paramIdx)
    {
-       if (can_addsend(paramIdx, values[0], values[1], values[2], values[3]) < 0)
-       {
-          printf("Value out of range\r\n");
-       }
-       else
-       {
-          printf("Set OK\r\n");
-       }
+      int result;
+
+      if (tx)
+      {
+         result = Can::AddSend(paramIdx, values[0], values[1], values[2], values[3]);
+      }
+      else
+      {
+         result = Can::AddRecv(paramIdx, values[0], values[1], values[2], values[3]);
+      }
+
+      switch (result)
+      {
+         case CAN_ERR_INVALID_ID:
+            printf("Invalid CAN Id %x\r\n", values[0]);
+            break;
+         case CAN_ERR_INVALID_OFS:
+            printf("Invalid Offset %d\r\n", values[1]);
+            break;
+         case CAN_ERR_INVALID_LEN:
+            printf("Invalid length %d\r\n", values[2]);
+            break;
+         case CAN_ERR_MAXITEMS:
+            printf("Cannot map anymore items to CAN id %x\r\n", values[0]);
+            break;
+         case CAN_ERR_MAXMAP:
+            printf("Max message count reached\r\n", values[0]);
+            break;
+         default:
+            printf("CAN map successful, %d messages active\r\n", result);
+      }
    }
    else
    {
-       printf("Unknown parameter %s\r\n", arg);
+       printf("Unknown parameter\r\n");
    }
 }
 
@@ -290,6 +323,8 @@ static void SaveParameters(char *arg)
    arg = arg;
    uint32_t crc = parm_save();
    printf("Parameters stored, CRC=%x\r\n", crc);
+   Can::Save();
+   printf("CANMAP stored\r\n");
 }
 
 static void LoadParameters(char *arg)

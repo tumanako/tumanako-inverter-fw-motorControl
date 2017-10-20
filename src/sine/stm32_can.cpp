@@ -1,5 +1,6 @@
 #include <stdint.h>
-
+#include "hwdefs.h"
+#include "my_string.h"
 #include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/gpio.h>
@@ -10,11 +11,6 @@
 
 #define MAX_ENTRIES 10
 #define MAX_ITEMS 8
-#define CAN_ERR_INVALID_ID -1
-#define CAN_ERR_INVALID_OFS -2
-#define CAN_ERR_INVALID_LEN -3
-#define CAN_ERR_MAXMAP -4
-#define CAN_ERR_MAXITEMS -5
 #define SDO_WRITE 0x40
 #define SDO_READ 0x22
 #define SDO_ABORT 0x80
@@ -22,19 +18,22 @@
 #define SDO_READ_REPLY 0x43
 #define SDO_ERR_INVIDX 0x06020000
 #define SDO_ERR_RANGE 0x06090030
+#define SENDMAP_ADDRESS CANMAP_ADDRESS
+#define RECVMAP_ADDRESS (CANMAP_ADDRESS + sizeof(canSendMap))
+#define CRC_ADDRESS     (CANMAP_ADDRESS + sizeof(canSendMap) + sizeof(canRecvMap))
+#define SENDMAP_WORDS   (sizeof(canSendMap) / sizeof(uint32_t))
+#define RECVMAP_WORDS   (sizeof(canRecvMap) / sizeof(uint32_t))
 
 #if ((MAX_ITEMS * 4 + 4) * MAX_ENTRIES + 4) > 512
 #error CANMAP will not fit in one flash page
 #endif
 
+namespace Can
+{
+
 typedef struct
 {
-   union
-   {
-      Param::PARAM_NUM mapParam:8;
-      uint8_t id;
-   };
-
+   Param::PARAM_NUM mapParam:8;
    s32fp gain:8;
    uint8_t offsetBits;
    uint8_t numBits;
@@ -61,110 +60,43 @@ typedef struct
    uint32_t data;
 } __attribute__((packed)) CAN_SDO;
 
+static void ProcessSDO(uint8_t* data);
+static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
+static CANIDMAP *can_find(CANMAP *canMap, int canId);
+static void SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
+static int LoadFromFlash();
+
 static CANMAP canSendMap;
 static CANMAP canRecvMap;
 CANIDMAP *can_find(CANMAP *canMap, int canId);
 
-static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
-{
-   if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
-   if (offset > 63) return CAN_ERR_INVALID_OFS;
-   if (length > 32) return CAN_ERR_INVALID_LEN;
-
-   CANIDMAP *existingMap = can_find(canMap, canId);
-
-   if (0 == existingMap)
-   {
-      if (canMap->currentItem == MAX_ENTRIES)
-         return CAN_ERR_MAXMAP;
-
-      existingMap = &canMap->items[canMap->currentItem];
-      existingMap->canId = canId;
-      canMap->currentItem++;
-   }
-
-   if (existingMap->currentItem == MAX_ENTRIES)
-      return CAN_ERR_MAXITEMS;
-
-   CANPOS &currentItem = existingMap->items[existingMap->currentItem];
-
-   currentItem.mapParam = param;
-   currentItem.gain = gain;
-   currentItem.offsetBits = offset;
-   currentItem.numBits = length;
-   existingMap->currentItem++;
-
-   return canMap->currentItem;
-}
-
-int can_addsend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
+int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
    return can_add(&canSendMap, param, canId, offset, length, gain);
 }
 
-int can_addrecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
+int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
    return can_add(&canRecvMap, param, canId, offset, length, gain);
 }
 
-CANIDMAP *can_find(CANMAP *canMap, int canId)
+void Save()
 {
-   for (int i = 0; i < canMap->currentItem; i++)
-   {
-      if (canMap->items[i].canId == canId)
-         return &canMap->items[i];
-   }
-   return 0;
-}
-
-//http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
-static void ProcessSDO(uint8_t* data)
-{
-   CAN_SDO *sdo = (CAN_SDO*)data;
-   if (sdo->index == 0x2000 && sdo->subIndex < Param::PARAM_LAST)
-   {
-      if (sdo->cmd == SDO_WRITE)
-      {
-         if (Param::Set((Param::PARAM_NUM)sdo->subIndex, sdo->data) == 0)
-         {
-            sdo->cmd = SDO_WRITE_REPLY;
-         }
-         else
-         {
-            sdo->cmd = SDO_ABORT;
-            sdo->data = SDO_ERR_RANGE;
-         }
-      }
-      else if (sdo->cmd == SDO_READ)
-      {
-         sdo->data = Param::Get((Param::PARAM_NUM)sdo->subIndex);
-         sdo->cmd = SDO_READ_REPLY;
-      }
-   }
-   else
-   {
-      sdo->cmd = SDO_ABORT;
-      sdo->data = SDO_ERR_INVIDX;
-   }
-   can_send(0x581, data, 8);
-}
-
-void can_save()
-{
-/*   ReplaceIndexById(canSendMap);
-   ReplaceIndexById(canRecvMap);
-
+   uint32_t crc;
    CRC_CR |= CRC_CR_RESET;
 
-   for (idx = 0; idx < PARAM_WORDS; idx++)
-   {
-      CRC_DR
-      uint32_t* pData = ((uint32_t*)&parmPage) + idx;
-      flash_program_word(PARAM_ADDRESS + idx * sizeof(uint32_t), *pData);
-   }*/
+   flash_unlock();
+   flash_set_ws(2);
+   flash_erase_page(CANMAP_ADDRESS);
+
+   SaveToFlash(SENDMAP_ADDRESS, (uint32_t *)&canSendMap, SENDMAP_WORDS);
+   SaveToFlash(RECVMAP_ADDRESS, (uint32_t *)&canRecvMap, RECVMAP_WORDS);
+   crc = CRC_DR;
+   SaveToFlash(CRC_ADDRESS, &crc, 1);
+   flash_lock();
 }
 
-void can_sendall()
+void SendAll()
 {
    for (CANIDMAP *curMap = canSendMap.items; curMap->currentItem > 0; curMap++)
    {
@@ -186,18 +118,23 @@ void can_sendall()
             data[0] |= val << curItem.offsetBits;
          }
       }
-      can_send(curMap->canId, (uint8_t*)&data, 8);
+      Send(curMap->canId, (uint8_t*)&data, 8);
    }
 }
 
-void can_setup(void)
+void Clear(void)
 {
-   //printf("%d\n", sizeof(canSendMap));
    for (int i = 0; i < MAX_ENTRIES; i++)
    {
       canSendMap.items[i].currentItem = 0;
       canRecvMap.items[i].currentItem = 0;
    }
+}
+
+void Setup(void)
+{
+   Clear();
+   LoadFromFlash();
 
 	// Enable peripheral clocks.
 	rcc_periph_clock_enable(RCC_AFIO);
@@ -255,7 +192,7 @@ void can_setup(void)
 	can_enable_irq(CAN1, CAN_IER_FMPIE0);
 }
 
-void can_send(uint32_t canId, uint8_t* data, uint32_t len)
+void Send(uint32_t canId, uint8_t* data, uint32_t len)
 {
 	can_transmit(CAN1,
 				 canId,     /* (EX/ST)ID: CAN ID */
@@ -265,7 +202,7 @@ void can_send(uint32_t canId, uint8_t* data, uint32_t len)
 				 data);
 }
 
-void usb_lp_can_rx0_isr(void)
+extern "C" void usb_lp_can_rx0_isr(void)
 {
 	uint32_t id, fmi;
 	bool ext, rtr;
@@ -279,31 +216,162 @@ void usb_lp_can_rx0_isr(void)
    {
       ProcessSDO((uint8_t*)&data);
    }
-
-	/*CANIDMAP *recvMap = can_find(&canRecvMap, id);
-
-   for (int i = 0; i < recvMap->currentItem; i++)
+   else
    {
-      CANPOS &curItem = recvMap->items[i];
-      int val = (data >> curItem.offsetBits) & ((1 << curItem.numBits) - 1);
-      Param::SetDig(curItem.mapParam, val);
-   }
+      CANIDMAP *recvMap = can_find(&canRecvMap, id);
 
-      for (int j = 0; j < curMap->currentItem; j++)
+      for (int i = 0; i < recvMap->currentItem; i++)
       {
-         CANPOS &curItem = curMap->items[j];
-         int val
-         s32fp val = FP_MUL(Param::Get(curItem.mapParam), curItem.gain);
-
-         val &= ((1 << curItem.numBits) - 1);
+         CANPOS &curItem = recvMap->items[i];
+         s32fp val;
 
          if (curItem.offsetBits > 31)
          {
-            data[1] |= val << (curItem.offsetBits - 32);
+            val = (data[1] >> (curItem.offsetBits - 32)) & ((1 << curItem.numBits) - 1);
          }
          else
          {
-            data[0] |= val << curItem.offsetBits;
+            val = (data[0] >> curItem.offsetBits) & ((1 << curItem.numBits) - 1);
          }
-      }*/
+         val = FP_MUL(val, curItem.gain);
+         Param::Set(curItem.mapParam, val);
+      }
+   }
+}
+
+//http://www.byteme.org.uk/canopenparent/canopen/sdo-service-data-objects-canopen/
+static void ProcessSDO(uint8_t* data)
+{
+   CAN_SDO *sdo = (CAN_SDO*)data;
+   if (sdo->index == 0x2000 && sdo->subIndex < Param::PARAM_LAST)
+   {
+      if (sdo->cmd == SDO_WRITE)
+      {
+         if (Param::Set((Param::PARAM_NUM)sdo->subIndex, sdo->data) == 0)
+         {
+            sdo->cmd = SDO_WRITE_REPLY;
+         }
+         else
+         {
+            sdo->cmd = SDO_ABORT;
+            sdo->data = SDO_ERR_RANGE;
+         }
+      }
+      else if (sdo->cmd == SDO_READ)
+      {
+         sdo->data = Param::Get((Param::PARAM_NUM)sdo->subIndex);
+         sdo->cmd = SDO_READ_REPLY;
+      }
+   }
+   else if (sdo->index >= 0x3000 && sdo->index < 0x4800 && sdo->subIndex < Param::PARAM_LAST)
+   {
+      if (sdo->cmd == SDO_WRITE)
+      {
+         int result;
+         int offset = data[4];
+         int len = data[5];
+         s32fp gain = data[6];
+
+         if ((sdo->index & 0x4000) == 0x4000)
+         {
+            result = AddRecv((Param::PARAM_NUM)sdo->subIndex, sdo->index & 0x7FF, offset, len, gain);
+         }
+         else
+         {
+            result = AddSend((Param::PARAM_NUM)sdo->subIndex, sdo->index & 0x7FF, offset, len, gain);
+         }
+
+         if (result >= 0)
+         {
+            sdo->cmd = SDO_WRITE_REPLY;
+         }
+         else
+         {
+            sdo->cmd = SDO_ABORT;
+            sdo->data = SDO_ERR_RANGE;
+         }
+      }
+   }
+   else
+   {
+      sdo->cmd = SDO_ABORT;
+      sdo->data = SDO_ERR_INVIDX;
+   }
+   Send(0x581, data, 8);
+}
+
+static int LoadFromFlash()
+{
+   int dataSize = SENDMAP_WORDS + RECVMAP_WORDS;
+   uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
+   uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
+
+   CRC_CR |= CRC_CR_RESET;
+
+   while (dataSize--)
+   {
+      CRC_DR = *data++;
+   }
+
+   if (storedCrc == CRC_DR)
+   {
+      memcpy32((int*)&canSendMap, (int*)SENDMAP_ADDRESS, SENDMAP_WORDS);
+      memcpy32((int*)&canRecvMap, (int*)RECVMAP_ADDRESS, RECVMAP_WORDS);
+      return 1;
+   }
+   return 0;
+}
+
+static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
+{
+   if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
+   if (offset > 63) return CAN_ERR_INVALID_OFS;
+   if (length > 32) return CAN_ERR_INVALID_LEN;
+
+   CANIDMAP *existingMap = can_find(canMap, canId);
+
+   if (0 == existingMap)
+   {
+      if (canMap->currentItem == MAX_ENTRIES)
+         return CAN_ERR_MAXMAP;
+
+      existingMap = &canMap->items[canMap->currentItem];
+      existingMap->canId = canId;
+      canMap->currentItem++;
+   }
+
+   if (existingMap->currentItem == MAX_ENTRIES)
+      return CAN_ERR_MAXITEMS;
+
+   CANPOS &currentItem = existingMap->items[existingMap->currentItem];
+
+   currentItem.mapParam = param;
+   currentItem.gain = gain;
+   currentItem.offsetBits = offset;
+   currentItem.numBits = length;
+   existingMap->currentItem++;
+
+   return canMap->currentItem;
+}
+
+static CANIDMAP *can_find(CANMAP *canMap, int canId)
+{
+   for (int i = 0; i < canMap->currentItem; i++)
+   {
+      if (canMap->items[i].canId == canId)
+         return &canMap->items[i];
+   }
+   return 0;
+}
+
+static void SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
+{
+   for (int idx = 0; idx < len; idx++)
+   {
+      CRC_DR = *data;
+      flash_program_word(baseAddress + idx * sizeof(uint32_t), *data);
+      data++;
+   }
+}
+
 }

@@ -130,3 +130,9 @@ char *my_trim(char *str)
 
   return str;
 }
+
+void memcpy32(int* target, int *source, int length)
+{
+   while (length--)
+      *target++ = *source++;
+}

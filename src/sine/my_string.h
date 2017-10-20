@@ -33,6 +33,7 @@ const char *my_strchr(const char *str, const char c);
 int my_ltoa(char *buf, int val, int base);
 long my_atoi(const char *str);
 char *my_trim(char *str);
+void memcpy32(int* target, int *source, int length);
 
 #ifdef __cplusplus
 }
