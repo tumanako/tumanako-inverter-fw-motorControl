@@ -562,7 +562,6 @@ static void Ms1Task(void)
 
       il = FP_DIV(il, Param::Get((Param::PARAM_NUM)(Param::il1gain+i)));
 
-      //ilAbs[i] = il;
       Param::SetFlt((Param::PARAM_NUM)(Param::il1+i), il);
 
       il = ABS(il);
@@ -615,14 +614,6 @@ static void Ms1Task(void)
    {
       iSpntFlt = 0;
    }
-
-   /*ilAbs[2] = -ilAbs[0] - ilAbs[1];
-   ilAbs[0] = ABS(ilAbs[0]);
-   ilAbs[1] = ABS(ilAbs[1]);
-   ilAbs[2] = ABS(ilAbs[2]);
-   ilMax = MAX(MAX(ilAbs[0], ilAbs[1]), ilAbs[2]);
-   ilMaxFlt = IIRFILTER(ilMaxFlt, ilMax, 1);
-   Param::SetFlt(Param::ilmax, ilMaxFlt);*/
 }
 
 /** This function is called when the user changes a parameter */
@@ -672,7 +663,6 @@ extern "C" int main(void)
    DigIo::Init();
    usart_setup();
    nvic_setup();
-   PwmGeneration::PwmInit();
    init_timsched();
    Encoder::Init();
    term_Init(TERM_USART);
