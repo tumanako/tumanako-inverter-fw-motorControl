@@ -40,7 +40,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.35
+#define VER 3.38
 
 enum _modes
 {
@@ -69,11 +69,12 @@ enum _modes
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 78
+//Next param id (increase when adding new parameter!): 79
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
     PARAM_ENTRY(CAT_MOTOR,   fweak,       "Hz",      0,      1000,   90,     2   ) \
+    PARAM_ENTRY(CAT_MOTOR,   udcnom,      "V",       0,      1000,   0,      78  ) \
     PARAM_ENTRY(CAT_MOTOR,   fpconst,     "Hz",      0,      1000,   1000,   60  ) \
     PARAM_ENTRY(CAT_MOTOR,   fslipmin,    "Hz",      0,      10,     1,      37  ) \
     PARAM_ENTRY(CAT_MOTOR,   fslipmax,    "Hz",      0,      10,     3,      33  ) \
@@ -139,6 +140,8 @@ enum _modes
     VALUE_ENTRY(uac,         "V"     ) \
     VALUE_ENTRY(il1rms,      "A"     ) \
     VALUE_ENTRY(il2rms,      "A"     ) \
+    VALUE_ENTRY(boostcalc,   "digit" ) \
+    VALUE_ENTRY(fweakcalc,   "Hz"    ) \
     VALUE_ENTRY(id,          "A"     ) \
     VALUE_ENTRY(iq,          "A"     ) \
     VALUE_ENTRY(p,           "kW"    ) \

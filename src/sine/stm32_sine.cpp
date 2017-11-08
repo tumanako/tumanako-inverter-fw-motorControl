@@ -311,6 +311,9 @@ static s32fp ProcessUdc()
    s32fp udcmax = Param::Get(Param::udcmax);
    s32fp udclim = Param::Get(Param::udclim);
    s32fp udcgain = Param::Get(Param::udcgain);
+   s32fp udcnom = Param::Get(Param::udcnom);
+   s32fp fweak = Param::Get(Param::fweak);
+   s32fp boost = Param::Get(Param::boost);
    int udcofs = Param::GetInt(Param::udcofs);
 
    //Calculate "12V" supply voltage from voltage divider on mprot pin
@@ -331,7 +334,20 @@ static s32fp ProcessUdc()
       ErrorMessage::Post(ERR_OVERVOLTAGE);
    }
 
+   if (udcnom > 0)
+   {
+      s32fp udcdiff = udcfp - udcnom;
+      //increase fweak on voltage above nominal
+      fweak = FP_MUL(fweak, (FP_FROMINT(1) + FP_DIV(udcdiff, udcnom)));
+      //decrease boost on voltage below nominal
+      boost = FP_MUL(boost, (FP_FROMINT(1) - FP_DIV(udcdiff, udcnom)));
+   }
+
    Param::SetFlt(Param::udc, udcfp);
+   Param::SetFlt(Param::fweakcalc, fweak);
+   Param::SetFlt(Param::boostcalc, boost);
+   MotorVoltage::SetWeakeningFrq(fweak);
+   MotorVoltage::SetBoost(FP_TOINT(boost));
 
    return udcfp;
 }
@@ -634,8 +650,6 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Encoder::SetImpulsesPerTurn(Param::GetInt(Param::numimp));
       Encoder::SetMinPulseTime(minPulseTime);
 
-      MotorVoltage::SetWeakeningFrq(Param::Get(Param::fweak));
-      MotorVoltage::SetBoost(Param::GetInt(Param::boost));
       MotorVoltage::SetMinFrq(Param::Get(Param::fmin));
       MotorVoltage::SetMaxFrq(Param::Get(Param::fmax));
       SineCore::SetMinPulseWidth(Param::GetInt(Param::minpulse));

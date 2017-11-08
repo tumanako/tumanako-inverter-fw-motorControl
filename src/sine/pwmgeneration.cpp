@@ -164,6 +164,8 @@ extern "C" void pwm_timer_isr(void)
 
       if (frq < Param::Get(Param::fmin))
          amp = 0;*/
+      //if (ilMaxFlt > iMax)
+        // amp = 0;
 
       SineCore::SetAmp(amp);
       Param::SetDig(Param::amp, amp);
@@ -327,6 +329,7 @@ static void AcHeat()
 uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
 {
    const uint16_t pwmmax = 1U << pwmdigits;
+   uint8_t outputMode;
    /* disable timer */
    timer_disable_counter(PWM_TIMER);
    /* Center aligned PWM */
@@ -342,15 +345,21 @@ uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
       timer_set_oc_polarity_low(PWM_TIMER, TIM_OC1);
       timer_set_oc_polarity_low(PWM_TIMER, TIM_OC2);
       timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3);
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC1N);
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC2N);
+      timer_set_oc_polarity_low(PWM_TIMER, TIM_OC3N);
+      outputMode = GPIO_CNF_OUTPUT_ALTFN_OPENDRAIN;
    }
    else
    {
       timer_set_oc_polarity_high(PWM_TIMER, TIM_OC1);
       timer_set_oc_polarity_high(PWM_TIMER, TIM_OC2);
       timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3);
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC1N);
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC2N);
+      timer_set_oc_polarity_high(PWM_TIMER, TIM_OC3N);
+      outputMode = GPIO_CNF_OUTPUT_ALTFN_PUSHPULL;
    }
-
-   //EnableOutput();
 
    timer_disable_break_automatic_output(PWM_TIMER);
    timer_enable_break_main_output(PWM_TIMER);
@@ -384,6 +393,9 @@ uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
    timer_set_oc_value(PWM_TIMER, TIM_OC3, 0);
 
    timer_enable_counter(PWM_TIMER);
+
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, outputMode, GPIO8 | GPIO9 | GPIO10);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, outputMode, GPIO13 | GPIO14 | GPIO15);
 
    return PERIPH_CLK / (uint32_t)pwmmax;
 }
