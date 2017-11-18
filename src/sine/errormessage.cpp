@@ -49,6 +49,7 @@ struct BufferEntry errorBuffer[ERROR_BUF_SIZE] = { { ERROR_MESSAGE_LAST, 0 } };
 
 uint32_t ErrorMessage::timeTick = 0;
 uint32_t ErrorMessage::currentBufIdx = 0;
+uint32_t ErrorMessage::lastPrintIdx = 0;
 bool ErrorMessage::posted[ERROR_MESSAGE_LAST] = { false };
 
 /** Set timestamp for error message
@@ -68,7 +69,6 @@ void ErrorMessage::Post(ERROR_MESSAGE_NUM msg)
    {
       errorBuffer[currentBufIdx].msg = msg;
       errorBuffer[currentBufIdx].time = timeTick;
-      PrintError(timeTick, msg);
       posted[msg] = true;
       currentBufIdx = (currentBufIdx + 1) % ERROR_BUF_SIZE;
    }
@@ -80,6 +80,16 @@ void ErrorMessage::UnpostAll()
 {
    for (uint32_t i = 0; i < ERROR_MESSAGE_LAST; i++)
       posted[i] = false;
+}
+
+/** Print errors that have been posted since last print */
+void ErrorMessage::PrintNewErrors()
+{
+   while (lastPrintIdx != currentBufIdx)
+   {
+      PrintError(errorBuffer[lastPrintIdx].time, errorBuffer[lastPrintIdx].msg);
+      lastPrintIdx = (lastPrintIdx + 1) % ERROR_BUF_SIZE;
+   }
 }
 
 /** Print all errors currently in error memory */

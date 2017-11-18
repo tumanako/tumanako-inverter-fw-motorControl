@@ -45,12 +45,14 @@ class ErrorMessage
       static void Post(ERROR_MESSAGE_NUM err);
       static void UnpostAll();
       static void PrintAllErrors();
+      static void PrintNewErrors();
    protected:
    private:
       static void PrintError(uint32_t time, ERROR_MESSAGE_NUM err);
 
       static uint32_t timeTick;
       static uint32_t currentBufIdx;
+      static uint32_t lastPrintIdx;
       static bool posted[ERROR_MESSAGE_LAST];
 };
 

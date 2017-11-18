@@ -30,7 +30,7 @@
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
-#define MAX_REVCNT_VALUES 3
+#define MAX_REVCNT_VALUES 6
 
 static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
@@ -277,15 +277,14 @@ extern "C" void exti2_isr(void)
 static int GetPulseTimeFiltered()
 {
    static int lastN = 0;
-   static int encFails = 0;
    static int noMovement = 0;
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN ? lastN - n : lastN + MAX_REVCNT_VALUES - n;
-   lastN = n;
-
    int max = 0;
    int min = 0xFFFF;
+   lastN = n;
+
 
    GetMinMaxTime(min, max);
 
@@ -308,21 +307,17 @@ static int GetPulseTimeFiltered()
    }
 
    //spike detection, a factor of 4 between adjacent pulses is most likely caused by interference
-   if (max > (4 * min))
+   if (max > (4 * min) && min > 0)
    {
       ignore = true;
       pulses = 0;
+
+      ErrorMessage::Post(ERR_ENCODER);
    }
+   //a factor of 2 is still not stable, use the maximum
    else if (max > (2 * min))
    {
       lastPulseTimespan = max;
-
-      encFails++;
-      if (encFails > 50 && min > 0)
-      {
-         ErrorMessage::Post(ERR_ENCODER);
-         encFails = 0;
-      }
    }
    else
    {

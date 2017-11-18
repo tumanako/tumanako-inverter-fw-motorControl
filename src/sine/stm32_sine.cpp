@@ -160,6 +160,7 @@ static void Ms100Task(void)
    DigIo::Toggle(Pin::led_out);
 
    Param::SetDig(Param::speed, Encoder::GetSpeed());
+   ErrorMessage::PrintNewErrors();
 
    /* Only change direction when below certain rev */
    if (Encoder::GetSpeed() < 100)
