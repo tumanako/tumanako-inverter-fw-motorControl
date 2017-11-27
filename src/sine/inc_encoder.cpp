@@ -30,15 +30,15 @@
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
-#define MAX_REVCNT_VALUES 6
+#define MAX_REVCNT_VALUES 5
 
 static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
 static void DMASetup();
 static int GetPulseTimeFiltered();
-static void GetMinMaxTime(int& min, int& max);
+static void GetMinMaxTime(uint32_t& min, uint32_t& max);
 
-static volatile uint16_t timdata[MAX_REVCNT_VALUES];
+static volatile uint16_t timdata[MAX_REVCNT_VALUES] = { 0xffff };
 static volatile uint16_t angle = 0;
 static uint32_t lastPulseTimespan = 0;
 static uint16_t filter = 0;
@@ -50,7 +50,6 @@ static bool ignore = true;
 static bool abzMode;
 static bool syncMode;
 static bool seenNorthSignal = false;
-static uint32_t minPulseTime = 0;
 
 void Encoder::Init(void)
 {
@@ -78,11 +77,6 @@ void Encoder::SetMode(bool useAbzMode, bool useSyncMode)
       InitTimerABZMode();
    else
       InitTimerSingleChannelMode();
-}
-
-void Encoder::SetMinPulseTime(uint32_t time)
-{
-   minPulseTime = time;
 }
 
 /** set number of impulses per shaft rotation
@@ -281,10 +275,9 @@ static int GetPulseTimeFiltered()
    uint16_t n = REV_CNT_DMA_CNDTR;
    uint16_t measTm = REV_CNT_CCR;
    int pulses = n <= lastN ? lastN - n : lastN + MAX_REVCNT_VALUES - n;
-   int max = 0;
-   int min = 0xFFFF;
+   uint32_t max = 0;
+   uint32_t min = 0xFFFF;
    lastN = n;
-
 
    GetMinMaxTime(min, max);
 
@@ -306,16 +299,16 @@ static int GetPulseTimeFiltered()
       ignore = true;
    }
 
-   //spike detection, a factor of 4 between adjacent pulses is most likely caused by interference
-   if (max > (4 * min) && min > 0)
+   //spike detection, a factor of 8 between adjacent pulses is most likely caused by interference
+   if (max > (8 * min) && min > 0)
    {
-      ignore = true;
-      pulses = 0;
+      //ignore = true;
+      //pulses = 0;
 
       ErrorMessage::Post(ERR_ENCODER);
    }
-   //a factor of 2 is still not stable, use the maximum
-   else if (max > (2 * min))
+   //a factor of 3 is still not stable, use the maximum
+   else if (max > (3 * min))
    {
       lastPulseTimespan = max;
    }
@@ -327,9 +320,9 @@ static int GetPulseTimeFiltered()
    return pulses;
 }
 
-static void GetMinMaxTime(int& min, int& max)
+static void GetMinMaxTime(uint32_t& min, uint32_t& max)
 {
-   for (int i = 0; i < MAX_REVCNT_VALUES; i++)
+   for (uint32_t i = 0; i < MAX_REVCNT_VALUES; i++)
    {
       min = MIN(min, timdata[i]);
       max = MAX(max, timdata[i]);

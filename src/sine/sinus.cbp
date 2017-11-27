@@ -35,7 +35,6 @@
 				<Option working_dir="test" />
 				<Option type="1" />
 				<Option compiler="gcc" />
-				<Option use_console_runner="0" />
 			</Target>
 			<Target title="Rev 2 Board">
 				<Option output="stm32_sineHWCONFIG_REV2" prefix_auto="0" extension_auto="0" />
@@ -286,15 +285,18 @@
 		<Unit filename="test/test_main.cpp">
 			<Option target="Test" />
 		</Unit>
+		<Unit filename="test/test_throttle.cpp">
+			<Option target="Test" />
+		</Unit>
 		<Unit filename="throttle.cpp" />
 		<Unit filename="throttle.h" />
 		<Extensions>
 			<code_completion />
 			<debugger>
-				<remote_debugging target="Rev 1 Board">
+				<remote_debugging target="Tesla Board">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
-				<remote_debugging target="Tesla Board">
+				<remote_debugging target="Rev 1 Board">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 				<remote_debugging target="Rev 2 Board">

@@ -57,15 +57,14 @@ bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 
 int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 {
-   int potnom = 0;
-   int scaledBrkMax = brkpedal ? -brknompedal : brkmax;
+   int potnom;
+   int scaledBrkMax = brkpedal ? brknompedal : -brkmax;
 
    if (pot2val > potmin[1])
    {
       potnom = (100 * (pot2val - potmin[1])) / (potmax[1] - potmin[1]);
-      //potnom = (100 * potnom) / (potmax[1] - potmin[1]);
       //Never reach 0, because that can spin up the motor
-      scaledBrkMax = 1 + (scaledBrkMax * potnom) / 100;
+      scaledBrkMax = -1 + (scaledBrkMax * potnom) / 100;
    }
 
    potnom = potval - potmin[0];
@@ -74,7 +73,7 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 
    if (potnom < 0)
    {
-      scaledBrkMax = (potnom * scaledBrkMax) / brknom;
+      scaledBrkMax = -(potnom * scaledBrkMax) / brknom;
    }
 
    if (brkpedal || potnom < 0)

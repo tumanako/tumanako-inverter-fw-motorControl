@@ -40,7 +40,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.42
+#define VER 3.46
 
 enum _modes
 {

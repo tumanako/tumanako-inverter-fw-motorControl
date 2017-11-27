@@ -35,11 +35,18 @@ class FUTest: public IUnitTest
       virtual void RunTest();
 };
 
+class ThrottleTest: public IUnitTest
+{
+   public:
+      virtual void RunTest();
+};
+
 #ifdef EXPORT_TESTLIST
 IUnitTest* testList[] =
 {
    new FPTest(),
    new FUTest(),
+   new ThrottleTest(),
    NULL
 };
 #endif
