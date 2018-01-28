@@ -234,17 +234,8 @@
 			<Option target="Rev 2 Board" />
 			<Option target="Tesla Board" />
 		</Unit>
-		<Unit filename="stm32_timsched.c">
-			<Option compilerVar="CC" />
-			<Option target="Rev 1 Board" />
-			<Option target="Rev 2 Board" />
-			<Option target="Tesla Board" />
-		</Unit>
-		<Unit filename="stm32_timsched.h">
-			<Option target="Rev 1 Board" />
-			<Option target="Rev 2 Board" />
-			<Option target="Tesla Board" />
-		</Unit>
+		<Unit filename="stm32scheduler.cpp" />
+		<Unit filename="stm32scheduler.h" />
 		<Unit filename="temp_meas.cpp">
 			<Option target="Rev 1 Board" />
 			<Option target="Rev 2 Board" />
@@ -293,13 +284,13 @@
 		<Extensions>
 			<code_completion />
 			<debugger>
-				<remote_debugging target="Tesla Board">
-					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
-				</remote_debugging>
 				<remote_debugging target="Rev 1 Board">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 				<remote_debugging target="Rev 2 Board">
+					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
+				</remote_debugging>
+				<remote_debugging target="Tesla Board">
 					<options conn_type="0" serial_baud="115200" ip_address="localhost" ip_port="3333" />
 				</remote_debugging>
 			</debugger>

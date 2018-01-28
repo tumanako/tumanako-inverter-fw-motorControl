@@ -10,6 +10,11 @@
 //Maximum PWM frequency is 36MHz/2^MIN_PWM_DIGITS
 #define MIN_PWM_DIGITS 11
 #define PERIPH_CLK      ((uint32_t)36000000)
+//Unique ID registers
+#define U_ID_BASE 0x1FFFF7E8
+#define U_ID31_0  MMIO32(U_ID_BASE + 0)
+#define U_ID63_32 MMIO32(U_ID_BASE + 4)
+#define U_ID95_64 MMIO32(U_ID_BASE + 8)
 
 #define RCC_CLOCK_SETUP rcc_clock_setup_in_hse_8mhz_out_72mhz
 

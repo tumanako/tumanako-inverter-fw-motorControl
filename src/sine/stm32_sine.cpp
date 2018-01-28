@@ -22,7 +22,6 @@
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
 #include "stm32_sine.h"
-#include "stm32_timsched.h"
 #include "stm32_can.h"
 #include "terminal.h"
 #include "params.h"
@@ -41,13 +40,17 @@
 #include "errormessage.h"
 #include "pwmgeneration.h"
 #include "printf.h"
+#include "stm32scheduler.h"
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
+#define PRECHARGE_TIMEOUT 5000
+
+static Stm32Scheduler* scheduler;
 
 static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
- s32fp ilofs[2] = { 0, 0 };
+static s32fp ilofs[2] = { 0, 0 };
 //Precise control of executing the boost controller
 static bool runChargeControl = false;
 
@@ -204,9 +207,6 @@ static void Ms100Task(void)
    Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
    Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in));
 
-   //s32fp data[2] = { Param::Get(Param::speed), Param::Get(Param::udc) };
-
-   //can_send(0x180, (uint8_t*)data, sizeof(data));
    Can::SendAll();
 }
 
@@ -215,12 +215,17 @@ static void CalcAmpAndSlip(void)
    s32fp fslipmin = Param::Get(Param::fslipmin);
    s32fp ampmin = Param::Get(Param::ampmin);
    s32fp potnom = Param::Get(Param::potnom);
+   bool syncMode = (bool)Param::GetInt(Param::syncmode);
    s32fp ampnom;
    s32fp fslipspnt;
 
    if (potnom >= 0)
    {
-      ampnom = ampmin + 2 * potnom;
+      /* In sync mode throttle only commands amplitude */
+      if (syncMode)
+         ampnom = ampmin + potnom;
+      else /* In async mode first 50% throttle commands amplitude, 50-100% raises slip */
+         ampnom = ampmin + 2 * potnom;
 
       if (potnom >= FP_FROMINT(50))
       {
@@ -315,11 +320,12 @@ static s32fp ProcessUdc()
    s32fp udcnom = Param::Get(Param::udcnom);
    s32fp fweak = Param::Get(Param::fweak);
    s32fp boost = Param::Get(Param::boost);
+   s32fp udcsw = Param::Get(Param::udcsw);
    int udcofs = Param::GetInt(Param::udcofs);
 
    //Calculate "12V" supply voltage from voltage divider on mprot pin
-   //1.2/(4.7+1.2)/3.34*4095 = 249 -> make it a bit less for pin losses etc
-   Param::SetFlt(Param::uaux, FP_DIV(AnaIn::Get(AnaIn::uaux), 248));
+   //1.2/(4.7+1.2)/3.33*4095 = 250 -> make it a bit less for pin losses etc
+   Param::SetFlt(Param::uaux, FP_DIV(AnaIn::Get(AnaIn::uaux), 249));
    udc = IIRFILTER(udc, AnaIn::Get(AnaIn::udc), 2);
    udcfp = FP_DIV(FP_FROMINT(udc - udcofs), udcgain);
 
@@ -335,13 +341,21 @@ static s32fp ProcessUdc()
       ErrorMessage::Post(ERR_OVERVOLTAGE);
    }
 
+   if (udcfp < (udcsw / 2) && timeTick > PRECHARGE_TIMEOUT)
+   {
+      DigIo::Set(Pin::err_out);
+      DigIo::Clear(Pin::prec_out);
+      ErrorMessage::Post(ERR_PRECHARGE);
+   }
+
    if (udcnom > 0)
    {
       s32fp udcdiff = udcfp - udcnom;
+      s32fp factor = FP_FROMINT(1) + FP_DIV(udcdiff, udcnom);
       //increase fweak on voltage above nominal
-      fweak = FP_MUL(fweak, (FP_FROMINT(1) + FP_DIV(udcdiff, udcnom)));
+      fweak = FP_MUL(fweak, factor);
       //decrease boost on voltage below nominal
-      boost = FP_MUL(boost, (FP_FROMINT(1) - FP_DIV(udcdiff, udcnom)));
+      boost = FP_DIV(boost, factor);
    }
 
    Param::SetFlt(Param::udc, udcfp);
@@ -449,6 +463,7 @@ static void CalcThrottle()
    Param::SetDig(Param::potnom, finalSpnt);
 }
 
+//Normal run takes 60µs -> 0.6% cpu load (last measured version 3.5)
 static void Ms10Task(void)
 {
    static int initWait = 0;
@@ -521,6 +536,7 @@ static void Ms10Task(void)
    }
    else if (0 == initWait)
    {
+      Encoder::Reset();
       PwmGeneration::PwmInit(); //this applies new deadtime and pwmfrq
       PwmGeneration::SetOpmode(opmode); //this enables the outputs for the given mode
       runChargeControl = (opmode == MOD_BOOST || opmode == MOD_BUCK);
@@ -551,6 +567,7 @@ static void SetCurrentLimitThreshold()
    timer_set_oc_value(OVER_CUR_TIMER, TIM_OC3, limPos);
 }
 
+//Normal run takes 16µs -> 1.6% CPU load (last measured version 3.5)
 static void Ms1Task(void)
 {
    static s32fp ilrms[2] = { 0, 0 };
@@ -617,15 +634,15 @@ static void Ms1Task(void)
       iSpntFlt = IIRFILTER(iSpntFlt, Param::Get(Param::chargecur) << 8, 11);
 
       s32fp ampnom = FP_MUL(Param::GetInt(Param::chargekp), (iSpntFlt - ilFlt));
-      Param::SetFlt(Param::ampnom, ampnom);
       if (opmode == MOD_BOOST)
          Param::SetFlt(Param::idc, (FP_MUL((FP_FROMINT(100) - ampnom), ilFlt) / 100) >> 8);
       else
          Param::SetFlt(Param::idc, ilFlt >> 8);
       ampnom = MIN(ampnom, FP_FROMINT(Throttle::TemperatureDerate(Param::Get(Param::tmphs))));
       ampnom = MAX(0, ampnom);
-      ampnom = MIN(FP_FROMINT(96), ampnom);
+      ampnom = MIN(Param::Get(Param::chargemax), ampnom);
       PwmGeneration::SetAmpnom(ampnom);
+      Param::SetFlt(Param::ampnom, ampnom);
    }
    else
    {
@@ -667,15 +684,21 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
    }
 }
 
+extern "C" void tim2_isr(void)
+{
+   scheduler->Run();
+}
+
 extern "C" int main(void)
 {
    clock_setup();
+   //Additional test pin on JTAG header Pin 13/PB3
+   //AFIO_MAPR |= AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF;
    tim_setup();
    AnaIn::Init();
    DigIo::Init();
    usart_setup();
    nvic_setup();
-   init_timsched();
    Encoder::Init();
    term_Init(TERM_USART);
    Can::Setup();
@@ -683,9 +706,11 @@ extern "C" int main(void)
    parm_Change(Param::PARAM_LAST);
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);
 
-   create_task(Ms100Task, PRIO_GRP1, 0, 100);
-   create_task(Ms10Task,  PRIO_GRP1, 1, 10);
-   create_task(Ms1Task,   PRIO_GRP1, 2, 1);
+   Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
+   scheduler = &s;
+   s.AddTask(Ms100Task, 100);
+   s.AddTask(Ms10Task, 10);
+   s.AddTask(Ms1Task, 1);
 
    //Always enable precharge except in buck mode.
    if (!(DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && Param::GetInt(Param::chargemode) == MOD_BUCK))

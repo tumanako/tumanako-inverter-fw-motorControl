@@ -7,9 +7,9 @@
 class Encoder
 {
 public:
-   static void Init(void);
+   static void Init();
+   static void Reset();
    static void SetMode(bool useAbzMode, bool useSyncMode);
-   static void SetMinPulseTime(uint32_t time);
    static bool SeenNorthSignal();
    static void UpdateRotorAngle(int dir);
    static void UpdateRotorFrequency(int timeBase);

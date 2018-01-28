@@ -20,11 +20,9 @@
 #include "inc_encoder.h"
 #include "my_math.h"
 #include <libopencm3/stm32/timer.h>
-#include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
-#include <libopencm3/cm3/nvic.h>
 #include "errormessage.h"
 #include "params.h"
 
@@ -38,7 +36,7 @@ static void DMASetup();
 static int GetPulseTimeFiltered();
 static void GetMinMaxTime(uint32_t& min, uint32_t& max);
 
-static volatile uint16_t timdata[MAX_REVCNT_VALUES] = { 0xffff };
+static volatile uint16_t timdata[MAX_REVCNT_VALUES];
 static volatile uint16_t angle = 0;
 static uint32_t lastPulseTimespan = 0;
 static uint16_t filter = 0;
@@ -53,9 +51,17 @@ static bool seenNorthSignal = false;
 
 void Encoder::Init(void)
 {
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, REV_CNT_RCC_ENR);
    abzMode = true; //Make sure SetMode does something
    SetMode(false, false);
+   Reset();
+}
+
+void Encoder::Reset()
+{
+   ignore = true;
+   lastPulseTimespan = MAX_CNT;
+   for (uint32_t i = 0; i < MAX_REVCNT_VALUES; i++)
+      timdata[i] = MAX_CNT;
 }
 
 /** Since power up, have we seen the north marker? */
@@ -66,7 +72,7 @@ bool Encoder::SeenNorthSignal()
 
 /** Use pulse timing (single channel mode) or ABZ encoder mode
  * @param useAbzMode use ABZ mode, single channel otherwise
- * @param useSyncMode reset counter on first edge of ETR */
+ * @param useSyncMode reset counter on rising edge of ETR */
 void Encoder::SetMode(bool useAbzMode, bool useSyncMode)
 {
    if (useAbzMode == abzMode && useSyncMode == syncMode) return;
@@ -187,7 +193,6 @@ uint32_t Encoder::GetSpeed()
 
 static void DMASetup()
 {
-   //We use DMA only for counting events, the values are ignored
    dma_disable_channel(DMA1, REV_CNT_DMACHAN);
    dma_set_peripheral_address(DMA1, REV_CNT_DMACHAN, (uint32_t)&REV_CNT_CCR);
    dma_set_memory_address(DMA1, REV_CNT_DMACHAN, (uint32_t)timdata);
@@ -243,13 +248,12 @@ static void InitTimerABZMode()
 	if (syncMode)
    {
       exti_select_source(EXTI2, GPIOD);
-      nvic_enable_irq(NVIC_EXTI2_IRQ);
       exti_set_trigger(EXTI2, EXTI_TRIGGER_RISING);
       exti_enable_request(EXTI2);
    }
    else
    {
-      nvic_disable_irq(NVIC_EXTI2_IRQ);
+      exti_disable_request(EXTI2);
    }
 
    timer_slave_set_mode(REV_CNT_TIMER, TIM_SMCR_SMS_EM3); // encoder mode
@@ -264,8 +268,9 @@ static void InitTimerABZMode()
 
 extern "C" void exti2_isr(void)
 {
-   timer_set_counter(REV_CNT_TIMER, 0);
 	exti_reset_request(EXTI2);
+   timer_set_counter(REV_CNT_TIMER, 0);
+	seenNorthSignal = true;
 }
 
 static int GetPulseTimeFiltered()

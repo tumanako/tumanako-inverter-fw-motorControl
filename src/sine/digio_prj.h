@@ -14,13 +14,15 @@
     DIG_IO_ENTRY(bk_in,       GPIOB, GPIO12, PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(bms_in,      GPIOC, GPIO8,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(north_in,    GPIOD, GPIO2,  PinMode::INPUT_FLT)   \
-    DIG_IO_ENTRY(uvlo_in,     GPIOA, GPIO0,  PinMode::INPUT_PU)   \
+    DIG_IO_ENTRY(uvlo_in,     GPIOA, GPIO0,  PinMode::INPUT_PU)    \
     DIG_IO_ENTRY(ocur_in,     GPIOA, GPIO1,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(desat_in,    GPIOC, GPIO9,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(dcsw_out,    GPIOC, GPIO13, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(vtg_out,     GPIOC, GPIO11, PinMode::OUTPUT)      \
     DIG_IO_ENTRY(prec_out,    GPIOB, GPIO1,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(led_out,     GPIOC, GPIO12, PinMode::OUTPUT)      \
+
+    //DIG_IO_ENTRY(test_out,    GPIOB, GPIO3,  PinMode::OUTPUT)
 
 
 #ifdef HWCONFIG_REV1

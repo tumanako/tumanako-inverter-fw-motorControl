@@ -28,7 +28,8 @@
 #include "anain.h"
 #include "my_math.h"
 
-#define SHIFT_180DEG 32768
+#define SHIFT_180DEG (uint16_t)32768
+#define SHIFT_90DEG  (uint16_t)16384
 #define FRQ_TO_ANGLE(frq) FP_TOINT((frq << SineCore::BITS) / pwmfrq)
 
 static uint8_t  pwmdigits;
@@ -43,7 +44,7 @@ static uint8_t shiftForTimer;
 static int opmode;
 
 /*********/
-static void CalcNextAngleSync();
+static void CalcNextAngleSync(int dir);
 static void CalcNextAngle(int dir);
 static void CalcNextAngleConstant(int dir);
 static void Charge();
@@ -112,33 +113,9 @@ extern "C" void tim1_brk_isr(void)
 
 extern "C" void pwm_timer_isr(void)
 {
-   static s32fp ilMaxFlt = 0;
-   extern s32fp ilofs[2];
-   s32fp ilAbs[3];
-   uint16_t last = timer_get_counter(PWM_TIMER);
+   int last = timer_get_counter(PWM_TIMER);
    /* Clear interrupt pending flag */
    TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
-
-   for (int i = 0; i < 2; i++)
-   {
-      s32fp il;
-      il = FP_FROMINT(AnaIn::Get((AnaIn::AnaIns)(AnaIn::il1+i)));
-
-      il -= ilofs[i];
-
-      il = FP_DIV(il, Param::Get((Param::PARAM_NUM)(Param::il1gain+i)));
-
-      ilAbs[i] = il;
-   }
-
-   ilAbs[2] = -ilAbs[0] - ilAbs[1];
-   s32fp offset = SineCore::CalcSVPWMOffset(ilAbs[0], ilAbs[1], ilAbs[2]) / 2;
-   ilAbs[0] = ABS(ilAbs[0]);
-   ilAbs[1] = ABS(ilAbs[1]);
-   ilAbs[2] = ABS(ilAbs[2]);
-   s32fp ilMax = MAX(MAX(ilAbs[0], ilAbs[1]), ilAbs[2]) - ABS(offset);
-   ilMaxFlt = IIRFILTER(ilMaxFlt, ilMax, 1);
-   Param::SetFlt(Param::ilmax, ilMaxFlt);
 
    if (opmode == MOD_MANUAL || opmode == MOD_RUN || opmode == MOD_SINE)
    {
@@ -150,22 +127,11 @@ extern "C" void pwm_timer_isr(void)
       if (opmode == MOD_SINE)
          CalcNextAngleConstant(dir);
       else if (Param::GetInt(Param::syncmode))
-         CalcNextAngleSync();
+         CalcNextAngleSync(dir);
       else
          CalcNextAngle(dir);
 
       uint32_t amp = MotorVoltage::GetAmpPerc(frq, FP_TOINT(ampnom));
-      /*s32fp err = ampnom - ilMaxFlt;
-      int amp = FP_MUL(Param::Get(Param::chargekp), err);
-      int amp2 = (Param::Get(Param::fmax) - frq) * 10;
-      amp = MIN(amp, amp2);
-      amp = MIN(amp, SineCore::MAXAMP);
-      amp = MAX(amp, 0);
-
-      if (frq < Param::Get(Param::fmin))
-         amp = 0;*/
-      //if (ilMaxFlt > iMax)
-        // amp = 0;
 
       SineCore::SetAmp(amp);
       Param::SetDig(Param::amp, amp);
@@ -195,7 +161,9 @@ extern "C" void pwm_timer_isr(void)
    {
       AcHeat();
    }
-   Param::SetDig(Param::tm_meas, (timer_get_counter(PWM_TIMER) - last)/72);
+   int time = timer_get_counter(PWM_TIMER) - last;
+   time = ABS(time) / 72;
+   Param::SetDig(Param::tm_meas, time);
 }
 
 void PwmGeneration::PwmInit(void)
@@ -233,31 +201,29 @@ void PwmGeneration::DisableOutput()
 }
 
 /*----- Private methods ----------------------------------------- */
-static void CalcNextAngleSync()
+static void CalcNextAngleSync(int dir)
 {
    if (Encoder::SeenNorthSignal())
    {
       uint32_t polePairs = Param::GetInt(Param::polepairs);
-      //s32fp potNom = Param::Get(Param::potnom);
+      s32fp potNom = Param::Get(Param::potnom);
       uint16_t syncOfs = Param::GetInt(Param::syncofs);
-      uint16_t motorAngle = Encoder::GetRotorAngle(0);
-
-      //Param::SetDig(Param::angle, motorAngle);
+      uint16_t rotorAngle = Encoder::GetRotorAngle(0);
 
       //For regen let the stator field lag the rotor
       //-> Phase shift by 180°
-      /*if (potNom < 0)
+      if (potNom < 0)
       {
          syncOfs += SHIFT_180DEG;
-      }*/
+      }
 
-      angle = polePairs * motorAngle + syncOfs;
+      angle = polePairs * rotorAngle - dir * syncOfs;
       frq = polePairs * Encoder::GetRotorFrequency();
    }
    else
    {
       frq = fslip;
-      angle += FRQ_TO_ANGLE(fslip);
+      angle += dir * FRQ_TO_ANGLE(fslip);
    }
 }
 
@@ -265,14 +231,14 @@ static void CalcNextAngle(int dir)
 {
    static uint16_t slipAngle = 0;
    uint32_t polePairs = Param::GetInt(Param::polepairs);
-   uint16_t motorAngle = Encoder::GetRotorAngle(dir);
+   uint16_t rotorAngle = Encoder::GetRotorAngle(dir);
 
    frq = polePairs * Encoder::GetRotorFrequency() + fslip;
    slipAngle += dir * slipIncr;
 
    if (frq < 0) frq = 0;
 
-   angle = polePairs * motorAngle + slipAngle;
+   angle = polePairs * rotorAngle + slipAngle;
 }
 
 static void CalcNextAngleConstant(int dir)

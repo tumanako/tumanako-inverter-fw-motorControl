@@ -51,13 +51,14 @@ void clock_setup(void)
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPEEN);
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPGEN);
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_USART3EN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM1EN);
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN);
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN);
-   rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_DMA1EN);
+   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM1EN); //Main PWM
+   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM2EN); //Scheduler
+   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN); //Rotor Encoder
+   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN); //Overcurrent / AUX PWM
+   rcc_peripheral_enable_clock(&RCC_AHBENR,  RCC_AHBENR_DMA1EN);  //ADC and Encoder
    rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_ADC1EN);
-   rcc_peripheral_enable_clock(&RCC_AHBENR, RCC_AHBENR_CRCEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_AFIOEN);
+   rcc_peripheral_enable_clock(&RCC_AHBENR,  RCC_AHBENR_CRCEN);
+   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_AFIOEN); //CAN
    rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_CAN1EN);
 }
 
@@ -84,11 +85,17 @@ void usart_setup(void)
 */
 void nvic_setup(void)
 {
-   nvic_enable_irq(PWM_TIMER_IRQ);
-   nvic_set_priority(PWM_TIMER_IRQ, 0); //Set highest priority
+   nvic_enable_irq(PWM_TIMER_IRQ); //Main PWM
+   nvic_set_priority(PWM_TIMER_IRQ, 1 << 4); //Set second-highest priority
 
-   nvic_enable_irq(NVIC_TIM1_BRK_IRQ);
-   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0);
+   nvic_enable_irq(NVIC_TIM1_BRK_IRQ); //Emergency shut down
+   nvic_set_priority(NVIC_TIM1_BRK_IRQ, 0); //Highest priority
+
+   nvic_enable_irq(NVIC_EXTI2_IRQ); //Encoder Index pulse
+   nvic_set_priority(NVIC_EXTI2_IRQ, 0); //Set highest priority
+
+   nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
+   nvic_set_priority(NVIC_TIM2_IRQ, 0xf << 4); //Lowest priority
 }
 
 /**

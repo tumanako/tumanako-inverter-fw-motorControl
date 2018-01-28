@@ -82,12 +82,12 @@ typedef struct
 static void ProcessSDO(uint8_t* data);
 static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
 static CANIDMAP *can_find(CANMAP *canMap, int canId);
-static void SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
+static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
 static int LoadFromFlash();
+static CANIDMAP *can_find(CANMAP *canMap, int canId);
 
 static CANMAP canSendMap;
 static CANMAP canRecvMap;
-CANIDMAP *can_find(CANMAP *canMap, int canId);
 
 int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
@@ -102,15 +102,14 @@ int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gai
 void Save()
 {
    uint32_t crc;
-   CRC_CR |= CRC_CR_RESET;
+   crc_reset();
 
    flash_unlock();
    flash_set_ws(2);
    flash_erase_page(CANMAP_ADDRESS);
 
    SaveToFlash(SENDMAP_ADDRESS, (uint32_t *)&canSendMap, SENDMAP_WORDS);
-   SaveToFlash(RECVMAP_ADDRESS, (uint32_t *)&canRecvMap, RECVMAP_WORDS);
-   crc = CRC_DR;
+   crc = SaveToFlash(RECVMAP_ADDRESS, (uint32_t *)&canRecvMap, RECVMAP_WORDS);
    SaveToFlash(CRC_ADDRESS, &crc, 1);
    flash_lock();
 }
@@ -223,12 +222,12 @@ void Send(uint32_t canId, uint8_t* data, uint32_t len)
 
 extern "C" void usb_lp_can_rx0_isr(void)
 {
-	uint32_t id, fmi;
+	uint32_t id;
 	bool ext, rtr;
-	uint8_t length;
+	uint8_t length, fmi;
 	uint32_t data[2];
 
-	can_receive(CAN1, 0, false, &id, &ext, &rtr, &fmi, &length, (uint8_t*)&data);
+	can_receive(CAN1, 0, false, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL);
 	can_fifo_release(CAN1, 0);
 
 	if (id == 0x601) //SDO request, nodeid=1
@@ -321,18 +320,14 @@ static void ProcessSDO(uint8_t* data)
 
 static int LoadFromFlash()
 {
-   int dataSize = SENDMAP_WORDS + RECVMAP_WORDS;
    uint32_t* data = (uint32_t *)CANMAP_ADDRESS;
    uint32_t storedCrc = *(uint32_t*)CRC_ADDRESS;
+   uint32_t crc;
 
-   CRC_CR |= CRC_CR_RESET;
+   crc_reset();
+   crc = crc_calculate_block(data, SENDMAP_WORDS + RECVMAP_WORDS);
 
-   while (dataSize--)
-   {
-      CRC_DR = *data++;
-   }
-
-   if (storedCrc == CRC_DR)
+   if (storedCrc == crc)
    {
       memcpy32((int*)&canSendMap, (int*)SENDMAP_ADDRESS, SENDMAP_WORDS);
       memcpy32((int*)&canRecvMap, (int*)RECVMAP_ADDRESS, RECVMAP_WORDS);
@@ -383,14 +378,18 @@ static CANIDMAP *can_find(CANMAP *canMap, int canId)
    return 0;
 }
 
-static void SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
+static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len)
 {
+   uint32_t crc = 0;
+
    for (int idx = 0; idx < len; idx++)
    {
-      CRC_DR = *data;
+      crc = crc_calculate(*data);
       flash_program_word(baseAddress + idx * sizeof(uint32_t), *data);
       data++;
    }
+
+   return crc;
 }
 
 }

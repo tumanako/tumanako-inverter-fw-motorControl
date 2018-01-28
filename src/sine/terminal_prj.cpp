@@ -18,6 +18,8 @@
  */
 
 #include <libopencm3/cm3/scb.h>
+#include <libopencm3/stm32/usart.h>
+#include "hwdefs.h"
 #include "terminal.h"
 #include "params.h"
 #include "my_string.h"
@@ -31,6 +33,7 @@
 #define NUM_BUF_LEN 15
 
 static void ParamGet(char *arg);
+static void ParamStream(char *arg);
 static void ParamSet(char *arg);
 static void LoadDefaults(char *arg);
 static void GetAll(char *arg);
@@ -42,6 +45,7 @@ static void SaveParameters(char *arg);
 static void LoadParameters(char *arg);
 static void Help(char *arg);
 static void PrintParamsJson(char *arg);
+static void PrintSerial(char *arg);
 static void MapCan(char *arg);
 static void PrintErrors(char *arg);
 static void Reset(char *arg);
@@ -50,6 +54,7 @@ extern "C" const TERM_CMD TermCmds[] =
 {
   { "set", ParamSet },
   { "get", ParamGet },
+  { "stream", ParamStream },
   { "defaults", LoadDefaults },
   { "all", GetAll },
   { "list", PrintList },
@@ -61,6 +66,7 @@ extern "C" const TERM_CMD TermCmds[] =
   { "help", Help },
   { "json", PrintParamsJson },
   { "can", MapCan },
+  { "serial", PrintSerial },
   { "errors", PrintErrors },
   { "reset", Reset },
   { NULL, NULL }
@@ -237,6 +243,66 @@ static void ParamGet(char *arg)
    } while (',' == *comma);
 }
 
+static void ParamStream(char *arg)
+{
+   Param::PARAM_NUM indexes[10];
+   int maxIndex = sizeof(indexes) / sizeof(Param::PARAM_NUM);
+   int curIndex = 0;
+   int repetitions = -1;
+   char* comma;
+   char orig;
+
+   arg = my_trim(arg);
+   repetitions = my_atoi(arg);
+   arg = (char*)my_strchr(arg, ' ');
+
+   if (0 == *arg)
+   {
+      printf("Usage: stream n val1,val2...\r\n");
+      return;
+   }
+   arg++; //move behind space
+
+   do
+   {
+      comma = (char*)my_strchr(arg, ',');
+      orig = *comma;
+      *comma = 0;
+
+      Param::PARAM_NUM idx = Param::NumFromString(arg);
+
+      *comma = orig;
+      arg = comma + 1;
+
+      if (Param::PARAM_INVALID != idx)
+      {
+         indexes[curIndex] = idx;
+         curIndex++;
+      }
+      else
+      {
+         printf("Unknown parameter\r\n");
+      }
+   } while (',' == *comma && curIndex < maxIndex);
+
+   maxIndex = curIndex;
+   usart_recv(TERM_USART);
+
+   while (!usart_get_flag(TERM_USART, USART_SR_RXNE) && (repetitions > 0 || repetitions == -1))
+   {
+      comma = (char*)"";
+      for (curIndex = 0; curIndex < maxIndex; curIndex++)
+      {
+         s32fp val = Param::Get(indexes[curIndex]);
+         printf("%s%f", comma, val);
+         comma = (char*)",";
+      }
+      printf("\r\n");
+      if (repetitions != -1)
+         repetitions--;
+   }
+}
+
 static void LoadDefaults(char *arg)
 {
    arg = arg;
@@ -345,6 +411,12 @@ static void PrintErrors(char *arg)
 {
    arg = arg;
    ErrorMessage::PrintAllErrors();
+}
+
+static void PrintSerial(char *arg)
+{
+   arg = arg;
+   printf("%X%X%X\r\n", U_ID95_64, U_ID63_32, U_ID31_0);
 }
 
 static void Help(char *arg)

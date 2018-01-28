@@ -49,7 +49,7 @@ uint32_t parm_save()
    PARAM_PAGE parmPage;
    unsigned int idx;
 
-   CRC_CR |= CRC_CR_RESET;
+   crc_reset();
 
    //Copy parameter values and keys to block structure
    for (idx = 0; Param::IsParam((Param::PARAM_NUM)idx) && idx < NUM_PARAMS; idx++)
@@ -57,19 +57,17 @@ uint32_t parm_save()
       const Param::Attributes *pAtr = Param::GetAttrib((Param::PARAM_NUM)idx);
       parmPage.data[idx].key = pAtr->id;
       parmPage.data[idx].value = Param::Get((Param::PARAM_NUM)idx);
-      CRC_DR = pAtr->id;
-      CRC_DR = Param::Get((Param::PARAM_NUM)idx);
+      crc_calculate(pAtr->id);
+      crc_calculate(Param::Get((Param::PARAM_NUM)idx));
    }
    //Pad the remaining space and the CRC calculcator with 0's
    for (; idx < NUM_PARAMS; idx++)
    {
       parmPage.data[idx].key = 0;
       parmPage.data[idx].value = 0;
-      CRC_DR = 0;
-      CRC_DR = 0;
+      crc_calculate(0);
+      parmPage.crc = crc_calculate(0);
    }
-
-   parmPage.crc = CRC_DR;
 
    flash_unlock();
    flash_set_ws(2);
@@ -81,7 +79,7 @@ uint32_t parm_save()
       flash_program_word(PARAM_ADDRESS + idx * sizeof(uint32_t), *pData);
    }
    flash_lock();
-   return CRC_DR;
+   return parmPage.crc;
 }
 
 /**
@@ -94,15 +92,10 @@ int parm_load()
 {
    PARAM_PAGE *parmPage = (PARAM_PAGE *)PARAM_ADDRESS;
 
-   CRC_CR |= CRC_CR_RESET;
+   crc_reset();
+   uint32_t crc = crc_calculate_block(((uint32_t*)parmPage), (2 * NUM_PARAMS));
 
-   for (unsigned int idx = 0; idx < (2 * NUM_PARAMS); idx++)
-   {
-      uint32_t* pData = ((uint32_t*)parmPage) + idx;
-      CRC_DR = *pData;
-   }
-
-   if (CRC_DR == parmPage->crc)
+   if (crc == parmPage->crc)
    {
       for (unsigned int idxPage = 0; idxPage < NUM_PARAMS; idxPage++)
       {

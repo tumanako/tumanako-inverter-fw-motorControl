@@ -52,7 +52,7 @@ void term_Run()
    while (1)
    {
       c = usart_recv_blocking(_usart);
-      usart_send_blocking(_usart, c);
+      usart_send(_usart, c); //No need to block here
 
       if ('\n' == c || '\r' == c || idx > (BUFSIZE - 2))
       {

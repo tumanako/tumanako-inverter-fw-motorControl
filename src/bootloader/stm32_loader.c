@@ -34,6 +34,7 @@
 #define PAGE_WORDS (PAGE_SIZE / 4)
 #define FLASH_START 0x08000000
 #define APP_FLASH_START 0x08001000
+#define BOOTLOADER_MAGIC 0xAA
 
 static void clock_setup(void)
 {
@@ -123,7 +124,6 @@ void wait(void)
 
 int main(void)
 {
-   char numPages;
    uint32_t page_buffer[PAGE_WORDS];
    uint32_t addr = APP_FLASH_START;
 
@@ -132,75 +132,78 @@ int main(void)
    dma_setup(page_buffer);
 
    wait();
-   usart_send_blocking(TERM_USART, 'S');
+   usart_send_blocking(TERM_USART, '2');
    wait();
-   numPages = usart_recv(TERM_USART);
+   char magic = usart_recv(TERM_USART);
 
-   flash_unlock();
-   flash_set_ws(2);
-
-   while (numPages > 0)
+   if (magic == BOOTLOADER_MAGIC)
    {
-      uint32_t recvCrc = 0;
-      uint32_t timeOut = 1 << 21;
-      CRC_CR |= CRC_CR_RESET;
+      usart_send_blocking(TERM_USART, 'S');
+      wait();
+      char numPages = usart_recv(TERM_USART);
+      flash_unlock();
+      flash_set_ws(2);
 
-      usart_send_blocking(TERM_USART, 'P');
-
-      USART_CR3(TERM_USART) |= USART_CR3_DMAR;
-      DMA1_CNDTR3 = PAGE_SIZE;
-      DMA1_CCR3 |= DMA_CCR_EN;
-      DMA1_IFCR = DMA_IFCR_CTCIF3;
-
-      while ((DMA1_ISR & DMA_ISR_TCIF3) == 0)
+      while (numPages > 0)
       {
-         timeOut--;
+         uint32_t recvCrc = 0;
+         uint32_t timeOut = 1 << 21;
 
-         //When the buffer is not full after about 200ms
-         //Request the entire page again
-         if (0 == timeOut)
+         crc_reset();
+         USART_CR3(TERM_USART) |= USART_CR3_DMAR;
+         DMA1_CNDTR3 = PAGE_SIZE;
+         DMA1_CCR3 |= DMA_CCR_EN;
+         DMA1_IFCR = DMA_IFCR_CTCIF3;
+
+         usart_send_blocking(TERM_USART, 'P');
+
+         while ((DMA1_ISR & DMA_ISR_TCIF3) == 0)
          {
-            usart_send_blocking(TERM_USART, 'T');
-            timeOut = 1 << 21;
-            DMA1_CCR3 &= ~DMA_CCR_EN;
-            DMA1_CNDTR3 = PAGE_SIZE;
-            DMA1_CCR3 |= DMA_CCR_EN;
+            timeOut--;
+
+            //When the buffer is not full after about 200ms
+            //Request the entire page again
+            if (0 == timeOut)
+            {
+               timeOut = 1 << 21;
+               DMA1_CCR3 &= ~DMA_CCR_EN;
+               DMA1_CNDTR3 = PAGE_SIZE;
+               DMA1_CCR3 |= DMA_CCR_EN;
+               usart_send_blocking(TERM_USART, 'T');
+            }
+         }
+
+         DMA1_CCR3 &= ~DMA_CCR_EN;
+         USART_CR3(TERM_USART) &= ~USART_CR3_DMAR;
+
+         uint32_t crc = crc_calculate_block(page_buffer, PAGE_WORDS);
+
+         usart_send_blocking(TERM_USART, 'C');
+         recvCrc = RecvCrc();
+
+         if (crc == recvCrc)
+         {
+            WriteFlash(addr, page_buffer);
+            numPages--;
+            addr += PAGE_SIZE;
+         }
+         else
+         {
+            usart_send_blocking(TERM_USART, 'E');
          }
       }
 
-      DMA1_CCR3 &= ~DMA_CCR_EN;
-      USART_CR3(TERM_USART) &= ~USART_CR3_DMAR;
-
-      for (uint32_t idx = 0; idx < PAGE_WORDS; idx++)
-      {
-         CRC_DR = page_buffer[idx];
-      }
-
-      usart_send_blocking(TERM_USART, 'C');
-      recvCrc = RecvCrc();
-
-      if (CRC_DR == recvCrc)
-      {
-         WriteFlash(addr, page_buffer);
-         numPages--;
-         addr += PAGE_SIZE;
-      }
-      else
-      {
-         usart_send_blocking(TERM_USART, 'E');
-      }
+      flash_lock();
    }
 
    usart_send_blocking(TERM_USART, 'D');
    wait();
    usart_disable(TERM_USART);
 
-   flash_lock();
 
    void (*app_main)(void) = (void (*)(void)) *(volatile uint32_t*)(APP_FLASH_START + 4);
    SCB_VTOR = APP_FLASH_START;
    app_main();
 
    return 0;
-
 }
