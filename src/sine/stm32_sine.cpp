@@ -161,7 +161,6 @@ static void Ms100Task(void)
    int32_t dir = Param::GetInt(Param::dir);
 
    DigIo::Toggle(Pin::led_out);
-
    Param::SetDig(Param::speed, Encoder::GetSpeed());
    ErrorMessage::PrintNewErrors();
 
@@ -215,15 +214,14 @@ static void CalcAmpAndSlip(void)
    s32fp fslipmin = Param::Get(Param::fslipmin);
    s32fp ampmin = Param::Get(Param::ampmin);
    s32fp potnom = Param::Get(Param::potnom);
-   bool syncMode = (bool)Param::GetInt(Param::syncmode);
    s32fp ampnom;
    s32fp fslipspnt;
 
    if (potnom >= 0)
    {
-      /* In sync mode throttle only commands amplitude */
-      if (syncMode)
-         ampnom = ampmin + potnom;
+      /* In sync mode throttle only commands amplitude. Above back-EMF is acceleration, below is regen */
+      if (Encoder::IsSyncMode())
+         ampnom = ampmin + FP_DIV(FP_MUL((FP_FROMINT(100) - ampmin), potnom), FP_FROMINT(100));
       else /* In async mode first 50% throttle commands amplitude, 50-100% raises slip */
          ampnom = ampmin + 2 * potnom;
 
@@ -251,7 +249,11 @@ static void CalcAmpAndSlip(void)
    {
       u32fp brkrampstr = (u32fp)Param::Get(Param::brkrampstr);
 
-      ampnom = -potnom;
+      if (Encoder::IsSyncMode())
+         ampnom = ampmin - FP_DIV(FP_MUL(ampmin, potnom), FP_FROMINT(100));
+      else
+         ampnom = -potnom;
+
       fslipspnt = -fslipmin;
       if (Encoder::GetRotorFrequency() < brkrampstr)
       {
@@ -469,6 +471,7 @@ static void Ms10Task(void)
    static int initWait = 0;
    int opmode = Param::GetInt(Param::opmode);
    int chargemode = Param::GetInt(Param::chargemode);
+   int newMode = MOD_OFF;
    s32fp udc = ProcessUdc();
 
    CalcThrottle();
@@ -485,10 +488,11 @@ static void Ms10Task(void)
     * - start pin is high
     * - motor protection switch and emcystop is high (=inactive)
     */
-   if (udc >= Param::Get(Param::udcsw) && Param::GetInt(Param::potnom) <= 0)
+   if (DigIo::Get(Pin::emcystop_in) &&
+       DigIo::Get(Pin::mprot_in) &&
+       Param::GetInt(Param::potnom) <= 0)
    {
-      if (DigIo::Get(Pin::emcystop_in) &&
-          DigIo::Get(Pin::mprot_in))
+      if (udc >= Param::Get(Param::udcsw))
       {
          /* Switch to charge mode if
           * - Charge mode is enabled
@@ -496,24 +500,26 @@ static void Ms10Task(void)
           */
          if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && !DigIo::Get(Pin::bms_in) && chargemode >= MOD_BOOST)
          {
-            //Do NOT close main relay in buck mode!!
-            if (chargemode == MOD_BOOST)
-               DigIo::Set(Pin::dcsw_out);
-            DigIo::Clear(Pin::err_out);
-            DigIo::Clear(Pin::prec_out);
-            Param::SetDig(Param::opmode, chargemode);
-            ErrorMessage::UnpostAll();
+            //In buck mode we precharge to a different voltage
+            if (chargemode == MOD_BUCK && udc >= Param::Get(Param::udcswbuck))
+               newMode = chargemode;
+            else if (chargemode == MOD_BOOST)
+               newMode = chargemode;
          }
          else if (DigIo::Get(Pin::start_in))
          {
-            DigIo::Set(Pin::dcsw_out);
-            DigIo::Clear(Pin::err_out);
-            DigIo::Clear(Pin::prec_out);
-            Param::SetDig(Param::opmode, MOD_RUN);
-            ErrorMessage::UnpostAll();
-            runChargeControl = false;
+            newMode = MOD_RUN;
          }
       }
+   }
+
+   if (newMode != MOD_OFF)
+   {
+      DigIo::Set(Pin::dcsw_out);
+      DigIo::Clear(Pin::err_out);
+      DigIo::Clear(Pin::prec_out);
+      Param::SetDig(Param::opmode, newMode);
+      ErrorMessage::UnpostAll();
    }
 
 #ifndef HWCONFIG_TESLA
@@ -662,7 +668,7 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       SetCurrentLimitThreshold();
 
       Encoder::SetFilterConst(Param::GetInt(Param::encflt));
-      Encoder::SetMode((bool)Param::GetInt(Param::encmode), (bool)Param::GetInt(Param::syncmode));
+      Encoder::SetMode((enum Encoder::mode)Param::GetInt(Param::encmode));
       Encoder::SetImpulsesPerTurn(Param::GetInt(Param::numimp));
 
       MotorVoltage::SetMinFrq(Param::Get(Param::fmin));
@@ -708,13 +714,12 @@ extern "C" int main(void)
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
-   s.AddTask(Ms100Task, 100);
-   s.AddTask(Ms10Task, 10);
-   s.AddTask(Ms1Task, 1);
+   //s.AddTask(test, 20);
+   s.AddTask(Ms1Task, 100);
+   s.AddTask(Ms10Task, 1000);
+   s.AddTask(Ms100Task, 10000);
 
-   //Always enable precharge except in buck mode.
-   if (!(DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && Param::GetInt(Param::chargemode) == MOD_BUCK))
-      DigIo::Set(Pin::prec_out);
+   DigIo::Set(Pin::prec_out);
 
    term_Run();
 

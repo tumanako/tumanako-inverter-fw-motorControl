@@ -37,19 +37,19 @@ class Stm32Scheduler
 
       /** @brief Add a periodic task
        * @param function the task function
-       * @param period The calling period in ms
+       * @param period The calling period in 100*ms
        */
-      void AddTask(void (*function)(void), int period);
+      void AddTask(void (*function)(void), uint16_t period);
 
       /** @brief Run the scheduler, must be called by the scheduler timer ISR */
       void Run();
 
    protected:
    private:
-      static void nofunc(void) {};
+      static void nofunc(void);
       static const enum tim_oc_id ocMap[MAX_TASKS];
       void (*functions[MAX_TASKS]) (void);
-      int periods[MAX_TASKS];
+      uint16_t periods[MAX_TASKS];
       uint32_t timer;
       int nextTask;
 };

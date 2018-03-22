@@ -31,6 +31,7 @@ const AnaIn::AnaInfo AnaIn::ins[] =
    { PORT_LAST, PIN_LAST }
 };
 
+#define ADC_DMA_CHAN 1
 #define NUM_CHAN (sizeof(ins) / sizeof(ins[0]) - 1)
 #define MEDIAN3_FROM_ADC_ARRAY(a) median3(*a, *(a + NUM_CHAN), *(a + 2*NUM_CHAN))
 
@@ -81,14 +82,14 @@ void AnaIn::Init()
    adc_set_regular_sequence(ADC1, numChan, channel_array);
    adc_enable_dma(ADC1);
 
-   DMA1_CPAR1 = (uint32_t)&ADC_DR(ADC1);
-   DMA1_CMAR1 = (uint32_t)values;
-   DMA1_CNDTR1 = NUM_SAMPLES * numChan;
-   DMA1_CCR1 |= DMA_CCR_MSIZE_16BIT;
-   DMA1_CCR1 |= DMA_CCR_PSIZE_16BIT;
-   DMA1_CCR1 |= DMA_CCR_MINC;
-   DMA1_CCR1 |= DMA_CCR_CIRC;
-   DMA1_CCR1 |= DMA_CCR_EN;
+   dma_set_peripheral_address(DMA1, ADC_DMA_CHAN, (uint32_t)&ADC_DR(ADC1));
+   dma_set_memory_address(DMA1, ADC_DMA_CHAN, (uint32_t)values);
+   dma_set_peripheral_size(DMA1, ADC_DMA_CHAN, DMA_CCR_PSIZE_16BIT);
+   dma_set_memory_size(DMA1, ADC_DMA_CHAN, DMA_CCR_MSIZE_16BIT);
+   dma_set_number_of_data(DMA1, ADC_DMA_CHAN, NUM_SAMPLES * numChan);
+   dma_enable_memory_increment_mode(DMA1, ADC_DMA_CHAN);
+   dma_enable_circular_mode(DMA1, ADC_DMA_CHAN);
+   dma_enable_channel(DMA1, ADC_DMA_CHAN);
 
    adc_start_conversion_regular(ADC1);
    adc_start_conversion_direct(ADC1);

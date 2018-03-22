@@ -28,7 +28,7 @@
 #define IDLEMODS    "0=always, 1=nobrake, 2=cruise"
 #define ONOFF       "0=Off, 1=On"
 #define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
-#define ENCMODES    "0=Single, 1=ABZ"
+#define ENCMODES    "0=Single, 1=AB, 2=ABZ, 3=SPI, 4=Resolver"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -40,7 +40,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.54
+#define VER 3.58
 
 enum _modes
 {
@@ -69,7 +69,7 @@ enum _modes
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 80
+//Next param id (increase when adding new parameter!): 81
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -81,11 +81,10 @@ enum _modes
     PARAM_ENTRY(CAT_MOTOR,   polepairs,   "",        1,      16,     2,      32  ) \
     PARAM_ENTRY(CAT_MOTOR,   ampmin,      "%",       0,      100,    10,     4   ) \
     PARAM_ENTRY(CAT_MOTOR,   encflt,      "",        0,      16,     1,      6   ) \
-    PARAM_ENTRY(CAT_MOTOR,   encmode,     ENCMODES,  0,      1,      0,      75  ) \
+    PARAM_ENTRY(CAT_MOTOR,   encmode,     ENCMODES,  0,      4,      0,      75  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmin,        "Hz",      0,      400,    1,      34  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      1000,   200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
-    PARAM_ENTRY(CAT_MOTOR,   syncmode,    ONOFF,     0,      1,      0,      69  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
     PARAM_ENTRY(CAT_MOTOR,   snsm,        SNS_M,     2,      3,      2,      46  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      1,      13  ) \
@@ -125,6 +124,7 @@ enum _modes
     PARAM_ENTRY(CAT_DERATE,  udcmin,      "V",       0,      1000,   450,    42  ) \
     PARAM_ENTRY(CAT_DERATE,  udcmax,      "V",       0,      1000,   520,    43  ) \
     PARAM_ENTRY(CAT_CONTACT, udcsw,       "V",       0,      1000,   330,    20  ) \
+    PARAM_ENTRY(CAT_CONTACT, udcswbuck,   "V",       0,      1000,   540,    80  ) \
     PARAM_ENTRY(CAT_PWM,     pwmfunc,     PWMFUNCS,  0,      2,      0,      58  ) \
     PARAM_ENTRY(CAT_PWM,     pwmgain,     "dig/C",   -65535, 65535,  100,    40  ) \
     PARAM_ENTRY(CAT_PWM,     pwmofs,      "dig",     -65535, 65535,  0,      41  ) \
@@ -170,4 +170,5 @@ enum _modes
     VALUE_ENTRY(din_ocur,    ""      ) \
     VALUE_ENTRY(din_bms,     ""      ) \
     VALUE_ENTRY(tm_meas,     "us"    ) \
+    VALUE_ENTRY(angle,     "°"    ) \
 

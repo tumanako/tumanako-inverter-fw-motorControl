@@ -29,8 +29,8 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    /* Setup timers upcounting and auto preload enable */
    timer_enable_preload(timer);
    timer_direction_up(timer);
-   /* Set prescaler to count at 10 kHz = 72 MHz/7200 - 1 */
-   timer_set_prescaler(timer, 7199);
+   /* Set prescaler to count at 100 kHz = 72 MHz/720 - 1 */
+   timer_set_prescaler(timer, 719);
    /* Maximum counter value */
    timer_set_period(timer, 0xFFFF);
 
@@ -43,7 +43,7 @@ Stm32Scheduler::Stm32Scheduler(uint32_t timer)
    nextTask = 0;
 }
 
-void Stm32Scheduler::AddTask(void (*function)(void), int period)
+void Stm32Scheduler::AddTask(void (*function)(void), uint16_t period)
 {
    if (nextTask >= MAX_TASKS) return;
    /* Disable timer */
@@ -54,8 +54,7 @@ void Stm32Scheduler::AddTask(void (*function)(void), int period)
 
    /* Assign task function and period */
    functions[nextTask] = function;
-   periods  [nextTask] = period * 10;
-   nextTask++;
+   periods  [nextTask] = period;
 
    /* Enable interrupt for that channel */
    timer_enable_irq(timer, TIM_DIER_CC1IE << nextTask);
@@ -65,6 +64,8 @@ void Stm32Scheduler::AddTask(void (*function)(void), int period)
 
    /* Enable timer */
    timer_enable_counter(timer);
+
+   nextTask++;
 }
 
 void Stm32Scheduler::Run()
@@ -74,8 +75,12 @@ void Stm32Scheduler::Run()
       if (timer_get_flag(timer, TIM_SR_CC1IF << i))
       {
          timer_clear_flag(timer, TIM_SR_CC1IF << i);
-         functions[i]();
          TIM_CCR(timer, i) += periods[i];
+         functions[i]();
       }
    }
+}
+
+void Stm32Scheduler::nofunc()
+{
 }

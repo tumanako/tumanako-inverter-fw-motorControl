@@ -7,9 +7,14 @@
 class Encoder
 {
 public:
+   enum mode
+   {
+      SINGLE, AB, ABZ, SPI, RESOLVER, INVALID
+   };
+
    static void Init();
    static void Reset();
-   static void SetMode(bool useAbzMode, bool useSyncMode);
+   static void SetMode(enum mode encMode);
    static bool SeenNorthSignal();
    static void UpdateRotorAngle(int dir);
    static void UpdateRotorFrequency(int timeBase);
@@ -18,6 +23,7 @@ public:
    static u32fp GetRotorFrequency();
    static void SetFilterConst(uint8_t flt);
    static void SetImpulsesPerTurn(uint16_t imp);
+   static bool IsSyncMode();
 };
 
 #endif // INC_ENCODER_H_INCLUDED

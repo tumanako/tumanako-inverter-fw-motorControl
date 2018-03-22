@@ -38,7 +38,7 @@ void clock_setup(void)
    RCC_CLOCK_SETUP();
 
 	rcc_set_ppre1(RCC_CFGR_PPRE1_HCLK_DIV2);
-	rcc_set_adcpre(RCC_CFGR_ADCPRE_PCLK2_DIV8);
+	rcc_set_adcpre(RCC_CFGR_ADCPRE_PCLK2_DIV6);
 
    //The reset value for PRIGROUP (=0) is not actually a defined
    //value. Explicitly set 16 preemtion priorities
@@ -67,17 +67,17 @@ void clock_setup(void)
 */
 void usart_setup(void)
 {
-    gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
-                  GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TERM_USART_TXPIN);
+   gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
+               GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TERM_USART_TXPIN);
 
-    usart_set_baudrate(TERM_USART, USART_BAUDRATE);
-    usart_set_databits(TERM_USART, 8);
-    usart_set_stopbits(TERM_USART, USART_STOPBITS_2);
-    usart_set_mode(TERM_USART, USART_MODE_TX_RX);
-    usart_set_parity(TERM_USART, USART_PARITY_NONE);
-    usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
+   usart_set_baudrate(TERM_USART, USART_BAUDRATE);
+   usart_set_databits(TERM_USART, 8);
+   usart_set_stopbits(TERM_USART, USART_STOPBITS_1);
+   usart_set_mode(TERM_USART, USART_MODE_TX_RX);
+   usart_set_parity(TERM_USART, USART_PARITY_NONE);
+   usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
 
-    usart_enable(TERM_USART);
+   usart_enable(TERM_USART);
 }
 
 /**

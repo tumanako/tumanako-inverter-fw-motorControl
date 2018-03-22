@@ -126,7 +126,7 @@ extern "C" void pwm_timer_isr(void)
 
       if (opmode == MOD_SINE)
          CalcNextAngleConstant(dir);
-      else if (Param::GetInt(Param::syncmode))
+      else if (Encoder::IsSyncMode())
          CalcNextAngleSync(dir);
       else
          CalcNextAngle(dir);
@@ -205,20 +205,19 @@ static void CalcNextAngleSync(int dir)
 {
    if (Encoder::SeenNorthSignal())
    {
-      uint32_t polePairs = Param::GetInt(Param::polepairs);
-      s32fp potNom = Param::Get(Param::potnom);
+      uint32_t polePairs = Param::GetInt(Param::encmode) == Encoder::RESOLVER ? 1 : Param::GetInt(Param::polepairs);
       uint16_t syncOfs = Param::GetInt(Param::syncofs);
       uint16_t rotorAngle = Encoder::GetRotorAngle(0);
 
-      //For regen let the stator field lag the rotor
-      //-> Phase shift by 180°
-      if (potNom < 0)
+      if (dir < 0)
       {
          syncOfs += SHIFT_180DEG;
       }
 
-      angle = polePairs * rotorAngle - dir * syncOfs;
+      angle = polePairs * rotorAngle + syncOfs;
       frq = polePairs * Encoder::GetRotorFrequency();
+      Param::SetDig(Param::angle, angle);
+
    }
    else
    {

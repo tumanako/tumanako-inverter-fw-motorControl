@@ -21,6 +21,7 @@
 
 #include "my_fp.h"
 #include "my_math.h"
+#include "sine_core.h"
 #include "test_list.h"
 #include "string.h"
 
@@ -57,10 +58,21 @@ static void TestMedian3()
    ASSERT(MEDIAN3(2,1,3) == 2);
 }
 
+static void TestAtan2()
+{
+   uint16_t res;
+   ASSERT(SineCore::Atan2(4096, 0) == 0); //0°
+   ASSERT(SineCore::Atan2(2896, 2896) == 8192); //45°
+   ASSERT(SineCore::Atan2(-4096, 0) == 32768); //180°
+   ASSERT(SineCore::Atan2(2048, -3547) == 54613); //300°
+   ASSERT(SineCore::Atan2(2048, 3547) == 10922); //60°
+}
+
 void FPTest::RunTest()
 {
    TestMacros();
    TestItoa();
    TestAtoi();
    TestMedian3();
+   TestAtan2();
 }

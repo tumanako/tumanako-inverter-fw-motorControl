@@ -23,8 +23,10 @@
 #include <libopencm3/stm32/dma.h>
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/adc.h>
 #include "errormessage.h"
-#include "params.h"
+//#include "params.h"
+#include "sine_core.h"
 
 #define TWO_PI 65536
 #define MAX_CNT 65535
@@ -32,7 +34,11 @@
 
 static void InitTimerSingleChannelMode();
 static void InitTimerABZMode();
+static void InitSPIMode();
+static void InitResolverMode();
 static void DMASetup();
+static uint16_t GetAngleSPI();
+static uint16_t GetAngleResolver();
 static int GetPulseTimeFiltered();
 static void GetMinMaxTime(uint32_t& min, uint32_t& max);
 
@@ -45,14 +51,15 @@ static uint16_t pulsesPerTurn = 0;
 static uint32_t turnsSinceLastSample = 0;
 static u32fp lastFrequency = 0;
 static bool ignore = true;
-static bool abzMode;
-static bool syncMode;
+//static bool abzMode;
+static enum Encoder::mode encMode = Encoder::INVALID;
+//static bool syncMode;
 static bool seenNorthSignal = false;
 
 void Encoder::Init(void)
 {
-   abzMode = true; //Make sure SetMode does something
-   SetMode(false, false);
+   //encMode = INVALID; //Make sure SetMode does something
+   //SetMode(false, false);
    Reset();
 }
 
@@ -73,16 +80,19 @@ bool Encoder::SeenNorthSignal()
 /** Use pulse timing (single channel mode) or ABZ encoder mode
  * @param useAbzMode use ABZ mode, single channel otherwise
  * @param useSyncMode reset counter on rising edge of ETR */
-void Encoder::SetMode(bool useAbzMode, bool useSyncMode)
+void Encoder::SetMode(enum Encoder::mode mode)
 {
-   if (useAbzMode == abzMode && useSyncMode == syncMode) return;
+   if (encMode == mode) return;
 
-   abzMode = useAbzMode;
-   syncMode = useSyncMode;
-   if (abzMode)
+   encMode = mode;
+   if (mode == AB || mode == ABZ)
       InitTimerABZMode();
-   else
+   else if (mode == SINGLE)
       InitTimerSingleChannelMode();
+   else if (mode == SPI)
+      InitSPIMode();
+   else if (mode == RESOLVER)
+      InitResolverMode();
 }
 
 /** set number of impulses per shaft rotation
@@ -94,7 +104,7 @@ void Encoder::SetImpulsesPerTurn(uint16_t imp)
    pulsesPerTurn = imp;
    anglePerPulse = TWO_PI / imp;
 
-   if (abzMode)
+   if (encMode == AB || encMode == ABZ)
       InitTimerABZMode();
 }
 
@@ -106,25 +116,43 @@ void Encoder::SetFilterConst(uint8_t flt)
 
 void Encoder::UpdateRotorAngle(int dir)
 {
-   if (abzMode)
-   {
-      static uint16_t lastAngle = 0;
-      uint32_t cntVal = timer_get_counter(REV_CNT_TIMER);
-      cntVal *= TWO_PI;
-      cntVal /= pulsesPerTurn * 4;
-      angle = (uint16_t)cntVal;
-
-      uint16_t angleDiff = (angle - lastAngle) & 0xFFFF;
-      if ((TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN))
-         angleDiff = (lastAngle - angle) & 0xFFFF;
-      lastAngle = angle;
-      turnsSinceLastSample += angleDiff;
-   }
-   else
+   if (encMode == SINGLE)
    {
       int16_t numPulses = GetPulseTimeFiltered();
 
       angle += (int16_t)(dir * numPulses * anglePerPulse);
+   }
+   else if (encMode == RESOLVER)
+   {
+      GetAngleResolver();
+   }
+   else
+   {
+      static uint16_t lastAngle = 0;
+      uint16_t angleDiff;
+
+      if (encMode == SPI)
+      {
+         angle = GetAngleSPI(); //Gets 12-bit
+         angle <<= 4;
+         uint16_t diffPos = angle - lastAngle;
+         uint16_t diffNeg = lastAngle - angle;
+         angleDiff = MIN(diffNeg, diffPos);
+      }
+      else
+      {
+         uint32_t cntVal = timer_get_counter(REV_CNT_TIMER);
+         cntVal *= TWO_PI;
+         cntVal /= pulsesPerTurn * 4;
+         angle = (uint16_t)cntVal;
+         angleDiff = (angle - lastAngle) & 0xFFFF;
+         if ((TIM_CR1(REV_CNT_TIMER) & TIM_CR1_DIR_DOWN))
+            angleDiff = (lastAngle - angle) & 0xFFFF;
+      }
+
+      lastAngle = angle;
+      turnsSinceLastSample += angleDiff;
+      //Param::SetDig(Param::tm_meas, angle);
    }
 }
 
@@ -135,7 +163,7 @@ void Encoder::UpdateRotorAngle(int dir)
  * @param timeBase calling frequency in ms */
 void Encoder::UpdateRotorFrequency(int timeBase)
 {
-   if (abzMode && timeBase > 0)
+   if ((encMode != SINGLE) && (encMode != RESOLVER) && timeBase > 0)
    {
       //65536 is one turn
       lastFrequency = ((1000 * turnsSinceLastSample) / timeBase) >> (16 - FRAC_DIGITS);
@@ -148,47 +176,52 @@ void Encoder::UpdateRotorFrequency(int timeBase)
 */
 uint16_t Encoder::GetRotorAngle(int dir)
 {
-   if (abzMode)
-   {
-      return angle;
-   }
-   else
+   if (encMode == SINGLE)
    {
       uint32_t timeSinceLastPulse = timer_get_counter(REV_CNT_TIMER);
       uint16_t interpolatedAngle = ignore ? (anglePerPulse * timeSinceLastPulse) / lastPulseTimespan : 0;
 
       return angle + dir * interpolatedAngle;
    }
+   else
+   {
+      return angle;
+   }
 }
 
 
 /** Return rotor frequency in Hz
- * @pre in ABZ encoder mode UpdateRotorFrequency must be called at a regular interval */
+ * @pre in AB/ABZ encoder mode UpdateRotorFrequency must be called at a regular interval */
 u32fp Encoder::GetRotorFrequency()
 {
-   if (abzMode)
-   {
-      return lastFrequency;
-   }
-   else
+   if (encMode == SINGLE)
    {
       if (ignore) return 0;
       return FP_FROMINT(1000000) / (lastPulseTimespan * pulsesPerTurn);
+   }
+   else
+   {
+      return lastFrequency;
    }
 }
 
 /** Get current speed in rpm */
 uint32_t Encoder::GetSpeed()
 {
-   if (abzMode)
-   {
-      return FP_TOINT(60 * lastFrequency);
-   }
-   else
+   if (encMode == SINGLE)
    {
       if (ignore) return 0;
       return 60000000 / (lastPulseTimespan * pulsesPerTurn);
    }
+   else
+   {
+      return FP_TOINT(60 * lastFrequency);
+   }
+}
+
+bool Encoder::IsSyncMode()
+{
+   return encMode == Encoder::ABZ || encMode == Encoder::SPI || encMode == Encoder::RESOLVER;
 }
 
 static void DMASetup()
@@ -236,6 +269,16 @@ static void InitTimerSingleChannelMode()
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
    timer_enable_counter(REV_CNT_TIMER);
    DMASetup();
+   exti_disable_request(EXTI2);
+}
+
+static void InitSPIMode()
+{
+   timer_reset(REV_CNT_TIMER);
+   exti_disable_request(EXTI2);
+   gpio_set_mode(GPIOD, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO2);
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO7);
+   seenNorthSignal = true;
 }
 
 static void InitTimerABZMode()
@@ -245,7 +288,7 @@ static void InitTimerABZMode()
 
 	//In sync mode start out in reset mode and switch to encoder
 	//mode once the north marker has been detected
-	if (syncMode)
+	if (encMode == Encoder::ABZ)
    {
       exti_select_source(EXTI2, GPIOD);
       exti_set_trigger(EXTI2, EXTI_TRIGGER_RISING);
@@ -264,6 +307,107 @@ static void InitTimerABZMode()
    timer_ic_enable(REV_CNT_TIMER, TIM_IC1);
    timer_ic_enable(REV_CNT_TIMER, TIM_IC2);
 	timer_enable_counter(REV_CNT_TIMER);
+   gpio_set_mode(GPIOD, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, GPIO2);
+   gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, GPIO7);
+   seenNorthSignal = false;
+}
+
+static void InitResolverMode()
+{
+   uint8_t channels[] = { 6, 7, 6, 7 };
+   adc_enable_discontinuous_mode_injected(ADC1);
+   adc_set_injected_sequence(ADC1, 4, channels);
+   adc_enable_external_trigger_injected(ADC1, ADC_CR2_JEXTSEL_JSWSTART);
+   adc_set_sample_time(ADC1, 6, ADC_SMPR_SMP_1DOT5CYC);
+   adc_set_sample_time(ADC1, 7, ADC_SMPR_SMP_1DOT5CYC);
+   timer_reset(REV_CNT_TIMER);
+   timer_set_prescaler(REV_CNT_TIMER, 71);
+   timer_set_period(REV_CNT_TIMER, 65535);
+   timer_one_shot_mode(REV_CNT_TIMER);
+   timer_set_oc_mode(REV_CNT_TIMER, TIM_OC4, TIM_OCM_PWM2);
+   timer_enable_oc_output(REV_CNT_TIMER, TIM_OC4);
+   timer_enable_preload(REV_CNT_TIMER);
+   timer_direction_up(REV_CNT_TIMER);
+   timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
+
+   gpio_set_mode(GPIOD, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO2);
+   gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, GPIO6);
+   gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_ANALOG, GPIO7);
+   exti_disable_request(EXTI2);
+
+   adc_start_conversion_injected(ADC1);
+
+   for (volatile int i = 0; i < 80000; i++);
+   adc_start_conversion_injected(ADC1);
+
+   for (volatile int i = 0; i < 80000; i++);
+   //while (!adc_eoc_injected(ADC1));
+   //while (!(ADC_SR(ADC1) & ADC_SR_JEOC));
+
+   int cos = adc_read_injected(ADC1, 1);
+   int sin = adc_read_injected(ADC1, 2);
+   adc_set_injected_offset(ADC1, 1, cos);
+   adc_set_injected_offset(ADC1, 2, sin);
+   adc_set_injected_offset(ADC1, 3, cos);
+   adc_set_injected_offset(ADC1, 4, sin);
+   adc_enable_external_trigger_injected(ADC1, ADC_CR2_JEXTSEL_TIM3_CC4);
+   seenNorthSignal = true;
+}
+
+static uint16_t GetAngleSPI()
+{
+   uint32_t d = 0;
+   //Skip the abstraction, we need speed here
+   GPIO_BSRR(GPIOA) |= GPIO7; //Clock high
+   GPIO_BSRR(GPIOD) |= GPIO2 << 16; //Read LOW = active
+
+   for (int i = 15; i >= 0; i--)
+   {
+      GPIO_BSRR(GPIOA) |= GPIO7 << 16; //Clock low
+      d |= ((int)GPIO_IDR(GPIOA) & GPIO6) << i;
+      GPIO_BSRR(GPIOA) |= GPIO7;
+   }
+   GPIO_BSRR(GPIOD) |= GPIO2; //Read high
+   d >>= 10; //6 because of GPIO6, 4 because of encoder format
+   //Encoder format is ANGLE[11:0], RDVEL, Parity, DOS, LOT
+   return d;
+}
+
+static uint16_t GetAngleResolver()
+{
+   static bool state = false;
+   static uint16_t lastAngle;
+
+   if (state)
+   {
+      gpio_clear(GPIOD, GPIO2);
+      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, 40/*Param::GetInt(Param::delay)*/);
+      timer_set_counter(REV_CNT_TIMER, 0);
+      timer_enable_counter(REV_CNT_TIMER);
+      state = false;
+      angle = lastAngle;
+   }
+   else
+   {
+      gpio_set(GPIOD, GPIO2);
+      int cos = adc_read_injected(ADC1, 1) + adc_read_injected(ADC1, 3);
+      int sin = adc_read_injected(ADC1, 2) + adc_read_injected(ADC1, 4);
+      angle = SineCore::Atan2(cos, sin);
+      //s32fp arctan = FP_DIV(angle, FP_FROMFLT(5.689));
+      //Param::SetDig(Param::sin, sin);
+      //Param::SetDig(Param::cos, cos);
+      //Param::SetFlt(Param::angle, arctan);
+      state = true;
+      uint16_t diffPos = angle - lastAngle;
+      uint16_t diffNeg = lastAngle - angle;
+      uint16_t angleDiff = MIN(diffNeg, diffPos);
+      angleDiff &= 0xFFF0;
+      u32fp frq = FP_MUL(angleDiff, FP_FROMFLT(2.148)); //32/(65536/4400)
+      lastFrequency = IIRFILTER(lastFrequency, frq, filter);
+      lastAngle = angle;
+   }
+
+   return angle;
 }
 
 extern "C" void exti2_isr(void)

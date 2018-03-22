@@ -1,11 +1,13 @@
 import serial
 from optparse import OptionParser
+from time import sleep
 
 def waitForChar(ser, c):
-    recv_char = -1
-    while recv_char != c:
+    recv_char = ser.read()
+    while recv_char not in c:
         recv_char = ser.read()
-        
+    return recv_char
+                
 def calcStmCrc(data, idx, len):
     cnt = 0
     crc = 0xffffffff
@@ -41,7 +43,7 @@ if not options.filename:   # if filename is not given
 if not options.device:   # if device is not given
     parser.error('Device not given')
     exit()
-ser = serial.Serial(options.device, 115200, timeout=2)
+ser = serial.Serial(options.device, 115200, timeout=2, stopbits=2)
 
 updateFile = open(options.filename, "rb")
 data = bytearray(updateFile.read());
@@ -57,7 +59,12 @@ print "File length is %d bytes/%d pages" % (numBytes, numPages)
 print "Resetting device..."
 
 ser.write("reset\r")
-waitForChar(ser, "S")
+version = waitForChar(ser, "S2")
+
+if version == "2":
+	print "Version 2 bootloader, sending magic"
+	ser.write(chr(0xAA))
+	waitForChar(ser, "S")
 
 print "Sending number of pages..."
 
@@ -85,10 +92,6 @@ while not done:
         
         c = ser.read()
         
-        #if c == "T":
-         #   print "Transmission Error"
-          #  continue
-    
         if "C" == c:
             ser.write(chr(crc & 0xFF))
             ser.write(chr((crc >> 8) & 0xFF))

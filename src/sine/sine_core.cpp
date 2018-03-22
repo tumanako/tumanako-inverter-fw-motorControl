@@ -25,6 +25,7 @@
 #define SINTAB_ENTRIES  (1 << SINTAB_ARGDIGITS)
 /* Value range of sine lookup table */
 #define SINTAB_MAX      (1 << BITS)
+#define BRAD_PI         (1 << (BITS - 1))
 
 #define PHASE_SHIFT90   ((uint32_t)(     SINLU_ONEREV / 4))
 #define PHASE_SHIFT120  ((uint32_t)(     SINLU_ONEREV / 3))
@@ -88,6 +89,50 @@ s32fp SineCore::Sine(uint16_t angle)
 s32fp SineCore::Cosine(uint16_t angle)
 {
    return SineLookup((PHASE_SHIFT90 - angle) & 0xFFFF);
+}
+
+uint16_t SineCore::Atan2(int32_t x, int32_t y)
+{
+   if(y==0)
+      return (x>=0 ? 0 : BRAD_PI);
+
+   static const int fixShift = 15;
+   int  phi = 0, t, t2, dphi;
+
+   if (y < 0)
+   {
+      x = -x;
+      y = -y;
+      phi += 4;
+   }
+   if (x <= 0)
+   {
+      int temp = x;
+      x = y;
+      y = -temp;
+      phi += 2;
+   }
+   if (x <= y)
+   {
+      int temp = y - x;
+      x = x + y;
+      y = temp;
+      phi += 1;
+   }
+
+   phi *= BRAD_PI/4;
+
+   t= (y << fixShift) / x;
+   t2= -t*t>>fixShift;
+
+   dphi= 0x0470;
+   dphi= 0x1029 + (t2*dphi>>fixShift);
+   dphi= 0x1F0B + (t2*dphi>>fixShift);
+   dphi= 0x364C + (t2*dphi>>fixShift);
+   dphi= 0xA2FC + (t2*dphi>>fixShift);
+   dphi= dphi*t>>fixShift;
+
+   return phi + ((dphi+2)>>2);
 }
 
 /** Set amplitude of the synthesized sine wave */
