@@ -51,9 +51,7 @@ static uint16_t pulsesPerTurn = 0;
 static uint32_t turnsSinceLastSample = 0;
 static u32fp lastFrequency = 0;
 static bool ignore = true;
-//static bool abzMode;
 static enum Encoder::mode encMode = Encoder::INVALID;
-//static bool syncMode;
 static bool seenNorthSignal = false;
 
 void Encoder::Init(void)

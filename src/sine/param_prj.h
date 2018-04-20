@@ -29,6 +29,7 @@
 #define ONOFF       "0=Off, 1=On"
 #define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
 #define ENCMODES    "0=Single, 1=AB, 2=ABZ, 3=SPI, 4=Resolver"
+#define POT2MODES   "0=RedenAdj, 1=Redundance"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -40,7 +41,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.58
+#define VER 3.62
 
 enum _modes
 {
@@ -64,12 +65,15 @@ enum _modes
 #define IDLE_MODE_NOBRAKE 1
 #define IDLE_MODE_CRUISE 2
 
+#define POT2MODE_REGENADJ 0
+#define POT2MODE_REDUNDANCE 1
+
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 81
+//Next param id (increase when adding new parameter!): 83
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -105,8 +109,10 @@ enum _modes
     PARAM_ENTRY(CAT_CHARGER, chargemax,   "%",       0,      99,     90,     79  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmin,      "dig",     0,      4095,   0,      17  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmax,      "dig",     0,      4095,   4095,   18  ) \
-    PARAM_ENTRY(CAT_REGEN,   pot2min,     "dig",     0,      4095,   4095,   63  ) \
-    PARAM_ENTRY(CAT_REGEN,   pot2max,     "dig",     0,      4095,   4095,   64  ) \
+    PARAM_ENTRY(CAT_THROTTLE,pot2min,     "dig",     0,      4095,   4095,   63  ) \
+    PARAM_ENTRY(CAT_THROTTLE,pot2max,     "dig",     0,      4095,   4095,   64  ) \
+    PARAM_ENTRY(CAT_THROTTLE,pot2mode,    POT2MODES, 0,      1,      0,      82  ) \
+    PARAM_ENTRY(CAT_THROTTLE,throtramp,   "%/10ms",  1,      100,    100,    81  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(CAT_REGEN,   brknom,      "%",       0,      100,    30,     19  ) \

@@ -35,6 +35,8 @@ int Throttle::speedFiltered;
 s32fp Throttle::idleThrotLim;
 int Throttle::brkPedalRamp;
 int Throttle::brkRamped;
+int Throttle::throttleRamp;
+int Throttle::throttleRamped;
 
 bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
@@ -55,6 +57,30 @@ bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
    return true;
 }
 
+bool Throttle::CheckDualThrottle(int* potval, int pot2val)
+{
+   int potnom1, potnom2;
+   //2nd input running inverse
+   if (potmin[1] > potmax[1])
+   {
+      potnom2 = 100 - (100 * (pot2val - potmax[1])) / (potmin[1] - potmax[1]);
+   }
+   else
+   {
+      potnom2 = (100 * (pot2val - potmin[1])) / (potmax[1] - potmin[1]);
+   }
+   potnom1 = (100 * (*potval - potmin[0])) / (potmax[0] - potmin[0]);
+   int diff = potnom2 - potnom1;
+   diff = ABS(diff);
+
+   if (diff > 10)
+   {
+      *potval = potmin[0];
+      return false;
+   }
+   return true;
+}
+
 int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 {
    int potnom;
@@ -71,6 +97,16 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
    potnom = ((100 + brknom) * potnom) / (potmax[0] - potmin[0]);
    potnom -= brknom;
 
+   if (potnom > 0)
+   {
+      throttleRamped = RAMPUP(throttleRamped, potnom, throttleRamp);
+      potnom = throttleRamped;
+   }
+   else
+   {
+      throttleRamped = 0;
+   }
+
    if (potnom < 0)
    {
       scaledBrkMax = -(potnom * scaledBrkMax) / brknom;
@@ -78,11 +114,7 @@ int Throttle::CalcThrottle(int potval, int pot2val, bool brkpedal)
 
    if (brkpedal || potnom < 0)
    {
-      if (brkRamped > scaledBrkMax) //don't overshoot the final value
-         brkRamped -= MIN(brkPedalRamp, brkRamped - scaledBrkMax);
-      else
-         brkRamped = scaledBrkMax;
-
+      brkRamped = RAMPDOWN(brkRamped, scaledBrkMax, brkPedalRamp);
       potnom = brkRamped;
    }
    else

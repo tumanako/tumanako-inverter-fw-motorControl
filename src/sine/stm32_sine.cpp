@@ -406,7 +406,7 @@ static void CalcFancyValues()
    Param::SetFlt(Param::t, t);
 }
 
-static void CalcThrottle()
+static void ProcessThrottle()
 {
    int potval = AnaIn::Get(AnaIn::throttle1);
    int pot2val = AnaIn::Get(AnaIn::throttle2);
@@ -416,14 +416,28 @@ static void CalcThrottle()
    Param::SetDig(Param::pot, potval);
    Param::SetDig(Param::pot2, pot2val);
 
-   /* Error light on implausible value */
-   if (!Throttle::CheckAndLimitRange(&potval, 0))
+   if (Param::GetInt(Param::pot2mode) == POT2MODE_REGENADJ)
    {
-      DigIo::Set(Pin::err_out);
-      ErrorMessage::Post(ERR_THROTTLE1);
+      /* Error light on implausible value */
+      if (!Throttle::CheckAndLimitRange(&potval, 0))
+      {
+         DigIo::Set(Pin::err_out);
+         ErrorMessage::Post(ERR_THROTTLE1);
+      }
+
+      Throttle::CheckAndLimitRange(&pot2val, 1);
+   }
+   else //POT2MODE_REDUNDANCE
+   {
+      if (!Throttle::CheckDualThrottle(&potval, pot2val))
+      {
+         DigIo::Set(Pin::err_out);
+         ErrorMessage::Post(ERR_THROTTLE1);
+      }
    }
 
-   Throttle::CheckAndLimitRange(&pot2val, 1);
+   if (Param::GetInt(Param::dir) == 0)
+      potval = Throttle::potmin[0]; //Reset throttle ramp
 
    throtSpnt = Throttle::CalcThrottle(potval, pot2val, brake);
    idleSpnt = Throttle::CalcIdleSpeed(Encoder::GetSpeed());
@@ -474,7 +488,7 @@ static void Ms10Task(void)
    int newMode = MOD_OFF;
    s32fp udc = ProcessUdc();
 
-   CalcThrottle();
+   ProcessThrottle();
    CalcAndOutputTemp();
    Encoder::UpdateRotorFrequency(10);
 
@@ -501,9 +515,7 @@ static void Ms10Task(void)
          if (DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in) && !DigIo::Get(Pin::bms_in) && chargemode >= MOD_BOOST)
          {
             //In buck mode we precharge to a different voltage
-            if (chargemode == MOD_BUCK && udc >= Param::Get(Param::udcswbuck))
-               newMode = chargemode;
-            else if (chargemode == MOD_BOOST)
+            if ((chargemode == MOD_BUCK && udc >= Param::Get(Param::udcswbuck)) || chargemode == MOD_BOOST)
                newMode = chargemode;
          }
          else if (DigIo::Get(Pin::start_in))
@@ -687,6 +699,7 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Throttle::speedkp = Param::Get(Param::speedkp);
       Throttle::speedflt = Param::GetInt(Param::speedflt);
       Throttle::idleThrotLim = Param::Get(Param::idlethrotlim);
+      Throttle::throttleRamp = Param::GetInt(Param::throtramp);
    }
 }
 

@@ -61,9 +61,77 @@ static void TestRegen()
    ASSERT(percent == -25)
 }
 
+static void TestDualThrottle()
+{
+   //0% on both channels
+   int pot = 1000;
+   bool result = Throttle::CheckDualThrottle(&pot, 3000);
+   ASSERT(result == true);
+
+   //50% on both channels
+   pot = 1500;
+   result = Throttle::CheckDualThrottle(&pot, 3500);
+   ASSERT(result == true);
+
+   //100% on both channels
+   pot = 2000;
+   result = Throttle::CheckDualThrottle(&pot, 4000);
+   ASSERT(result == true);
+
+   //111% on first channel, 100% on second
+   pot = 2110;
+   result = Throttle::CheckDualThrottle(&pot, 4000);
+   ASSERT(result == false);
+   ASSERT(pot == Throttle::potmin[0]);
+
+   //50% on first channel, -50% on second
+   pot = 1500;
+   result = Throttle::CheckDualThrottle(&pot, 2500);
+   ASSERT(result == false);
+
+   //50% on first channel, 61% on second
+   pot = 1500;
+   result = Throttle::CheckDualThrottle(&pot, 3610);
+   ASSERT(result == false);
+
+   //No we test inverted 2nd channel
+   Throttle::potmin[1] = 4000;
+   Throttle::potmax[1] = 3000;
+
+   //70% on both channels
+   pot = 1700;
+   result = Throttle::CheckDualThrottle(&pot, 3300);
+   ASSERT(result == true);
+
+   //30% on 1st, 20% on second
+   pot = 1300;
+   result = Throttle::CheckDualThrottle(&pot, 3800);
+   ASSERT(result == true);
+
+   //30% on 1st, 19% on second
+   pot = 1300;
+   result = Throttle::CheckDualThrottle(&pot, 3810);
+   ASSERT(result == false);
+
+   //30% on 1st, 41% on second
+   pot = 1300;
+   result = Throttle::CheckDualThrottle(&pot, 3590);
+   ASSERT(result == false);
+
+   //300% on 1st (stuck at max), 100% on second
+   pot = 4000;
+   result = Throttle::CheckDualThrottle(&pot, 3000);
+   ASSERT(result == false);
+   ASSERT(pot == Throttle::potmin[0]);
+
+   Throttle::potmin[1] = 3000;
+   Throttle::potmax[1] = 4000;
+}
+
 void ThrottleTest::RunTest()
 {
    TestSetup();
    TestBrkPedal();
    TestRegen();
+   TestDualThrottle();
 }

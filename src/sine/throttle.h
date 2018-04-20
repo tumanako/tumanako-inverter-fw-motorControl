@@ -28,6 +28,7 @@ class Throttle
 {
    public:
       static bool CheckAndLimitRange(int* potval, int potIdx);
+      static bool CheckDualThrottle(int* potval, int pot2val);
       static int CalcThrottle(int potval, int pot2val, bool brkpedal);
       static int CalcIdleSpeed(int speed);
       static int CalcCruiseSpeed(int speed);
@@ -43,10 +44,12 @@ class Throttle
       static int speedflt;
       static s32fp idleThrotLim;
       static int brkPedalRamp;
+      static int throttleRamp;
 
    private:
       static int speedFiltered;
       static int brkRamped;
+      static int throttleRamped;
 };
 
 #endif // THROTTLE_H
