@@ -44,29 +44,29 @@ void clock_setup(void)
    //value. Explicitly set 16 preemtion priorities
    SCB_AIRCR = SCB_AIRCR_VECTKEY | SCB_AIRCR_PRIGROUP_GROUP16_NOSUB;
 
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPAEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPBEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPCEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPDEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPEEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_IOPGEN);
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_USART3EN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_TIM1EN); //Main PWM
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM2EN); //Scheduler
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM3EN); //Rotor Encoder
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_TIM4EN); //Overcurrent / AUX PWM
-   rcc_peripheral_enable_clock(&RCC_AHBENR,  RCC_AHBENR_DMA1EN);  //ADC and Encoder
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_ADC1EN);
-   rcc_peripheral_enable_clock(&RCC_AHBENR,  RCC_AHBENR_CRCEN);
-   rcc_peripheral_enable_clock(&RCC_APB2ENR, RCC_APB2ENR_AFIOEN); //CAN
-   rcc_peripheral_enable_clock(&RCC_APB1ENR, RCC_APB1ENR_CAN1EN);
+   rcc_periph_clock_enable(RCC_GPIOA);
+   rcc_periph_clock_enable(RCC_GPIOB);
+   rcc_periph_clock_enable(RCC_GPIOC);
+   rcc_periph_clock_enable(RCC_GPIOD);
+   rcc_periph_clock_enable(RCC_USART3);
+   rcc_periph_clock_enable(RCC_TIM1); //Main PWM
+   rcc_periph_clock_enable(RCC_TIM2); //Scheduler
+   rcc_periph_clock_enable(RCC_TIM3); //Rotor Encoder
+   rcc_periph_clock_enable(RCC_TIM4); //Overcurrent / AUX PWM
+   rcc_periph_clock_enable(RCC_DMA1);  //ADC and Encoder
+   rcc_periph_clock_enable(RCC_ADC1);
+   rcc_periph_clock_enable(RCC_CRC);
+   rcc_periph_clock_enable(RCC_AFIO); //CAN
+   rcc_periph_clock_enable(RCC_CAN1); //CAN
 }
 
 /**
 * Setup UART3 115200 8N1
 */
-void usart_setup(void)
+char* usart_setup(void)
 {
+   static char inBuf[TERM_BUFSIZE];
+
    gpio_set_mode(TERM_USART_TXPORT, GPIO_MODE_OUTPUT_50_MHZ,
                GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, TERM_USART_TXPIN);
 
@@ -76,8 +76,20 @@ void usart_setup(void)
    usart_set_mode(TERM_USART, USART_MODE_TX_RX);
    usart_set_parity(TERM_USART, USART_PARITY_NONE);
    usart_set_flow_control(TERM_USART, USART_FLOWCONTROL_NONE);
+   usart_enable_rx_dma(TERM_USART);
+
+   dma_disable_channel(DMA1, TERM_USART_DMACHAN);
+   dma_set_peripheral_address(DMA1, TERM_USART_DMACHAN, (uint32_t)&TERM_USART_DR);
+   dma_set_memory_address(DMA1, TERM_USART_DMACHAN, (uint32_t)inBuf);
+   dma_set_peripheral_size(DMA1, TERM_USART_DMACHAN, DMA_CCR_PSIZE_8BIT);
+   dma_set_memory_size(DMA1, TERM_USART_DMACHAN, DMA_CCR_MSIZE_8BIT);
+   dma_set_number_of_data(DMA1, TERM_USART_DMACHAN, sizeof(inBuf));
+   dma_enable_memory_increment_mode(DMA1, TERM_USART_DMACHAN);
+   dma_enable_channel(DMA1, TERM_USART_DMACHAN);
 
    usart_enable(TERM_USART);
+
+   return inBuf;
 }
 
 /**
@@ -95,7 +107,10 @@ void nvic_setup(void)
    nvic_set_priority(NVIC_EXTI2_IRQ, 0); //Set highest priority
 
    nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
-   nvic_set_priority(NVIC_TIM2_IRQ, 0xf << 4); //Lowest priority
+   nvic_set_priority(NVIC_TIM2_IRQ, 0xe << 4); //second lowest priority
+
+	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN
+	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
 }
 
 /**

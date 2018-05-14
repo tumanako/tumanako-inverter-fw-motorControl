@@ -29,7 +29,7 @@
 #define ONOFF       "0=Off, 1=On"
 #define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
 #define ENCMODES    "0=Single, 1=AB, 2=ABZ, 3=SPI, 4=Resolver"
-#define POT2MODES   "0=RedenAdj, 1=Redundance"
+#define POTMODES    "0=SingleRegen, 1=DualChannel"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -41,7 +41,7 @@
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
 
-#define VER 3.62
+#define VER 3.67
 
 enum _modes
 {
@@ -94,10 +94,10 @@ enum _modes
     PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      1,      13  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
     PARAM_ENTRY(CAT_INVERTER,deadtime,    "dig",     0,      255,    63,     14  ) \
-    PARAM_ENTRY(CAT_INVERTER,ocurlim,     "A",       -1000,  1000,   -100,   22  ) \
+    PARAM_ENTRY(CAT_INVERTER,ocurlim,     "A",       -65536, 65536,  100,    22  ) \
     PARAM_ENTRY(CAT_INVERTER,minpulse,    "dig",     0,      4095,   1000,   24  ) \
-    PARAM_ENTRY(CAT_INVERTER,il1gain,     "dig/A",   -100,   100,    -4.7,   27  ) \
-    PARAM_ENTRY(CAT_INVERTER,il2gain,     "dig/A",   -100,   100,    -4.7,   28  ) \
+    PARAM_ENTRY(CAT_INVERTER,il1gain,     "dig/A",   -100,   100,    4.7,    27  ) \
+    PARAM_ENTRY(CAT_INVERTER,il2gain,     "dig/A",   -100,   100,    4.7,    28  ) \
     PARAM_ENTRY(CAT_INVERTER,udcgain,     "dig/V",   0,      4095,   6.175,  29  ) \
     PARAM_ENTRY(CAT_INVERTER,udcofs,      "dig",     0,      4095,   0,      77  ) \
     PARAM_ENTRY(CAT_INVERTER,udclim,      "V",       0,      1000,   540,    48  ) \
@@ -111,7 +111,7 @@ enum _modes
     PARAM_ENTRY(CAT_THROTTLE,potmax,      "dig",     0,      4095,   4095,   18  ) \
     PARAM_ENTRY(CAT_THROTTLE,pot2min,     "dig",     0,      4095,   4095,   63  ) \
     PARAM_ENTRY(CAT_THROTTLE,pot2max,     "dig",     0,      4095,   4095,   64  ) \
-    PARAM_ENTRY(CAT_THROTTLE,pot2mode,    POT2MODES, 0,      1,      0,      82  ) \
+    PARAM_ENTRY(CAT_THROTTLE,potmode,     POTMODES,  0,      1,      0,      82  ) \
     PARAM_ENTRY(CAT_THROTTLE,throtramp,   "%/10ms",  1,      100,    100,    81  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
@@ -143,7 +143,6 @@ enum _modes
     VALUE_ENTRY(idc,         "A"     ) \
     VALUE_ENTRY(il1,         "A"     ) \
     VALUE_ENTRY(il2,         "A"     ) \
-    VALUE_ENTRY(ilmax,       "A"     ) \
     VALUE_ENTRY(uac,         "V"     ) \
     VALUE_ENTRY(il1rms,      "A"     ) \
     VALUE_ENTRY(il2rms,      "A"     ) \

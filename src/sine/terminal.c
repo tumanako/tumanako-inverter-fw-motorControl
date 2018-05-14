@@ -21,79 +21,82 @@
 #include <libopencm3/cm3/common.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/gpio.h>
+#include <libopencm3/stm32/dma.h>
 #include "terminal.h"
+#include "hwdefs.h"
 #include <stdarg.h>
 
-#define BUFSIZE 128
 #define SET_RTS() /*gpio_set(GPIOB, GPIO11)*/
 #define CLR_RTS() /*gpio_clear(GPIOB, GPIO11)*/
 
 static const TERM_CMD *CmdLookup(char *buf);
 static void term_send(uint32_t usart, const char *str);
+static void ResetDMA();
 
 extern const TERM_CMD TermCmds[];
-static char inBuf[BUFSIZE];
-static uint32_t _usart = 0xffffffff;
+static char* inBuf;
 
-void term_Init(uint32_t usart)
+void term_Init(char* termBuf)
 {
-   _usart = usart;
+   inBuf = termBuf;
 }
+
 /** Run the terminal */
 void term_Run()
 {
-   int idx = 0;
-   char *argStart = NULL;
-   char *argLast = NULL;
+   char args[TERM_BUFSIZE];
    const TERM_CMD *pCurCmd = NULL;
-   const TERM_CMD *pLastCmd = NULL;
-   char c;
+   int lastIdx = 0;
 
    while (1)
    {
-      c = usart_recv_blocking(_usart);
-      usart_send_blocking(_usart, c);
+      int currentIdx = TERM_BUFSIZE - TERM_USART_CNDTR;
 
-      if ('\n' == c || '\r' == c || idx > (BUFSIZE - 2))
+      if (0 == TERM_USART_CNDTR)
+         ResetDMA();
+
+      while (lastIdx < currentIdx) //echo
+         usart_send_blocking(TERM_USART, inBuf[lastIdx++]);
+
+      if (currentIdx > 0)
       {
-         if (NULL != pCurCmd)
+         if (inBuf[currentIdx - 1] == '\n' || inBuf[currentIdx - 1] == '\r')
          {
-            pCurCmd->CmdFunc(argStart);
-            argLast = argStart;
-            pLastCmd = pCurCmd;
-            argStart = NULL;
-            pCurCmd = NULL;
-         }
-         else if (idx > 0)
-         {
-            term_send(_usart, "Unknown command sequence\r\n");
-         }
-         idx = 0;
-      }
-      else if ('!' == c)
-      {
-         if (NULL != pLastCmd)
-         {
-            pLastCmd->CmdFunc(argLast);
-         }
-         idx = 0;
-      }
-      else
-      {
-         inBuf[idx] = c;
-         idx++;
-         inBuf[idx] = 0;
-         if (NULL == argStart)
-         {
+            inBuf[currentIdx] = 0;
+            lastIdx = 0;
+            char *space = (char*)my_strchr(inBuf, ' ');
+
+            if (0 == *space) //No args after command, look for end of line
+            {
+               space = (char*)my_strchr(inBuf, '\n');
+               args[0] = 0;
+            }
+            else //There are arguments, copy everything behind the space
+            {
+               my_strcpy(args, space + 1);
+            }
+
+            if (0 == *space) //No \n found? try \r
+               space = (char*)my_strchr(inBuf, '\r');
+
+            *space = 0;
             pCurCmd = CmdLookup(inBuf);
+            ResetDMA();
+
             if (NULL != pCurCmd)
             {
-               argStart = &inBuf[idx];
+               pCurCmd->CmdFunc(args);
+            }
+            else if (currentIdx > 1)
+            {
+               term_send(TERM_USART, "Unknown command sequence\r\n");
             }
          }
-         if (idx >= BUFSIZE)
+         else if (inBuf[0] == '!' && NULL != pCurCmd)
          {
-            idx--;
+            ResetDMA();
+            lastIdx = 0;
+            pCurCmd->CmdFunc(args);
          }
       }
    } /* while(1) */
@@ -101,9 +104,15 @@ void term_Run()
 
 int putchar(int c)
 {
-   if (_usart == 0xffffffff) return -1;
-   usart_send_blocking(_usart, c);
+   usart_send_blocking(TERM_USART, c);
    return 0;
+}
+
+static void ResetDMA()
+{
+   dma_disable_channel(DMA1, TERM_USART_DMACHAN);
+   dma_set_number_of_data(DMA1, TERM_USART_DMACHAN, TERM_BUFSIZE);
+   dma_enable_channel(DMA1, TERM_USART_DMACHAN);
 }
 
 static const TERM_CMD *CmdLookup(char *buf)

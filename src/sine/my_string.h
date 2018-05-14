@@ -31,9 +31,10 @@ void my_strcat(char *str1, const char *str2);
 int my_strlen(const char *str);
 const char *my_strchr(const char *str, const char c);
 int my_ltoa(char *buf, int val, int base);
-long my_atoi(const char *str);
+int my_atoi(const char *str);
 char *my_trim(char *str);
 void memcpy32(int* target, int *source, int length);
+void my_strcpy(char *str1, const char *str2);
 
 #ifdef __cplusplus
 }

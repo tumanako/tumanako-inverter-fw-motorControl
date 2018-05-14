@@ -40,18 +40,21 @@ int Throttle::throttleRamped;
 
 bool Throttle::CheckAndLimitRange(int* potval, int potIdx)
 {
-   if (((*potval + POT_SLACK) < potmin[potIdx]) || (*potval > (potmax[potIdx] + POT_SLACK)))
+   int potMin = potmax[potIdx] > potmin[potIdx] ? potmin[potIdx] : potmax[potIdx];
+   int potMax = potmax[potIdx] > potmin[potIdx] ? potmax[potIdx] : potmin[potIdx];
+
+   if (((*potval + POT_SLACK) < potMin) || (*potval > (potMax + POT_SLACK)))
    {
-      *potval = potmin[potIdx];
+      *potval = potMin;
       return false;
    }
-   else if (*potval < potmin[potIdx])
+   else if (*potval < potMin)
    {
-      *potval = potmin[potIdx];
+      *potval = potMin;
    }
-   else if (*potval > potmax[potIdx])
+   else if (*potval > potMax)
    {
-      *potval = potmax[potIdx];
+      *potval = potMax;
    }
 
    return true;

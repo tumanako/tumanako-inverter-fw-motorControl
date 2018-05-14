@@ -154,10 +154,6 @@ void Setup(void)
    Clear();
    LoadFromFlash();
 
-	// Enable peripheral clocks.
-	rcc_periph_clock_enable(RCC_AFIO);
-	//rcc_periph_clock_enable(RCC_GPIOB);
-	rcc_periph_clock_enable(RCC_CAN1);
 
 	AFIO_MAPR |= AFIO_MAPR_CAN1_REMAP_PORTA;
 
@@ -170,10 +166,6 @@ void Setup(void)
 	gpio_set_mode(GPIO_BANK_CAN1_TX, GPIO_MODE_OUTPUT_50_MHZ,
 		      GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO_CAN1_TX);
 
-	// NVIC setup.
-	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ);
-	//lowest priority
-	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4);
 
 	// Reset CAN
 	can_reset(CAN1);
@@ -238,21 +230,24 @@ extern "C" void usb_lp_can_rx0_isr(void)
    {
       CANIDMAP *recvMap = can_find(&canRecvMap, id);
 
-      for (int i = 0; i < recvMap->currentItem; i++)
+      if (0 != recvMap)
       {
-         CANPOS &curItem = recvMap->items[i];
-         s32fp val;
+         for (int i = 0; i < recvMap->currentItem; i++)
+         {
+            CANPOS &curItem = recvMap->items[i];
+            s32fp val;
 
-         if (curItem.offsetBits > 31)
-         {
-            val = (data[1] >> (curItem.offsetBits - 32)) & ((1 << curItem.numBits) - 1);
+            if (curItem.offsetBits > 31)
+            {
+               val = (data[1] >> (curItem.offsetBits - 32)) & ((1 << curItem.numBits) - 1);
+            }
+            else
+            {
+               val = (data[0] >> curItem.offsetBits) & ((1 << curItem.numBits) - 1);
+            }
+            val = FP_MUL(val, curItem.gain);
+            Param::Set(curItem.mapParam, val);
          }
-         else
-         {
-            val = (data[0] >> curItem.offsetBits) & ((1 << curItem.numBits) - 1);
-         }
-         val = FP_MUL(val, curItem.gain);
-         Param::Set(curItem.mapParam, val);
       }
    }
 }

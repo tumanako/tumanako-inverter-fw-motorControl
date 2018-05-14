@@ -6,7 +6,7 @@
 
 //Maximum value for over current limit timer
 #define OCURMAX 4096
-#define USART_BAUDRATE  115200
+#define USART_BAUDRATE 115200 //921600 //115200
 //Maximum PWM frequency is 36MHz/2^MIN_PWM_DIGITS
 #define MIN_PWM_DIGITS 11
 #define PERIPH_CLK      ((uint32_t)36000000)
@@ -27,9 +27,13 @@
 #define REV_CNT_TIMER      TIM3
 #define OVER_CUR_TIMER TIM4
 
-#define TERM_USART USART3
-#define TERM_USART_TXPIN GPIO_USART3_TX
-#define TERM_USART_TXPORT GPIOB
+#define TERM_USART         USART3
+#define TERM_USART_TXPIN   GPIO_USART3_TX
+#define TERM_USART_TXPORT  GPIOB
+#define TERM_USART_DMACHAN 3
+#define TERM_USART_DR      USART3_DR
+#define TERM_USART_CNDTR   DMA1_CNDTR3
+#define TERM_BUFSIZE       128
 //Address of parameter block in flash
 #define PARAM_ADDRESS 0x0801FC00
 #define PARAM_BLKSIZE 1024

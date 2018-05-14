@@ -228,9 +228,6 @@ static void ParamGet(char *arg)
 
       idx = Param::NumFromString(arg);
 
-      *comma = orig;
-      arg = comma + 1;
-
       if (Param::PARAM_INVALID != idx)
       {
          val = Param::Get(idx);
@@ -238,8 +235,11 @@ static void ParamGet(char *arg)
       }
       else
       {
-         printf("Unknown parameter\r\n");
+         printf("Unknown parameter: '%s'\r\n", arg);
       }
+
+      *comma = orig;
+      arg = comma + 1;
    } while (',' == *comma);
 }
 

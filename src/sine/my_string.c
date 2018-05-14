@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+ #include "my_string.h"
 
 int my_strcmp(const char *str1, const char *str2)
 {
@@ -37,10 +38,13 @@ int my_strcmp(const char *str1, const char *str2)
 void my_strcat(char *str1, const char *str2)
 {
    for (; *str1 > 0; str1++);
+   my_strcpy(str1, str2);
+}
+
+void my_strcpy(char *str1, const char *str2)
+{
    for (; *str2 > 0; str1++, str2++)
-   {
       *str1 = *str2;
-   }
    *str1 = 0;
 }
 
@@ -116,14 +120,14 @@ char *my_trim(char *str)
   char *end;
 
   // Trim leading space
-  while(' ' == *str) str++;
+  while (' ' == *str || '\n' == *str || '\r' == *str) str++;
 
   if(0 == *str)  // All spaces?
      return str;
 
   // Trim trailing space
   end = str + my_strlen(str) - 1;
-  while(end > str && ' ' == *end) end--;
+  while(end > str && (' ' == *end || '\n' == *end || '\r' == *end)) end--;
 
   // Write new null terminator
   *(end+1) = 0;

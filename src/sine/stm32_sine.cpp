@@ -416,24 +416,20 @@ static void ProcessThrottle()
    Param::SetDig(Param::pot, potval);
    Param::SetDig(Param::pot2, pot2val);
 
-   if (Param::GetInt(Param::pot2mode) == POT2MODE_REGENADJ)
+   /* Error light on implausible value */
+   if (!Throttle::CheckAndLimitRange(&potval, 0))
    {
-      /* Error light on implausible value */
-      if (!Throttle::CheckAndLimitRange(&potval, 0))
-      {
-         DigIo::Set(Pin::err_out);
-         ErrorMessage::Post(ERR_THROTTLE1);
-      }
-
-      Throttle::CheckAndLimitRange(&pot2val, 1);
+      DigIo::Set(Pin::err_out);
+      ErrorMessage::Post(ERR_THROTTLE1);
    }
-   else //POT2MODE_REDUNDANCE
+
+   bool throt2Res = Throttle::CheckAndLimitRange(&pot2val, 1);
+
+   if (Param::GetInt(Param::potmode) == POT2MODE_REDUNDANCE &&
+      (!Throttle::CheckDualThrottle(&potval, pot2val) || !throt2Res))
    {
-      if (!Throttle::CheckDualThrottle(&potval, pot2val))
-      {
-         DigIo::Set(Pin::err_out);
-         ErrorMessage::Post(ERR_THROTTLE1);
-      }
+      DigIo::Set(Pin::err_out);
+      ErrorMessage::Post(ERR_THROTTLE1);
    }
 
    if (Param::GetInt(Param::dir) == 0)
@@ -479,13 +475,14 @@ static void ProcessThrottle()
    Param::SetDig(Param::potnom, finalSpnt);
 }
 
-//Normal run takes 60µs -> 0.6% cpu load (last measured version 3.5)
+//Normal run takes 70µs -> 0.7% cpu load (last measured version 3.5)
 static void Ms10Task(void)
 {
    static int initWait = 0;
    int opmode = Param::GetInt(Param::opmode);
    int chargemode = Param::GetInt(Param::chargemode);
    int newMode = MOD_OFF;
+
    s32fp udc = ProcessUdc();
 
    ProcessThrottle();
@@ -548,7 +545,7 @@ static void Ms10Task(void)
 
       Param::SetDig(Param::amp, 0);
       PwmGeneration::SetOpmode(MOD_OFF);
-      DigIo::Clear(Pin::dcsw_out);
+      DigIo::Set(Pin::dcsw_out);
       Throttle::cruiseSpeed = -1;
       runChargeControl = false;
    }
@@ -716,10 +713,10 @@ extern "C" int main(void)
    tim_setup();
    AnaIn::Init();
    DigIo::Init();
-   usart_setup();
+   char* termBuf = usart_setup();
    nvic_setup();
    Encoder::Init();
-   term_Init(TERM_USART);
+   term_Init(termBuf);
    Can::Setup();
    parm_load();
    parm_Change(Param::PARAM_LAST);
