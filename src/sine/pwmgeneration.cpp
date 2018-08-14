@@ -146,7 +146,12 @@ extern "C" void pwm_timer_isr(void)
       /* Shut down PWM on zero voltage request */
       if (0 == amp || 0 == dir)
       {
-          SineCore::DutyCycles[0] = SineCore::DutyCycles[1] = SineCore::DutyCycles[2] = 0;
+         //SineCore::DutyCycles[0] = SineCore::DutyCycles[1] = SineCore::DutyCycles[2] = 0;
+         timer_disable_break_main_output(PWM_TIMER);
+      }
+      else
+      {
+         timer_enable_break_main_output(PWM_TIMER);
       }
 
       timer_set_oc_value(PWM_TIMER, TIM_OC1, SineCore::DutyCycles[0]);
@@ -295,6 +300,8 @@ uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
 {
    const uint16_t pwmmax = 1U << pwmdigits;
    uint8_t outputMode;
+
+   timer_reset(PWM_TIMER);
    /* disable timer */
    timer_disable_counter(PWM_TIMER);
    /* Center aligned PWM */
@@ -302,7 +309,7 @@ uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
    timer_enable_preload(PWM_TIMER);
    /* PWM mode 1 and preload enable */
    TIM_CCMR1(PWM_TIMER) = TIM_CCMR1_OC1M_PWM1 | TIM_CCMR1_OC1PE |
-                        TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
+                          TIM_CCMR1_OC2M_PWM1 | TIM_CCMR1_OC2PE;
    TIM_CCMR2(PWM_TIMER) = TIM_CCMR2_OC3M_PWM1 | TIM_CCMR2_OC3PE;
 
    if (pwmpol)

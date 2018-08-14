@@ -20,16 +20,16 @@
 #include <stdint.h>
 #include "hwdefs.h"
 #include "my_string.h"
-#include <libopencm3/cm3/nvic.h>
 #include <libopencm3/stm32/can.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/flash.h>
 #include <libopencm3/stm32/crc.h>
+#include <libopencm3/stm32/rtc.h>
 #include "stm32_can.h"
 
-#define MAX_ENTRIES 10
-#define MAX_ITEMS 8
+#define MAX_MESSAGES 10
+#define MAX_ITEMS_PER_MESSAGE 8
 #define SDO_WRITE 0x40
 #define SDO_READ 0x22
 #define SDO_ABORT 0x80
@@ -43,7 +43,7 @@
 #define SENDMAP_WORDS   (sizeof(canSendMap) / sizeof(uint32_t))
 #define RECVMAP_WORDS   (sizeof(canRecvMap) / sizeof(uint32_t))
 
-#if ((MAX_ITEMS * 4 + 4) * MAX_ENTRIES + 4) > 512
+#if ((MAX_ITEMS_PER_MESSAGE * 4 + 4) * MAX_MESSAGES + 4) > 512
 #error CANMAP will not fit in one flash page
 #endif
 
@@ -62,13 +62,13 @@ typedef struct
 {
    uint16_t canId;
    uint8_t currentItem;
-   CANPOS items[MAX_ITEMS];
+   CANPOS items[MAX_ITEMS_PER_MESSAGE];
 } CANIDMAP;
 
 typedef struct
 {
    uint8_t currentItem;
-   CANIDMAP items[MAX_ENTRIES];
+   CANIDMAP items[MAX_MESSAGES];
 } CANMAP;
 
 typedef struct
@@ -79,24 +79,40 @@ typedef struct
    uint32_t data;
 } __attribute__((packed)) CAN_SDO;
 
+typedef struct
+{
+   uint32_t ts1;
+   uint32_t ts2;
+   uint32_t prescaler;
+} CANSPEED;
+
 static void ProcessSDO(uint8_t* data);
-static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
-static CANIDMAP *can_find(CANMAP *canMap, int canId);
+static int Add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
+static CANIDMAP *FindById(CANMAP *canMap, int canId);
 static uint32_t SaveToFlash(uint32_t baseAddress, uint32_t* data, int len);
 static int LoadFromFlash();
-static CANIDMAP *can_find(CANMAP *canMap, int canId);
+static CANIDMAP *FindById(CANMAP *canMap, int canId);
 
 static CANMAP canSendMap;
 static CANMAP canRecvMap;
+static uint32_t lastRxTimestamp = 0;
+
+static const CANSPEED canSpeed[BaudLast] =
+{
+   { CAN_BTR_TS1_9TQ, CAN_BTR_TS2_6TQ, 9 }, //250kbps
+   { CAN_BTR_TS1_4TQ, CAN_BTR_TS2_3TQ, 9 }, //500kbps
+   { CAN_BTR_TS1_5TQ, CAN_BTR_TS2_3TQ, 5 }, //800kbps
+   { CAN_BTR_TS1_6TQ, CAN_BTR_TS2_5TQ, 3 }, //1000kbps
+};
 
 int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
-   return can_add(&canSendMap, param, canId, offset, length, gain);
+   return Add(&canSendMap, param, canId, offset, length, gain);
 }
 
 int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
-   return can_add(&canRecvMap, param, canId, offset, length, gain);
+   return Add(&canRecvMap, param, canId, offset, length, gain);
 }
 
 void Save()
@@ -142,14 +158,16 @@ void SendAll()
 
 void Clear(void)
 {
-   for (int i = 0; i < MAX_ENTRIES; i++)
+   for (int i = 0; i < MAX_MESSAGES; i++)
    {
       canSendMap.items[i].currentItem = 0;
       canRecvMap.items[i].currentItem = 0;
    }
+   canSendMap.currentItem = 0;
+   canRecvMap.currentItem = 0;
 }
 
-void Setup(void)
+void Init(enum baudrates baudrate)
 {
    Clear();
    LoadFromFlash();
@@ -184,9 +202,9 @@ void Setup(void)
 		     false,          // RFLM: Receive FIFO locked mode?
 		     false,          // TXFP: Transmit FIFO priority?
 		     CAN_BTR_SJW_1TQ,
-		     CAN_BTR_TS1_9TQ,
-		     CAN_BTR_TS2_6TQ,
-		     9,				// BRP+1: Baud rate prescaler
+		     canSpeed[baudrate].ts1,
+		     canSpeed[baudrate].ts2,
+		     canSpeed[baudrate].prescaler,				// BRP+1: Baud rate prescaler
 		     false,
 		     false);
 
@@ -200,6 +218,28 @@ void Setup(void)
 
 	// Enable CAN RX interrupt.
 	can_enable_irq(CAN1, CAN_IER_FMPIE0);
+}
+
+void SetBaudrate(enum baudrates baudrate)
+{
+	can_init(CAN1,
+		     false,          // TTCM: Time triggered comm mode?
+		     true,           // ABOM: Automatic bus-off management?
+		     false,          // AWUM: Automatic wakeup mode?
+		     true,           // NART: No automatic retransmission?
+		     false,          // RFLM: Receive FIFO locked mode?
+		     false,          // TXFP: Transmit FIFO priority?
+		     CAN_BTR_SJW_1TQ,
+		     canSpeed[baudrate].ts1,
+		     canSpeed[baudrate].ts2,
+		     canSpeed[baudrate].prescaler,				// BRP+1: Baud rate prescaler
+		     false,
+		     false);
+}
+
+uint32_t GetLastRxTimestamp()
+{
+   return lastRxTimestamp;
 }
 
 void Send(uint32_t canId, uint8_t* data, uint32_t len)
@@ -219,8 +259,8 @@ extern "C" void usb_lp_can_rx0_isr(void)
 	uint8_t length, fmi;
 	uint32_t data[2];
 
-	can_receive(CAN1, 0, false, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL);
-	can_fifo_release(CAN1, 0);
+	can_receive(CAN1, 0, true, &id, &ext, &rtr, &fmi, &length, (uint8_t*)data, NULL);
+	//can_fifo_release(CAN1, 0);
 
 	if (id == 0x601) //SDO request, nodeid=1
    {
@@ -228,7 +268,7 @@ extern "C" void usb_lp_can_rx0_isr(void)
    }
    else
    {
-      CANIDMAP *recvMap = can_find(&canRecvMap, id);
+      CANIDMAP *recvMap = FindById(&canRecvMap, id);
 
       if (0 != recvMap)
       {
@@ -239,15 +279,20 @@ extern "C" void usb_lp_can_rx0_isr(void)
 
             if (curItem.offsetBits > 31)
             {
-               val = (data[1] >> (curItem.offsetBits - 32)) & ((1 << curItem.numBits) - 1);
+               val = FP_FROMINT((data[1] >> (curItem.offsetBits - 32)) & ((1 << curItem.numBits) - 1));
             }
             else
             {
-               val = (data[0] >> curItem.offsetBits) & ((1 << curItem.numBits) - 1);
+               val = FP_FROMINT((data[0] >> curItem.offsetBits) & ((1 << curItem.numBits) - 1));
             }
             val = FP_MUL(val, curItem.gain);
-            Param::Set(curItem.mapParam, val);
+
+            if (Param::IsParam(curItem.mapParam))
+               Param::Set(curItem.mapParam, val);
+            else
+               Param::SetFlt(curItem.mapParam, val);
          }
+         lastRxTimestamp = rtc_get_counter_val();
       }
    }
 }
@@ -331,17 +376,17 @@ static int LoadFromFlash()
    return 0;
 }
 
-static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
+static int Add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain)
 {
    if (canId > 0x7ff) return CAN_ERR_INVALID_ID;
    if (offset > 63) return CAN_ERR_INVALID_OFS;
    if (length > 32) return CAN_ERR_INVALID_LEN;
 
-   CANIDMAP *existingMap = can_find(canMap, canId);
+   CANIDMAP *existingMap = FindById(canMap, canId);
 
    if (0 == existingMap)
    {
-      if (canMap->currentItem == MAX_ENTRIES)
+      if (canMap->currentItem == MAX_MESSAGES)
          return CAN_ERR_MAXMAP;
 
       existingMap = &canMap->items[canMap->currentItem];
@@ -349,7 +394,7 @@ static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset
       canMap->currentItem++;
    }
 
-   if (existingMap->currentItem == MAX_ENTRIES)
+   if (existingMap->currentItem == MAX_MESSAGES)
       return CAN_ERR_MAXITEMS;
 
    CANPOS &currentItem = existingMap->items[existingMap->currentItem];
@@ -363,7 +408,7 @@ static int can_add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset
    return canMap->currentItem;
 }
 
-static CANIDMAP *can_find(CANMAP *canMap, int canId)
+static CANIDMAP *FindById(CANMAP *canMap, int canId)
 {
    for (int i = 0; i < canMap->currentItem; i++)
    {

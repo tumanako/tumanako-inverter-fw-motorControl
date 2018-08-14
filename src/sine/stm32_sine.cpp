@@ -21,6 +21,7 @@
 #include <stdint.h>
 #include <libopencm3/stm32/usart.h>
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/rtc.h>
 #include "stm32_sine.h"
 #include "stm32_can.h"
 #include "terminal.h"
@@ -44,11 +45,11 @@
 
 #define RMS_SAMPLES 256
 #define SQRT2OV1 0.707106781187
-#define PRECHARGE_TIMEOUT 5000
+#define PRECHARGE_TIMEOUT 500 //5s
+#define CAN_TIMEOUT       50  //500ms
 
 static Stm32Scheduler* scheduler;
 
-static volatile uint32_t timeTick = 0; //ms since system start
 //Current sensor offsets are determined at runtime
 static s32fp ilofs[2] = { 0, 0 };
 //Precise control of executing the boost controller
@@ -123,7 +124,7 @@ static void CruiseControl()
    static bool lastState = false;
 
    //Always disable cruise control when brake pedal is pressed
-   if (DigIo::Get(Pin::brake_in))
+   if (Param::GetBool(Param::din_brake))
    {
       Throttle::cruiseSpeed = -1;
    }
@@ -132,7 +133,7 @@ static void CruiseControl()
       if (Param::GetInt(Param::cruisemode) == BUTTON)
       {
          //Enable/update cruise control when button is pressed
-         if (DigIo::Get(Pin::cruise_in))
+         if (Param::GetBool(Param::din_cruise))
          {
             Throttle::cruiseSpeed = Encoder::GetSpeed();
          }
@@ -140,20 +141,20 @@ static void CruiseControl()
       else //if cruiseMode == SWITCH
       {
          //Enable/update cruise control when switch is toggled on
-         if (DigIo::Get(Pin::cruise_in) && !lastState)
+         if (Param::GetBool(Param::din_cruise) && !lastState)
          {
             Throttle::cruiseSpeed = Encoder::GetSpeed();
          }
 
          //Disable cruise control when switch is off
-         if (!DigIo::Get(Pin::cruise_in))
+         if (!Param::GetBool(Param::din_cruise))
          {
             Throttle::cruiseSpeed = -1;
          }
       }
    }
 
-   lastState = DigIo::Get(Pin::cruise_in);
+   lastState = Param::GetBool(Param::din_cruise);
 }
 
 static void Ms100Task(void)
@@ -167,23 +168,24 @@ static void Ms100Task(void)
    /* Only change direction when below certain rev */
    if (Encoder::GetSpeed() < 100)
    {
-      if (DigIo::Get(Pin::fwd_in) && !DigIo::Get(Pin::rev_in))
+      if (Param::GetBool(Param::din_forward) && !Param::GetBool(Param::din_reverse))
       {
          dir = 1;
       }
-      else if (!DigIo::Get(Pin::fwd_in) && DigIo::Get(Pin::rev_in))
+      else if (!Param::GetBool(Param::din_forward) && Param::GetBool(Param::din_reverse))
       {
          dir = -1;
       }
    }
 
-   if (!(DigIo::Get(Pin::fwd_in) ^ DigIo::Get(Pin::rev_in)))
+   if (!(Param::GetBool(Param::din_forward) ^ Param::GetBool(Param::din_reverse)))
    {
       dir = 0;
    }
 
    FOC::SetDirection(dir);
 
+   #ifdef HWCONFIG_REV1
    //If break pin is high and both mprot and emcystop are high than it must be over current
    if (DigIo::Get(Pin::emcystop_in) && DigIo::Get(Pin::mprot_in) && DigIo::Get(Pin::bk_in))
    {
@@ -193,20 +195,42 @@ static void Ms100Task(void)
    {
       Param::SetDig(Param::din_ocur, 0);
    }
+   #endif
 
    CruiseControl();
 
    Param::SetDig(Param::dir, dir);
-   Param::SetDig(Param::din_cruise, DigIo::Get(Pin::cruise_in));
-   Param::SetDig(Param::din_start, DigIo::Get(Pin::start_in));
-   Param::SetDig(Param::din_brake, DigIo::Get(Pin::brake_in));
-   Param::SetDig(Param::din_mprot, DigIo::Get(Pin::mprot_in));
-   Param::SetDig(Param::din_forward, DigIo::Get(Pin::fwd_in));
-   Param::SetDig(Param::din_reverse, DigIo::Get(Pin::rev_in));
-   Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
-   Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in));
 
    Can::SendAll();
+}
+
+static void GetDigInputs()
+{
+   static bool canIoActive = false;
+   int canio = Param::GetInt(Param::canio);
+
+   canIoActive |= canio != 0;
+
+   if ((rtc_get_counter_val() - Can::GetLastRxTimestamp()) >= CAN_TIMEOUT && canIoActive)
+   {
+      canio = 0;
+      Param::SetDig(Param::canio, 0);
+      ErrorMessage::Post(ERR_CANTIMEOUT);
+   }
+
+   Param::SetDig(Param::din_cruise, DigIo::Get(Pin::cruise_in) | ((canio & CAN_IO_CRUISE) != 0));
+   Param::SetDig(Param::din_start, DigIo::Get(Pin::start_in) | ((canio & CAN_IO_START) != 0));
+   Param::SetDig(Param::din_brake, DigIo::Get(Pin::brake_in) | ((canio & CAN_IO_BRAKE) != 0));
+   Param::SetDig(Param::din_mprot, DigIo::Get(Pin::mprot_in));
+   Param::SetDig(Param::din_forward, DigIo::Get(Pin::fwd_in) | ((canio & CAN_IO_FWD) != 0));
+   Param::SetDig(Param::din_reverse, DigIo::Get(Pin::rev_in) | ((canio & CAN_IO_REV) != 0));
+   Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
+   Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in) | ((canio & CAN_IO_BMS) != 0));
+
+   #if defined(HWCONFIG_REV2) || defined(HWCONFIG_TESLA)
+   Param::SetDig(Param::din_ocur, DigIo::Get(Pin::ocur_in));
+   Param::SetDig(Param::din_desat, DigIo::Get(Pin::desat_in));
+   #endif // defined
 }
 
 static void CalcAmpAndSlip(void)
@@ -343,7 +367,7 @@ static s32fp ProcessUdc()
       ErrorMessage::Post(ERR_OVERVOLTAGE);
    }
 
-   if (udcfp < (udcsw / 2) && timeTick > PRECHARGE_TIMEOUT)
+   if (udcfp < (udcsw / 2) && rtc_get_counter_val() > PRECHARGE_TIMEOUT)
    {
       DigIo::Set(Pin::err_out);
       DigIo::Clear(Pin::prec_out);
@@ -410,11 +434,30 @@ static void ProcessThrottle()
 {
    int potval = AnaIn::Get(AnaIn::throttle1);
    int pot2val = AnaIn::Get(AnaIn::throttle2);
-   bool brake = DigIo::Get(Pin::brake_in);
+   bool brake = Param::GetBool(Param::din_brake);
+   int potmode = Param::GetInt(Param::potmode);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
-   Param::SetDig(Param::pot, potval);
-   Param::SetDig(Param::pot2, pot2val);
+   if (potmode == POTMODE_CAN)
+   {
+      //500ms timeout
+      if ((rtc_get_counter_val() - Can::GetLastRxTimestamp()) < CAN_TIMEOUT)
+      {
+         potval = Param::GetInt(Param::pot);
+         pot2val = Param::GetInt(Param::pot2);
+      }
+      else
+      {
+         potval = Throttle::potmin[0];
+         pot2val = Throttle::potmin[1];
+         ErrorMessage::Post(ERR_CANTIMEOUT);
+      }
+   }
+   else
+   {
+      Param::SetDig(Param::pot, potval);
+      Param::SetDig(Param::pot2, pot2val);
+   }
 
    /* Error light on implausible value */
    if (!Throttle::CheckAndLimitRange(&potval, 0))
@@ -425,11 +468,16 @@ static void ProcessThrottle()
 
    bool throt2Res = Throttle::CheckAndLimitRange(&pot2val, 1);
 
-   if (Param::GetInt(Param::potmode) == POT2MODE_REDUNDANCE &&
-      (!Throttle::CheckDualThrottle(&potval, pot2val) || !throt2Res))
+   if (potmode == POTMODE_DUALCHANNEL)
    {
-      DigIo::Set(Pin::err_out);
-      ErrorMessage::Post(ERR_THROTTLE1);
+      if (!Throttle::CheckDualThrottle(&potval, pot2val) || !throt2Res)
+      {
+         DigIo::Set(Pin::err_out);
+         ErrorMessage::Post(ERR_THROTTLE1);
+         Param::SetDig(Param::potnom, 0);
+         return;
+      }
+      pot2val = Throttle::potmax[1]; //make sure we don't attenuate regen
    }
 
    if (Param::GetInt(Param::dir) == 0)
@@ -442,7 +490,7 @@ static void ProcessThrottle()
 
    if (Param::GetInt(Param::idlemode) == IDLE_MODE_ALWAYS ||
        (Param::GetInt(Param::idlemode) == IDLE_MODE_NOBRAKE && !brake) ||
-       (Param::GetInt(Param::idlemode) == IDLE_MODE_CRUISE && !brake && DigIo::Get(Pin::cruise_in)))
+       (Param::GetInt(Param::idlemode) == IDLE_MODE_CRUISE && !brake && Param::GetBool(Param::din_cruise)))
       finalSpnt = MAX(throtSpnt, idleSpnt);
    else
       finalSpnt = throtSpnt;
@@ -485,6 +533,7 @@ static void Ms10Task(void)
 
    s32fp udc = ProcessUdc();
 
+   GetDigInputs();
    ProcessThrottle();
    CalcAndOutputTemp();
    Encoder::UpdateRotorFrequency(10);
@@ -515,9 +564,11 @@ static void Ms10Task(void)
             if ((chargemode == MOD_BUCK && udc >= Param::Get(Param::udcswbuck)) || chargemode == MOD_BOOST)
                newMode = chargemode;
          }
-         else if (DigIo::Get(Pin::start_in))
+         else if (Param::GetBool(Param::din_start))
          {
             newMode = MOD_RUN;
+            //PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
+            //PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
          }
       }
    }
@@ -545,7 +596,7 @@ static void Ms10Task(void)
 
       Param::SetDig(Param::amp, 0);
       PwmGeneration::SetOpmode(MOD_OFF);
-      DigIo::Set(Pin::dcsw_out);
+      DigIo::Clear(Pin::dcsw_out);
       Throttle::cruiseSpeed = -1;
       runChargeControl = false;
    }
@@ -593,8 +644,7 @@ static void Ms1Task(void)
    s32fp ilMax = 0;
    int opmode = Param::GetInt(Param::opmode);
 
-   timeTick++;
-   ErrorMessage::SetTime(timeTick);
+   ErrorMessage::SetTime(rtc_get_counter_val());
 
    for (int i = 0; i < 2; i++)
    {
@@ -672,6 +722,8 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       PwmGeneration::SetFslip(Param::Get(Param::fslipspnt));
    else if (Param::ampnom == paramNum)
       PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
+   else if (Param::canspeed == paramNum)
+      Can::SetBaudrate((enum Can::baudrates)Param::GetInt(Param::canspeed));
    else
    {
       SetCurrentLimitThreshold();
@@ -708,6 +760,7 @@ extern "C" void tim2_isr(void)
 extern "C" int main(void)
 {
    clock_setup();
+   rtc_setup();
    //Additional test pin on JTAG header Pin 13/PB3
    //AFIO_MAPR |= AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF;
    tim_setup();
@@ -717,9 +770,9 @@ extern "C" int main(void)
    nvic_setup();
    Encoder::Init();
    term_Init(termBuf);
-   Can::Setup();
    parm_load();
    parm_Change(Param::PARAM_LAST);
+   Can::Init((enum Can::baudrates)Param::GetInt(Param::canspeed));
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack

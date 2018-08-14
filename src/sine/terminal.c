@@ -26,9 +26,6 @@
 #include "hwdefs.h"
 #include <stdarg.h>
 
-#define SET_RTS() /*gpio_set(GPIOB, GPIO11)*/
-#define CLR_RTS() /*gpio_clear(GPIOB, GPIO11)*/
-
 static const TERM_CMD *CmdLookup(char *buf);
 static void term_send(uint32_t usart, const char *str);
 static void ResetDMA();
@@ -135,10 +132,8 @@ static const TERM_CMD *CmdLookup(char *buf)
 
 static void term_send(uint32_t usart, const char *str)
 {
-   SET_RTS();
    for (;*str > 0; str++)
        usart_send_blocking(usart, *str);
-   CLR_RTS();
 }
 
 

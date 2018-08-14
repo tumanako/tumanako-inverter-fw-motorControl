@@ -27,6 +27,7 @@
 #include <libopencm3/stm32/adc.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/dma.h>
+#include <libopencm3/stm32/rtc.h>
 #include "hwdefs.h"
 #include "hwinit.h"
 
@@ -111,6 +112,14 @@ void nvic_setup(void)
 
 	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN
 	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
+}
+
+void rtc_setup()
+{
+   //Base clock is HSE/128 = 8MHz/128 = 62.5kHz
+   //62.5kHz / (624 + 1) = 100Hz
+   rtc_auto_awake(RCC_HSE, 624); //10ms tick
+   rtc_set_counter_val(0);
 }
 
 /**

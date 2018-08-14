@@ -84,6 +84,17 @@ int GetInt(PARAM_NUM ParamNum)
 }
 
 /**
+* Get a parameters boolean value, 1.00=True
+*
+* @param[in] ParamNum Parameter index
+* @return Parameters value
+*/
+bool GetBool(PARAM_NUM ParamNum)
+{
+    return FP_TOINT(values[ParamNum]) == 1;
+}
+
+/**
 * Set a parameters digit value
 *
 * @param[in] ParamNum Parameter index

@@ -29,7 +29,9 @@
 #define ONOFF       "0=Off, 1=On"
 #define CHARGEMODS  "0=Off, 3=Boost, 4=Buck"
 #define ENCMODES    "0=Single, 1=AB, 2=ABZ, 3=SPI, 4=Resolver"
-#define POTMODES    "0=SingleRegen, 1=DualChannel"
+#define POTMODES    "0=SingleRegen, 1=DualChannel, 2=CAN"
+#define CANSPEEDS   "0=250k, 1=500k, 2=800k, 3=1M"
+#define CANIOS       "1=Cruise, 2=Start, 4=Brake, 8=Fwd, 16=Rev, 32=Bms"
 #define CAT_MOTOR    "Motor"
 #define CAT_INVERTER "Inverter"
 #define CAT_THROTTLE "Throttle"
@@ -40,8 +42,9 @@
 #define CAT_CONTACT  "Contactor Control"
 #define CAT_TEST     "Testing"
 #define CAT_CHARGER  "Charger"
+#define CAT_COMM     "Communication"
 
-#define VER 3.67
+#define VER 3.76
 
 enum _modes
 {
@@ -55,25 +58,36 @@ enum _modes
    MOD_LAST
 };
 
+enum _canio
+{
+   CAN_IO_CRUISE = 1,
+   CAN_IO_START = 2,
+   CAN_IO_BRAKE = 4,
+   CAN_IO_FWD = 8,
+   CAN_IO_REV = 16,
+   CAN_IO_BMS = 32
+};
+
 #define BUTTON 0
 
-#define PWM_FUNC_TMPM  0
-#define PWM_FUNC_TMPHS 1
-#define PWM_FUNC_SPEED 2
+#define PWM_FUNC_TMPM       0
+#define PWM_FUNC_TMPHS      1
+#define PWM_FUNC_SPEED      2
 
-#define IDLE_MODE_ALWAYS 0
-#define IDLE_MODE_NOBRAKE 1
-#define IDLE_MODE_CRUISE 2
+#define IDLE_MODE_ALWAYS    0
+#define IDLE_MODE_NOBRAKE   1
+#define IDLE_MODE_CRUISE    2
 
-#define POT2MODE_REGENADJ 0
-#define POT2MODE_REDUNDANCE 1
+#define POTMODE_REGENADJ    0
+#define POTMODE_DUALCHANNEL 1
+#define POTMODE_CAN         2
 
 /* Entries must be ordered as follows:
    1. Saveable parameters (id != 0)
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 83
+//Next param id (increase when adding new parameter!): 85
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -90,6 +104,7 @@ enum _modes
     PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      1000,   200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
+    /*PARAM_ENTRY(CAT_MOTOR,   delay,       "µs",      0,      65535,  40,     84  )*/ \
     PARAM_ENTRY(CAT_MOTOR,   snsm,        SNS_M,     2,      3,      2,      46  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      1,      13  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
@@ -111,7 +126,7 @@ enum _modes
     PARAM_ENTRY(CAT_THROTTLE,potmax,      "dig",     0,      4095,   4095,   18  ) \
     PARAM_ENTRY(CAT_THROTTLE,pot2min,     "dig",     0,      4095,   4095,   63  ) \
     PARAM_ENTRY(CAT_THROTTLE,pot2max,     "dig",     0,      4095,   4095,   64  ) \
-    PARAM_ENTRY(CAT_THROTTLE,potmode,     POTMODES,  0,      1,      0,      82  ) \
+    PARAM_ENTRY(CAT_THROTTLE,potmode,     POTMODES,  0,      2,      0,      82  ) \
     PARAM_ENTRY(CAT_THROTTLE,throtramp,   "%/10ms",  1,      100,    100,    81  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
@@ -135,6 +150,7 @@ enum _modes
     PARAM_ENTRY(CAT_PWM,     pwmgain,     "dig/C",   -65535, 65535,  100,    40  ) \
     PARAM_ENTRY(CAT_PWM,     pwmofs,      "dig",     -65535, 65535,  0,      41  ) \
     PARAM_ENTRY(CAT_PWM,     speedgain,   "rpm/kHz", 0,      65535,  6000,   59  ) \
+    PARAM_ENTRY(CAT_COMM,    canspeed,    CANSPEEDS, 0,      3,      0,      83  ) \
     PARAM_ENTRY(CAT_TEST,    fslipspnt,   "Hz",      -100,   1000,   0,      0   ) \
     PARAM_ENTRY(CAT_TEST,    ampnom,      "%",       0,      100,    0,      0   ) \
     PARAM_ENTRY(CAT_TEST,    version,     "",        0,      0,      VER,    0   ) \
@@ -165,6 +181,7 @@ enum _modes
     VALUE_ENTRY(tmphs,       "°C"    ) \
     VALUE_ENTRY(tmpm,        "°C"    ) \
     VALUE_ENTRY(uaux,        "V"     ) \
+    VALUE_ENTRY(canio,       CANIOS  ) \
     VALUE_ENTRY(din_cruise,  ""      ) \
     VALUE_ENTRY(din_start,   ""      ) \
     VALUE_ENTRY(din_brake,   ""      ) \
@@ -173,7 +190,10 @@ enum _modes
     VALUE_ENTRY(din_reverse, ""      ) \
     VALUE_ENTRY(din_emcystop,""      ) \
     VALUE_ENTRY(din_ocur,    ""      ) \
+    VALUE_ENTRY(din_desat,   ""      ) \
     VALUE_ENTRY(din_bms,     ""      ) \
+    VALUE_ENTRY(dout_prec,   ""      ) \
+    VALUE_ENTRY(dout_dcsw,   ""      ) \
     VALUE_ENTRY(tm_meas,     "us"    ) \
     VALUE_ENTRY(angle,     "°"    ) \
 

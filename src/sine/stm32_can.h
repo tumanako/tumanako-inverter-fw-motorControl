@@ -29,11 +29,18 @@
 
 namespace Can
 {
+   enum baudrates
+   {
+      Baud250, Baud500, Baud800, Baud1000, BaudLast
+   };
+
    void Clear(void);
-   void Setup(void);
+   void Init(enum baudrates baudrate);
+   void SetBaudrate(enum baudrates baudrate);
    void Send(uint32_t canId, uint8_t* data, uint32_t len);
    void SendAll();
    void Save();
+   uint32_t GetLastRxTimestamp();
    int AddSend(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
    int AddRecv(Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
 }

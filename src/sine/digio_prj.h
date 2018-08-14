@@ -7,7 +7,7 @@
     DIG_IO_ENTRY(cruise_in,   GPIOB, GPIO5,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(start_in,    GPIOB, GPIO6,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(brake_in,    GPIOA, GPIO2,  PinMode::INPUT_FLT)   \
-    DIG_IO_ENTRY(mprot_in,    GPIOA, GPIO3,  PinMode::INPUT_FLT)   \
+    DIG_IO_ENTRY(mprot_in,    GPIOA, GPIO3,  PinMode::INPUT_PU)   \
     DIG_IO_ENTRY(fwd_in,      GPIOA, GPIO4,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(rev_in,      GPIOC, GPIO6,  PinMode::INPUT_FLT)   \
     DIG_IO_ENTRY(emcystop_in, GPIOC, GPIO7,  PinMode::INPUT_FLT)   \
@@ -22,7 +22,10 @@
     DIG_IO_ENTRY(prec_out,    GPIOB, GPIO1,  PinMode::OUTPUT)      \
     DIG_IO_ENTRY(led_out,     GPIOC, GPIO12, PinMode::OUTPUT)      \
 
-    //DIG_IO_ENTRY(test_out,    GPIOB, GPIO3,  PinMode::OUTPUT)
+/*    DIG_IO_ENTRY(test1_out,   GPIOB, GPIO3,  PinMode::OUTPUT)     \
+    DIG_IO_ENTRY(test2_out,   GPIOA, GPIO13, PinMode::OUTPUT)     \
+    DIG_IO_ENTRY(test3_out,   GPIOA, GPIO14, PinMode::OUTPUT)     \
+    DIG_IO_ENTRY(test4_out,   GPIOA, GPIO15, PinMode::OUTPUT)     \*/
 
 
 #ifdef HWCONFIG_REV1
