@@ -58,7 +58,7 @@ namespace Param
    int    GetInt(PARAM_NUM ParamNum);
    s32fp  GetScl(PARAM_NUM ParamNum);
    bool   GetBool(PARAM_NUM ParamNum);
-   void SetDig(PARAM_NUM ParamNum, int ParamVal);
+   void SetInt(PARAM_NUM ParamNum, int ParamVal);
    void SetFlt(PARAM_NUM ParamNum, s32fp ParamVal);
    PARAM_NUM NumFromString(const char *name);
    PARAM_NUM NumFromId(uint32_t id);

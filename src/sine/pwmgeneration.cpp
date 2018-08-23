@@ -42,6 +42,7 @@ static s32fp fslip;
 static s32fp frq;
 static uint8_t shiftForTimer;
 static int opmode;
+static bool tripped;
 
 /*********/
 static void CalcNextAngleSync(int dir);
@@ -53,6 +54,11 @@ static void AcHeat();
 uint16_t PwmGeneration::GetAngle()
 {
    return angle;
+}
+
+bool PwmGeneration::Tripped()
+{
+   return tripped;
 }
 
 void PwmGeneration::SetAmpnom(s32fp amp)
@@ -100,8 +106,9 @@ void PwmGeneration::SetOpmode(int _opmode)
 extern "C" void tim1_brk_isr(void)
 {
    timer_disable_irq(PWM_TIMER, TIM_DIER_BIE);
-   Param::SetDig(Param::opmode, MOD_OFF);
+   Param::SetInt(Param::opmode, MOD_OFF);
    DigIo::Set(Pin::err_out);
+   tripped = true;
 
    if (!DigIo::Get(Pin::emcystop_in))
       ErrorMessage::Post(ERR_EMCYSTOP);
@@ -115,7 +122,8 @@ extern "C" void pwm_timer_isr(void)
 {
    int last = timer_get_counter(PWM_TIMER);
    /* Clear interrupt pending flag */
-   TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
+   //TIM_SR(PWM_TIMER) &= ~TIM_SR_UIF;
+   timer_clear_flag(PWM_TIMER, TIM_SR_UIF);
 
    if (opmode == MOD_MANUAL || opmode == MOD_RUN || opmode == MOD_SINE)
    {
@@ -134,7 +142,7 @@ extern "C" void pwm_timer_isr(void)
       uint32_t amp = MotorVoltage::GetAmpPerc(frq, FP_TOINT(ampnom));
 
       SineCore::SetAmp(amp);
-      Param::SetDig(Param::amp, amp);
+      Param::SetInt(Param::amp, amp);
       Param::SetFlt(Param::fstat, frq);
       SineCore::Calc(angle);
 
@@ -168,7 +176,7 @@ extern "C" void pwm_timer_isr(void)
    }
    int time = timer_get_counter(PWM_TIMER) - last;
    time = ABS(time) / 72;
-   Param::SetDig(Param::tm_meas, time);
+   Param::SetInt(Param::tm_meas, time);
 }
 
 void PwmGeneration::PwmInit(void)
@@ -177,6 +185,7 @@ void PwmGeneration::PwmInit(void)
    pwmfrq = TimerSetup(Param::GetInt(Param::deadtime), Param::GetInt(Param::pwmpol));
    slipIncr = FRQ_TO_ANGLE(fslip);
    shiftForTimer = SineCore::BITS - pwmdigits;
+   tripped = false;
 }
 
 /**
@@ -221,7 +230,7 @@ static void CalcNextAngleSync(int dir)
 
       angle = polePairs * rotorAngle + syncOfs;
       frq = polePairs * Encoder::GetRotorFrequency();
-      Param::SetDig(Param::angle, angle);
+      Param::SetInt(Param::angle, angle);
 
    }
    else
@@ -263,7 +272,7 @@ static void Charge()
    if (dc < 0)
       dc = 0;
 
-   Param::SetDig(Param::amp, dc);
+   Param::SetInt(Param::amp, dc);
 
    timer_set_oc_value(PWM_TIMER, TIM_OC2, dc);
 }

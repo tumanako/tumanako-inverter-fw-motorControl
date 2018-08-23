@@ -49,6 +49,7 @@ static void PrintSerial(char *arg);
 static void MapCan(char *arg);
 static void PrintErrors(char *arg);
 static void Reset(char *arg);
+static void FastUart(char *arg);
 
 extern "C" const TERM_CMD TermCmds[] =
 {
@@ -69,6 +70,7 @@ extern "C" const TERM_CMD TermCmds[] =
   { "serial", PrintSerial },
   { "errors", PrintErrors },
   { "reset", Reset },
+  { "fastuart", FastUart },
   { NULL, NULL }
 };
 
@@ -364,7 +366,7 @@ static void ParamSet(char *arg)
 static void StopInverter(char *arg)
 {
     arg = arg;
-    Param::SetDig(Param::opmode, 0);
+    Param::SetInt(Param::opmode, 0);
     printf("Inverter halted.\r\n");
 }
 
@@ -428,4 +430,12 @@ static void Reset(char *arg)
 {
    arg = arg;
    scb_reset_system();
+}
+
+static void FastUart(char *arg)
+{
+   arg = arg;
+   printf("OK\r\n");
+   printf("Baud rate now 921600\r\n");
+   usart_set_baudrate(TERM_USART, 921600);
 }

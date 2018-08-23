@@ -266,6 +266,8 @@ static void InitTimerSingleChannelMode()
 
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
    timer_enable_counter(REV_CNT_TIMER);
+   gpio_set_mode(GPIOD, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, GPIO2);
+   gpio_set_mode(GPIOA, GPIO_MODE_INPUT, GPIO_CNF_INPUT_FLOAT, GPIO7);
    DMASetup();
    exti_disable_request(EXTI2);
 }
@@ -379,7 +381,7 @@ static uint16_t GetAngleResolver()
    if (state)
    {
       gpio_clear(GPIOD, GPIO2);
-      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, 40/*Param::GetInt(Param::delay)*/);
+      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, 40 /*Param::GetInt(Param::delay)*/);
       timer_set_counter(REV_CNT_TIMER, 0);
       timer_enable_counter(REV_CNT_TIMER);
       state = false;

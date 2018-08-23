@@ -110,8 +110,11 @@ void nvic_setup(void)
    nvic_enable_irq(NVIC_TIM2_IRQ); //Scheduler
    nvic_set_priority(NVIC_TIM2_IRQ, 0xe << 4); //second lowest priority
 
-	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN
+	nvic_enable_irq(NVIC_USB_LP_CAN_RX0_IRQ); //CAN RX
 	nvic_set_priority(NVIC_USB_LP_CAN_RX0_IRQ, 0xf << 4); //lowest priority
+
+	nvic_enable_irq(NVIC_USB_HP_CAN_TX_IRQ); //CAN TX
+	nvic_set_priority(NVIC_USB_HP_CAN_TX_IRQ, 0xf << 4); //lowest priority
 }
 
 void rtc_setup()
@@ -156,7 +159,9 @@ void tim_setup()
    /** setup gpio */
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO7 | GPIO8 | GPIO9);
    //Early initialization of main PWM timer pins to make sure they are at a defined state
-   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO8 | GPIO9 | GPIO10);
-   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO13 | GPIO14 | GPIO15);
+   gpio_clear(GPIOA, GPIO8 | GPIO9 | GPIO10);
+   gpio_clear(GPIOB, GPIO13 | GPIO14 | GPIO15);
+   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO8 | GPIO9 | GPIO10);
+   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO13 | GPIO14 | GPIO15);
 }
 

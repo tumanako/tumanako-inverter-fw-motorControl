@@ -37,7 +37,7 @@ namespace Can
    void Clear(void);
    void Init(enum baudrates baudrate);
    void SetBaudrate(enum baudrates baudrate);
-   void Send(uint32_t canId, uint8_t* data, uint32_t len);
+   int Send(uint32_t canId, uint8_t* data, uint32_t len);
    void SendAll();
    void Save();
    uint32_t GetLastRxTimestamp();

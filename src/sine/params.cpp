@@ -100,7 +100,7 @@ bool GetBool(PARAM_NUM ParamNum)
 * @param[in] ParamNum Parameter index
 * @param[in] ParamVal New value of parameter
 */
-void SetDig(PARAM_NUM ParamNum, int ParamVal)
+void SetInt(PARAM_NUM ParamNum, int ParamVal)
 {
    values[ParamNum] = FP_FROMINT(ParamVal);
 }

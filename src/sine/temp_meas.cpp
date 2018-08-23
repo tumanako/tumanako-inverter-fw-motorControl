@@ -22,6 +22,8 @@
 #include "temp_meas.h"
 #include <stdint.h>
 
+#define TABLEN(a) sizeof(a) / sizeof(a[0])
+
 enum coeff { PTC, NTC };
 
 typedef struct TempSensor
@@ -40,11 +42,17 @@ static const uint16_t JCurve[] = { JCURVE };
 /* Temp sensor in Semikron Skiip82 module */
 static const uint16_t Semikron[] = { SEMIKRON };
 
+/* Temp sensor in MBB600 IGBT module */
+static const uint16_t mbb600[] = { MBB600 };
+
 /* Temp sensor KTY83-110 */
 static const uint16_t Kty83[] = { KTY83 };
 
 /* Temp sensor KTY84-130 */
 static const uint16_t Kty84[] = { KTY84 };
+
+/* Temp sensor in MBB600 IGBT module */
+static const uint16_t leaf[] = { LEAF };
 
 /* Temp sensor embedded in Tesla rear motor */
 static const uint16_t Tesla100k[] = { TESLA_100K };
@@ -54,19 +62,22 @@ static const uint16_t Tesla52k[] = { TESLA_52K };
 
 static const TEMP_SENSOR sensors[] =
 {
-   { -25, 106, 5,  sizeof(JCurve) / sizeof(JCurve[0]),      NTC, JCurve },
-   { 0,   100, 5,  sizeof(Semikron) / sizeof(Semikron[0]),  PTC, Semikron },
-   { -50, 170, 10, sizeof(Kty83) / sizeof(Kty83[0]),        PTC, Kty83  },
-   { -40, 300, 10, sizeof(Kty84) / sizeof(Kty84[0]),        PTC, Kty84  },
-   { -20, 190, 5,  sizeof(Tesla100k) / sizeof(Tesla100k[0]),PTC, Tesla100k  },
-   { 0,   100, 10, sizeof(Tesla52k) / sizeof(Tesla52k[0]),  PTC, Tesla52k  },
+   { -25, 105, 5,  TABLEN(JCurve),    NTC, JCurve     },
+   { 0,   100, 5,  TABLEN(Semikron),  PTC, Semikron   },
+   { -5,  100, 5,  TABLEN(mbb600),    PTC, mbb600     },
+   { -50, 170, 10, TABLEN(Kty83),     PTC, Kty83      },
+   { -40, 300, 10, TABLEN(Kty84),     PTC, Kty84      },
+   { -20, 150, 10, TABLEN(leaf),      NTC, leaf       },
+   { -20, 190, 5,  TABLEN(Tesla100k), PTC, Tesla100k  },
+   { 0,   100, 10, TABLEN(Tesla52k),  PTC, Tesla52k   },
 };
 
 s32fp TempMeas::Lookup(int digit, Sensors sensorId)
 {
    if (sensorId >= TEMP_LAST) return 0;
+   int index = sensorId >= TEMP_KTY83 ? sensorId - TEMP_SEPARATOR : sensorId;
 
-   const TEMP_SENSOR * sensor = &sensors[sensorId];
+   const TEMP_SENSOR * sensor = &sensors[index];
    uint16_t last = sensor->lookup[0] + (sensor->coeff == NTC?-1:+1);
 
    for (uint32_t i = 0; i < sensor->tabSize; i++)

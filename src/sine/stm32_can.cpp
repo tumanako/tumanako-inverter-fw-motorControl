@@ -30,6 +30,7 @@
 
 #define MAX_MESSAGES 10
 #define MAX_ITEMS_PER_MESSAGE 8
+#define SENDBUFFER_LEN (MAX_MESSAGES - 3)
 #define SDO_WRITE 0x40
 #define SDO_READ 0x22
 #define SDO_ABORT 0x80
@@ -86,6 +87,12 @@ typedef struct
    uint32_t prescaler;
 } CANSPEED;
 
+typedef struct
+{
+   uint16_t id;
+   uint32_t data[2];
+} SENDBUFFER;
+
 static void ProcessSDO(uint8_t* data);
 static int Add(CANMAP *canMap, Param::PARAM_NUM param, int canId, int offset, int length, s32fp gain);
 static CANIDMAP *FindById(CANMAP *canMap, int canId);
@@ -96,6 +103,8 @@ static CANIDMAP *FindById(CANMAP *canMap, int canId);
 static CANMAP canSendMap;
 static CANMAP canRecvMap;
 static uint32_t lastRxTimestamp = 0;
+static SENDBUFFER sendBuffer[SENDBUFFER_LEN];
+static int sendCnt;
 
 static const CANSPEED canSpeed[BaudLast] =
 {
@@ -132,6 +141,9 @@ void Save()
 
 void SendAll()
 {
+   can_disable_irq(CAN1, CAN_IER_TMEIE);
+   sendCnt = 0;
+
    for (CANIDMAP *curMap = canSendMap.items; curMap->currentItem > 0; curMap++)
    {
       uint32_t data[2] = { 0 }; //Had an issue with uint64_t, otherwise would have used that
@@ -152,8 +164,17 @@ void SendAll()
             data[0] |= val << curItem.offsetBits;
          }
       }
-      Send(curMap->canId, (uint8_t*)&data, 8);
+      if (Send(curMap->canId, (uint8_t*)data, 8) < 0)
+      {
+         sendBuffer[sendCnt].id = curMap->canId;
+         sendBuffer[sendCnt].data[0] = data[0];
+         sendBuffer[sendCnt].data[1] = data[1];
+         sendCnt++;
+      }
    }
+
+   if (sendCnt > 0)
+      can_enable_irq(CAN1, CAN_IER_TMEIE);
 }
 
 void Clear(void)
@@ -242,9 +263,9 @@ uint32_t GetLastRxTimestamp()
    return lastRxTimestamp;
 }
 
-void Send(uint32_t canId, uint8_t* data, uint32_t len)
+int Send(uint32_t canId, uint8_t* data, uint32_t len)
 {
-	can_transmit(CAN1,
+	return can_transmit(CAN1,
 				 canId,     /* (EX/ST)ID: CAN ID */
 				 false, /* IDE: CAN ID extended? */
 				 false, /* RTR: Request transmit? */
@@ -294,6 +315,19 @@ extern "C" void usb_lp_can_rx0_isr(void)
          }
          lastRxTimestamp = rtc_get_counter_val();
       }
+   }
+}
+
+extern "C" void usb_hp_can_tx_isr()
+{
+   if (sendCnt > 0)
+   {
+      Send(sendBuffer[sendCnt - 1].id, (uint8_t*)sendBuffer[sendCnt - 1].data, 8);
+      sendCnt--;
+   }
+   else
+   {
+      can_disable_irq(CAN1, CAN_IER_TMEIE);
    }
 }
 

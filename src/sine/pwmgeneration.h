@@ -26,6 +26,7 @@ class PwmGeneration
 {
    public:
       static uint16_t GetAngle();
+      static bool Tripped();
       static void PwmInit();
       static void SetOpmode(int);
       static void SetAmpnom(s32fp amp);

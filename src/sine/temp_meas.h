@@ -1,3 +1,21 @@
+/*
+ * This file is part of the tumanako_vc project.
+ *
+ * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #ifndef TEMP_MEAS_H_INCLUDED
 #define TEMP_MEAS_H_INCLUDED
 
@@ -10,10 +28,13 @@ public:
    {
       TEMP_JCURVE = 0,
       TEMP_SEMIKRON = 1,
-      TEMP_KTY83 = 2,
-      TEMP_KTY84 = 3,
-      TEMP_TESLA_100K = 4,
-      TEMP_TESLA_52K = 5,
+      TEMP_MBB600 = 2,
+      TEMP_SEPARATOR = 9,
+      TEMP_KTY83 = 12,
+      TEMP_KTY84 = 13,
+      TEMP_LEAF = 14,
+      TEMP_TESLA_100K = 15,
+      TEMP_TESLA_52K = 16,
       TEMP_LAST
    };
 
@@ -23,33 +44,77 @@ public:
 
 #ifdef __TEMP_LU_TABLES
 #define JCURVE \
-51	,\
+57	,\
+76	,\
+100	,\
+132	,\
+171	,\
+220	,\
+280	,\
+353	,\
+440	,\
+544	,\
+665	,\
+805	,\
+963	,\
+1141	,\
+1338	,\
+1551	,\
+1779	,\
+2019	,\
+2268	,\
+2523	,\
+2779	,\
+3032	,\
+3279	,\
+3519	,\
+3748	,\
+3964	,\
+4167
+
+#define MBB600 \
+3971	,\
+3632	,\
+3292	,\
+2959	,\
+2641	,\
+2343	,\
+2069	,\
+1819	,\
+1596	,\
+1397	,\
+1222	,\
+1069	,\
+935	,\
+819	,\
+718	,\
+631	,\
+555	,\
+489	,\
+433	,\
+383	,\
+340	,\
+303
+
+#define LEAF \
+49	,\
 68	,\
-90	,\
-118	,\
-154	,\
-198	,\
-252	,\
-319	,\
-398	,\
-493	,\
-603	,\
-732	,\
-879	,\
-1044	,\
-1228	,\
-1428	,\
-1645	,\
-1875	,\
-2115	,\
-2363	,\
-2614	,\
-2865	,\
-3112	,\
-3353	,\
-3586	,\
-3807	,\
-4017
+91	,\
+119	,\
+153	,\
+193	,\
+239	,\
+290	,\
+348	,\
+411	,\
+479	,\
+551	,\
+628	,\
+707	,\
+788	,\
+871	,\
+955	,\
+1039
 
 #define SEMIKRON \
 3767	,\

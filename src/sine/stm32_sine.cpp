@@ -159,29 +159,30 @@ static void CruiseControl()
 
 static void Ms100Task(void)
 {
-   int32_t dir = Param::GetInt(Param::dir);
+   int dir = Param::GetInt(Param::dir);
+   int newDir = 0;
 
    DigIo::Toggle(Pin::led_out);
-   Param::SetDig(Param::speed, Encoder::GetSpeed());
+   Param::SetInt(Param::speed, Encoder::GetSpeed());
    ErrorMessage::PrintNewErrors();
 
-   /* Only change direction when below certain rev */
-   if (Encoder::GetSpeed() < 100)
-   {
-      if (Param::GetBool(Param::din_forward) && !Param::GetBool(Param::din_reverse))
-      {
-         dir = 1;
-      }
-      else if (!Param::GetBool(Param::din_forward) && Param::GetBool(Param::din_reverse))
-      {
-         dir = -1;
-      }
-   }
 
-   if (!(Param::GetBool(Param::din_forward) ^ Param::GetBool(Param::din_reverse)))
-   {
+   if (Param::GetBool(Param::din_forward))
+      newDir = 1;
+   else if (Param::GetBool(Param::din_reverse))
+      newDir = -1;
+
+   /* Only change direction when below certain motor speed */
+   if ((int)Encoder::GetSpeed() < Param::GetInt(Param::dirchrpm))
+      dir = newDir;
+
+   /* Current direction doesn't match selected direction -> neutral */
+   if (dir != newDir)
       dir = 0;
-   }
+
+   /* neither forward nor reverse or both forward and reverse -> neutral */
+   if (!(Param::GetBool(Param::din_forward) ^ Param::GetBool(Param::din_reverse)))
+      dir = 0;
 
    FOC::SetDirection(dir);
 
@@ -189,17 +190,17 @@ static void Ms100Task(void)
    //If break pin is high and both mprot and emcystop are high than it must be over current
    if (DigIo::Get(Pin::emcystop_in) && DigIo::Get(Pin::mprot_in) && DigIo::Get(Pin::bk_in))
    {
-      Param::SetDig(Param::din_ocur, 1);
+      Param::SetInt(Param::din_ocur, 1);
    }
    else
    {
-      Param::SetDig(Param::din_ocur, 0);
+      Param::SetInt(Param::din_ocur, 0);
    }
    #endif
 
    CruiseControl();
 
-   Param::SetDig(Param::dir, dir);
+   Param::SetInt(Param::dir, dir);
 
    Can::SendAll();
 }
@@ -214,22 +215,22 @@ static void GetDigInputs()
    if ((rtc_get_counter_val() - Can::GetLastRxTimestamp()) >= CAN_TIMEOUT && canIoActive)
    {
       canio = 0;
-      Param::SetDig(Param::canio, 0);
+      Param::SetInt(Param::canio, 0);
       ErrorMessage::Post(ERR_CANTIMEOUT);
    }
 
-   Param::SetDig(Param::din_cruise, DigIo::Get(Pin::cruise_in) | ((canio & CAN_IO_CRUISE) != 0));
-   Param::SetDig(Param::din_start, DigIo::Get(Pin::start_in) | ((canio & CAN_IO_START) != 0));
-   Param::SetDig(Param::din_brake, DigIo::Get(Pin::brake_in) | ((canio & CAN_IO_BRAKE) != 0));
-   Param::SetDig(Param::din_mprot, DigIo::Get(Pin::mprot_in));
-   Param::SetDig(Param::din_forward, DigIo::Get(Pin::fwd_in) | ((canio & CAN_IO_FWD) != 0));
-   Param::SetDig(Param::din_reverse, DigIo::Get(Pin::rev_in) | ((canio & CAN_IO_REV) != 0));
-   Param::SetDig(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
-   Param::SetDig(Param::din_bms, DigIo::Get(Pin::bms_in) | ((canio & CAN_IO_BMS) != 0));
+   Param::SetInt(Param::din_cruise, DigIo::Get(Pin::cruise_in) | ((canio & CAN_IO_CRUISE) != 0));
+   Param::SetInt(Param::din_start, DigIo::Get(Pin::start_in) | ((canio & CAN_IO_START) != 0));
+   Param::SetInt(Param::din_brake, DigIo::Get(Pin::brake_in) | ((canio & CAN_IO_BRAKE) != 0));
+   Param::SetInt(Param::din_mprot, DigIo::Get(Pin::mprot_in));
+   Param::SetInt(Param::din_forward, DigIo::Get(Pin::fwd_in) | ((canio & CAN_IO_FWD) != 0));
+   Param::SetInt(Param::din_reverse, DigIo::Get(Pin::rev_in) | ((canio & CAN_IO_REV) != 0));
+   Param::SetInt(Param::din_emcystop, DigIo::Get(Pin::emcystop_in));
+   Param::SetInt(Param::din_bms, DigIo::Get(Pin::bms_in) | ((canio & CAN_IO_BMS) != 0));
 
    #if defined(HWCONFIG_REV2) || defined(HWCONFIG_TESLA)
-   Param::SetDig(Param::din_ocur, DigIo::Get(Pin::ocur_in));
-   Param::SetDig(Param::din_desat, DigIo::Get(Pin::desat_in));
+   Param::SetInt(Param::din_ocur, DigIo::Get(Pin::ocur_in));
+   Param::SetInt(Param::din_desat, DigIo::Get(Pin::desat_in));
    #endif // defined
 }
 
@@ -291,7 +292,7 @@ static void CalcAmpAndSlip(void)
    }
 
    ampnom = MIN(ampnom, FP_FROMINT(100));
-
+   //anticipate sudden changes by filtering
    Param::SetFlt(Param::ampnom, IIRFILTER(Param::Get(Param::ampnom), ampnom, 3));
    Param::SetFlt(Param::fslipspnt, IIRFILTER(Param::Get(Param::fslipspnt), fslipspnt, 3));
    PwmGeneration::SetAmpnom(Param::Get(Param::ampnom));
@@ -362,7 +363,7 @@ static s32fp ProcessUdc()
 
    if (udcfp > udclim)
    {
-      Param::SetDig(Param::opmode, MOD_OFF);
+      Param::SetInt(Param::opmode, MOD_OFF);
       DigIo::Set(Pin::err_out);
       ErrorMessage::Post(ERR_OVERVOLTAGE);
    }
@@ -438,6 +439,11 @@ static void ProcessThrottle()
    int potmode = Param::GetInt(Param::potmode);
    int throtSpnt, idleSpnt, cruiseSpnt, derateSpnt, finalSpnt;
 
+   if ((int)Encoder::GetSpeed() < Param::GetInt(Param::throtramprpm))
+      Throttle::throttleRamp = Param::GetInt(Param::throtramp);
+   else
+      Throttle::throttleRamp = Param::GetAttrib(Param::throtramp)->max;
+
    if (potmode == POTMODE_CAN)
    {
       //500ms timeout
@@ -455,8 +461,8 @@ static void ProcessThrottle()
    }
    else
    {
-      Param::SetDig(Param::pot, potval);
-      Param::SetDig(Param::pot2, pot2val);
+      Param::SetInt(Param::pot, potval);
+      Param::SetInt(Param::pot2, pot2val);
    }
 
    /* Error light on implausible value */
@@ -474,7 +480,7 @@ static void ProcessThrottle()
       {
          DigIo::Set(Pin::err_out);
          ErrorMessage::Post(ERR_THROTTLE1);
-         Param::SetDig(Param::potnom, 0);
+         Param::SetInt(Param::potnom, 0);
          return;
       }
       pot2val = Throttle::potmax[1]; //make sure we don't attenuate regen
@@ -520,7 +526,7 @@ static void ProcessThrottle()
       DigIo::Set(Pin::err_out);
    }
 
-   Param::SetDig(Param::potnom, finalSpnt);
+   Param::SetInt(Param::potnom, finalSpnt);
 }
 
 //Normal run takes 70µs -> 0.7% cpu load (last measured version 3.5)
@@ -578,7 +584,7 @@ static void Ms10Task(void)
       DigIo::Set(Pin::dcsw_out);
       DigIo::Clear(Pin::err_out);
       DigIo::Clear(Pin::prec_out);
-      Param::SetDig(Param::opmode, newMode);
+      Param::SetInt(Param::opmode, newMode);
       ErrorMessage::UnpostAll();
    }
 
@@ -586,17 +592,37 @@ static void Ms10Task(void)
    if (opmode >= MOD_BOOST && DigIo::Get(Pin::bms_in))
    {
       opmode = MOD_OFF;
-      Param::SetDig(Param::opmode, opmode);
+      Param::SetInt(Param::opmode, opmode);
    }
 #endif
 
    if (MOD_OFF == opmode)
    {
+      if (PwmGeneration::Tripped())
+      {
+         switch (Param::GetInt(Param::tripmode))
+         {
+            default:
+            case TRIP_ALLOFF:
+               DigIo::Clear(Pin::dcsw_out);
+               break;
+            case TRIP_DCSWON:
+               //do nothing
+               break;
+            case TRIP_PRECHARGEON:
+               DigIo::Clear(Pin::dcsw_out);
+               DigIo::Set(Pin::prec_out);
+               break;
+         }
+      }
+      else
+      {
+         DigIo::Clear(Pin::dcsw_out);
+      }
       initWait = 50;
 
-      Param::SetDig(Param::amp, 0);
+      Param::SetInt(Param::amp, 0);
       PwmGeneration::SetOpmode(MOD_OFF);
-      DigIo::Clear(Pin::dcsw_out);
       Throttle::cruiseSpeed = -1;
       runChargeControl = false;
    }
@@ -748,7 +774,7 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Throttle::speedkp = Param::Get(Param::speedkp);
       Throttle::speedflt = Param::GetInt(Param::speedflt);
       Throttle::idleThrotLim = Param::Get(Param::idlethrotlim);
-      Throttle::throttleRamp = Param::GetInt(Param::throtramp);
+      //Throttle::throttleRamp = Param::GetInt(Param::throtramp);
    }
 }
 
@@ -783,6 +809,9 @@ extern "C" int main(void)
    s.AddTask(Ms100Task, 10000);
 
    DigIo::Set(Pin::prec_out);
+
+   if (Param::GetInt(Param::snsm) < 12)
+      Param::SetInt(Param::snsm, Param::GetInt(Param::snsm) + 10); //upgrade parameter
 
    term_Run();
 

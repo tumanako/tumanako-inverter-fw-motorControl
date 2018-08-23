@@ -21,8 +21,9 @@
 #define PWMFRQS     "0=17.6kHz, 1=8.8kHz, 2=4.4KHz, 3=2.2kHz, 4=1.1kHz"
 #define PWMPOLS     "0=ACTHIGH, 1=ACTLOW"
 #define DIRS        "-1=REV, 0=NEUTRAL, 1=FWD"
-#define SNS_HS      "0=JCurve, 1=Semikron"
-#define SNS_M       "2=KTY83-110, 3=KTY84-130"
+#define TRIPMODES   "0=AllOff, 1=dcswon, 2=prechargeon"
+#define SNS_HS      "0=JCurve, 1=Semikron, 2=MBB600"
+#define SNS_M       "12=KTY83-110, 13=KTY84-130, 14=Leaf"
 #define PWMFUNCS    "0=tmpm, 1=tmphs, 2=speed"
 #define CRUISEMODS  "0=Button, 1=Switch"
 #define IDLEMODS    "0=always, 1=nobrake, 2=cruise"
@@ -44,7 +45,7 @@
 #define CAT_CHARGER  "Charger"
 #define CAT_COMM     "Communication"
 
-#define VER 3.76
+#define VER 3.96
 
 enum _modes
 {
@@ -56,6 +57,13 @@ enum _modes
    MOD_SINE,
    MOD_ACHEAT,
    MOD_LAST
+};
+
+enum _tripmodes
+{
+   TRIP_ALLOFF = 0,
+   TRIP_DCSWON,
+   TRIP_PRECHARGEON
 };
 
 enum _canio
@@ -87,7 +95,7 @@ enum _canio
    2. Temporary parameters (id = 0)
    3. Display values
  */
-//Next param id (increase when adding new parameter!): 85
+//Next param id (increase when adding new parameter!): 88
 /*              category     name         unit       min     max     default id */
 #define PARAM_LIST \
     PARAM_ENTRY(CAT_MOTOR,   boost,       "dig",     0,      37813,  1700,   1   ) \
@@ -103,20 +111,22 @@ enum _canio
     PARAM_ENTRY(CAT_MOTOR,   fmin,        "Hz",      0,      400,    1,      34  ) \
     PARAM_ENTRY(CAT_MOTOR,   fmax,        "Hz",      0,      1000,   200,    9   ) \
     PARAM_ENTRY(CAT_MOTOR,   numimp,      "Imp/rev", 8,      8192,   60,     15  ) \
+    PARAM_ENTRY(CAT_MOTOR,   dirchrpm,    "rpm",     0,      2000,   100,    87  ) \
     PARAM_ENTRY(CAT_MOTOR,   syncofs,     "dig",     0,      65535,  0,      70  ) \
     /*PARAM_ENTRY(CAT_MOTOR,   delay,       "µs",      0,      65535,  40,     84  )*/ \
-    PARAM_ENTRY(CAT_MOTOR,   snsm,        SNS_M,     2,      3,      2,      46  ) \
+    PARAM_ENTRY(CAT_MOTOR,   snsm,        SNS_M,     12,     14,     12,     46  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmfrq,      PWMFRQS,   0,      4,      1,      13  ) \
     PARAM_ENTRY(CAT_INVERTER,pwmpol,      PWMPOLS,   0,      1,      0,      52  ) \
     PARAM_ENTRY(CAT_INVERTER,deadtime,    "dig",     0,      255,    63,     14  ) \
     PARAM_ENTRY(CAT_INVERTER,ocurlim,     "A",       -65536, 65536,  100,    22  ) \
+    PARAM_ENTRY(CAT_INVERTER,tripmode,    TRIPMODES, 0,      2,      0,      86  ) \
     PARAM_ENTRY(CAT_INVERTER,minpulse,    "dig",     0,      4095,   1000,   24  ) \
     PARAM_ENTRY(CAT_INVERTER,il1gain,     "dig/A",   -100,   100,    4.7,    27  ) \
     PARAM_ENTRY(CAT_INVERTER,il2gain,     "dig/A",   -100,   100,    4.7,    28  ) \
     PARAM_ENTRY(CAT_INVERTER,udcgain,     "dig/V",   0,      4095,   6.175,  29  ) \
     PARAM_ENTRY(CAT_INVERTER,udcofs,      "dig",     0,      4095,   0,      77  ) \
     PARAM_ENTRY(CAT_INVERTER,udclim,      "V",       0,      1000,   540,    48  ) \
-    PARAM_ENTRY(CAT_INVERTER,snshs,       SNS_HS,    0,      1,      0,      45  ) \
+    PARAM_ENTRY(CAT_INVERTER,snshs,       SNS_HS,    0,      2,      0,      45  ) \
     PARAM_ENTRY(CAT_CHARGER, chargemode,  CHARGEMODS,0,      4,      0,      74  ) \
     PARAM_ENTRY(CAT_CHARGER, chargecur,   "A",       0,      50,     0,      71  ) \
     PARAM_ENTRY(CAT_CHARGER, chargekp,    "dig",     0,      100,    80,     72  ) \
@@ -128,6 +138,7 @@ enum _canio
     PARAM_ENTRY(CAT_THROTTLE,pot2max,     "dig",     0,      4095,   4095,   64  ) \
     PARAM_ENTRY(CAT_THROTTLE,potmode,     POTMODES,  0,      2,      0,      82  ) \
     PARAM_ENTRY(CAT_THROTTLE,throtramp,   "%/10ms",  1,      100,    100,    81  ) \
+    PARAM_ENTRY(CAT_THROTTLE,throtramprpm,"rpm",     0,      20000,  20000,  85  ) \
     PARAM_ENTRY(CAT_REGEN,   brknompedal, "%",       -100,   0,      -50,    38  ) \
     PARAM_ENTRY(CAT_REGEN,   brkpedalramp,"%/10ms",  1,      100,    100,    68  ) \
     PARAM_ENTRY(CAT_REGEN,   brknom,      "%",       0,      100,    30,     19  ) \
