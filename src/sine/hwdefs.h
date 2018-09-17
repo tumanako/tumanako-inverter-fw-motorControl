@@ -19,12 +19,14 @@
 #define RCC_CLOCK_SETUP rcc_clock_setup_in_hse_8mhz_out_72mhz
 
 #define PWM_TIMER     TIM1
+#define PWM_TIMRST    RST_TIM1
 #define PWM_TIMER_IRQ NVIC_TIM1_UP_IRQ
 #define pwm_timer_isr tim1_up_isr
 
 #define REV_CNT_RCC_ENR    RCC_APB1ENR_TIM3EN
 #define rev_timer_isr      tim3_isr
 #define REV_CNT_TIMER      TIM3
+#define REV_CNT_TIMRST     RST_TIM3
 #define OVER_CUR_TIMER TIM4
 
 #define TERM_USART         USART3

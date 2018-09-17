@@ -68,6 +68,13 @@ static void TestAtan2()
    ASSERT(SineCore::Atan2(2048, 3547) == 10922); //60°
 }
 
+static void TestLn()
+{
+   //ASSERT(fp_ln(1) == 0);
+   ASSERT(fp_ln(5389) == FP_FROMFLT(8.5777));
+   ASSERT(fp_ln(8290) == FP_FROMFLT(9.0));
+}
+
 void FPTest::RunTest()
 {
    TestMacros();
@@ -75,4 +82,5 @@ void FPTest::RunTest()
    TestAtoi();
    TestMedian3();
    TestAtan2();
+   TestLn();
 }

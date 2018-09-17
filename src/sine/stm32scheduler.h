@@ -35,7 +35,7 @@ class Stm32Scheduler
        */
       Stm32Scheduler(uint32_t timer);
 
-      /** @brief Add a periodic task
+      /** @brief Add a periodic task, can be called up to 4 times
        * @param function the task function
        * @param period The calling period in 100*ms
        */

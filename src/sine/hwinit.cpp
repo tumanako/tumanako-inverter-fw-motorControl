@@ -158,10 +158,5 @@ void tim_setup()
 
    /** setup gpio */
    gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_ALTFN_PUSHPULL, GPIO7 | GPIO8 | GPIO9);
-   //Early initialization of main PWM timer pins to make sure they are at a defined state
-   gpio_clear(GPIOA, GPIO8 | GPIO9 | GPIO10);
-   gpio_clear(GPIOB, GPIO13 | GPIO14 | GPIO15);
-   gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO8 | GPIO9 | GPIO10);
-   gpio_set_mode(GPIOB, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_OPENDRAIN, GPIO13 | GPIO14 | GPIO15);
 }
 

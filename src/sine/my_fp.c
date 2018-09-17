@@ -1,8 +1,27 @@
+/*
+ * This file is part of the tumanako_vc project.
+ *
+ * Copyright (C) 2011 Johannes Huebner <dev@johanneshuebner.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include "my_string.h"
 #include "my_fp.h"
 
 #define FRAC_MASK ((1 << FRAC_DIGITS) - 1)
 
+static s32fp log2_approx(s32fp x, int loopLimit);
 
 char* fp_itoa(char * buf, s32fp a)
 {
@@ -70,4 +89,53 @@ u32fp fp_sqrt(u32fp rad)
    } while ((sqrtl - sqrt) > 1);
 
    return sqrt;
+}
+
+s32fp fp_ln(unsigned int x)
+{
+   int n = 0;
+   const s32fp ln2 = FP_FROMFLT(0.6931471806);
+
+   if (x == 0)
+   {
+      return -1;
+   }
+   else
+   { //count leading zeros
+      uint32_t mask = 0xFFFFFFFF;
+      for (int i = 16; i > 0; i /= 2)
+      {
+         mask <<= i;
+         if ((x & mask) == 0)
+         {
+            n += i;
+            x <<= i;
+         }
+      }
+   }
+
+   s32fp ln = FP_FROMINT(31 - n);
+   x >>= 32 - FRAC_DIGITS - 1; //will result in fixed point number in [1,2)
+   ln += log2_approx(x, 5);
+   ln = FP_MUL(ln2, ln);
+   return ln;
+}
+
+static s32fp log2_approx(s32fp x, int loopLimit)
+{
+   int m = 0;
+   s32fp result = 0;
+
+   if (loopLimit == 0) return FP_FROMINT(1);
+   if (x == FP_FROMINT(1)) return 0;
+
+   while (x < FP_FROMINT(2))
+   {
+      x = FP_MUL(x, x);
+      m++;
+   }
+   s32fp p = FRAC_FAC >> m;
+   result = FP_MUL(p, FP_FROMINT(1) + log2_approx(x / 2, loopLimit - 1));
+
+   return result;
 }

@@ -431,7 +431,7 @@ static void CalcFancyValues()
    Param::SetFlt(Param::t, t);
 }
 
-static void ProcessThrottle()
+static void ProcessThrottle(s32fp udc)
 {
    int potval = AnaIn::Get(AnaIn::throttle1);
    int pot2val = AnaIn::Get(AnaIn::throttle2);
@@ -508,6 +508,7 @@ static void ProcessThrottle()
       else if (throtSpnt > 0)
          finalSpnt = MAX(cruiseSpnt, throtSpnt);
    }
+
 #ifndef HWCONFIG_TESLA
    if (Param::GetInt(Param::din_bms))
    {
@@ -517,6 +518,20 @@ static void ProcessThrottle()
          finalSpnt = -(finalSpnt * Param::GetInt(Param::bmslimlow)) / 100;
    }
 #endif
+
+   if (udc < Param::Get(Param::udcmin) && finalSpnt >= 0)
+   {
+      s32fp udcErr = Param::Get(Param::udcmin) - udc;
+      s32fp res = finalSpnt - FP_TOINT(udcErr * 10);
+      finalSpnt = MAX(0, res);
+   }
+   else if (udc > Param::Get(Param::udcmax) && finalSpnt < 0)
+   {
+      s32fp udcErr = udc - Param::Get(Param::udcmax);
+      s32fp res = finalSpnt + FP_TOINT(udcErr * 10);
+      finalSpnt = MIN(0, res);
+   }
+
    if (derateSpnt < 100)
    {
       if (finalSpnt >= 0)
@@ -540,7 +555,7 @@ static void Ms10Task(void)
    s32fp udc = ProcessUdc();
 
    GetDigInputs();
-   ProcessThrottle();
+   ProcessThrottle(udc);
    CalcAndOutputTemp();
    Encoder::UpdateRotorFrequency(10);
 
@@ -774,8 +789,16 @@ extern void parm_Change(Param::PARAM_NUM paramNum)
       Throttle::speedkp = Param::Get(Param::speedkp);
       Throttle::speedflt = Param::GetInt(Param::speedflt);
       Throttle::idleThrotLim = Param::Get(Param::idlethrotlim);
-      //Throttle::throttleRamp = Param::GetInt(Param::throtramp);
    }
+}
+
+static void InitPWMIO()
+{
+   uint8_t outputMode = Param::GetInt(Param::pwmpol) == 0 ? GPIO_MODE_OUTPUT_50_MHZ : GPIO_MODE_INPUT;
+   uint8_t outputConf = Param::GetInt(Param::pwmpol) == 0 ? GPIO_CNF_OUTPUT_ALTFN_PUSHPULL : GPIO_CNF_INPUT_FLOAT;
+
+   gpio_set_mode(GPIOA, outputMode, outputConf, GPIO8 | GPIO9 | GPIO10);
+   gpio_set_mode(GPIOB, outputMode, outputConf, GPIO13 | GPIO14 | GPIO15);
 }
 
 extern "C" void tim2_isr(void)
@@ -787,23 +810,25 @@ extern "C" int main(void)
 {
    clock_setup();
    rtc_setup();
-   //Additional test pin on JTAG header Pin 13/PB3
+   //Additional test pins on JTAG header
    //AFIO_MAPR |= AFIO_MAPR_SPI1_REMAP | AFIO_MAPR_SWJ_CFG_JTAG_OFF_SW_OFF;
+   char* termBuf = usart_setup();
    tim_setup();
    AnaIn::Init();
    DigIo::Init();
-   char* termBuf = usart_setup();
    nvic_setup();
    Encoder::Init();
    term_Init(termBuf);
    parm_load();
    parm_Change(Param::PARAM_LAST);
    Can::Init((enum Can::baudrates)Param::GetInt(Param::canspeed));
+   InitPWMIO();
+
    MotorVoltage::SetMaxAmp(SineCore::MAXAMP);
 
    Stm32Scheduler s(TIM2); //We never exit main so it's ok to put it on stack
    scheduler = &s;
-   //s.AddTask(test, 20);
+
    s.AddTask(Ms1Task, 100);
    s.AddTask(Ms10Task, 1000);
    s.AddTask(Ms100Task, 10000);

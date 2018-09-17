@@ -37,6 +37,7 @@ extern "C"
 char* fp_itoa(char * buf, s32fp a);
 s32fp fp_atoi(const char *str);
 u32fp fp_sqrt(u32fp rad);
+s32fp fp_ln(unsigned int x);
 
 #ifdef __cplusplus
 }

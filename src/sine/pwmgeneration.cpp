@@ -17,6 +17,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include <libopencm3/stm32/timer.h>
+#include <libopencm3/stm32/rcc.h>
 #include "pwmgeneration.h"
 #include "hwdefs.h"
 #include "params.h"
@@ -310,7 +311,7 @@ uint16_t PwmGeneration::TimerSetup(uint16_t deadtime, int pwmpol)
    const uint16_t pwmmax = 1U << pwmdigits;
    uint8_t outputMode;
 
-   timer_reset(PWM_TIMER);
+   rcc_periph_reset_pulse(PWM_TIMRST);
    /* disable timer */
    timer_disable_counter(PWM_TIMER);
    /* Center aligned PWM */

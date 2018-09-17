@@ -24,8 +24,8 @@
 #include <libopencm3/stm32/exti.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/adc.h>
+#include <libopencm3/stm32/rcc.h>
 #include "errormessage.h"
-//#include "params.h"
 #include "sine_core.h"
 
 #define TWO_PI 65536
@@ -237,7 +237,7 @@ static void DMASetup()
 
 static void InitTimerSingleChannelMode()
 {
-   timer_reset(REV_CNT_TIMER);
+   rcc_periph_reset_pulse(REV_CNT_TIMRST);
    //Some explanation: HCLK=72MHz
    //APB1-Prescaler is 2 -> 36MHz
    //Timer clock source is ABP1*2 because APB1 prescaler > 1
@@ -274,7 +274,7 @@ static void InitTimerSingleChannelMode()
 
 static void InitSPIMode()
 {
-   timer_reset(REV_CNT_TIMER);
+   rcc_periph_reset_pulse(REV_CNT_TIMRST);
    exti_disable_request(EXTI2);
    gpio_set_mode(GPIOD, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO2);
    gpio_set_mode(GPIOA, GPIO_MODE_OUTPUT_50_MHZ, GPIO_CNF_OUTPUT_PUSHPULL, GPIO7);
@@ -283,7 +283,7 @@ static void InitSPIMode()
 
 static void InitTimerABZMode()
 {
-   timer_reset(REV_CNT_TIMER);
+   rcc_periph_reset_pulse(REV_CNT_TIMRST);
 	timer_set_period(REV_CNT_TIMER, 4 * pulsesPerTurn); //2 channels and 2 edges -> 4 times the number of base pulses
 
 	//In sync mode start out in reset mode and switch to encoder
@@ -314,18 +314,18 @@ static void InitTimerABZMode()
 
 static void InitResolverMode()
 {
-   uint8_t channels[] = { 6, 7, 6, 7 };
+   uint8_t channels[] = { 6, 6, 7, 7 };
    adc_enable_discontinuous_mode_injected(ADC1);
    adc_set_injected_sequence(ADC1, 4, channels);
    adc_enable_external_trigger_injected(ADC1, ADC_CR2_JEXTSEL_JSWSTART);
    adc_set_sample_time(ADC1, 6, ADC_SMPR_SMP_1DOT5CYC);
    adc_set_sample_time(ADC1, 7, ADC_SMPR_SMP_1DOT5CYC);
-   timer_reset(REV_CNT_TIMER);
-   timer_set_prescaler(REV_CNT_TIMER, 71);
+   rcc_periph_reset_pulse(REV_CNT_TIMRST);
+   timer_set_prescaler(REV_CNT_TIMER, 71); //run at 1MHz
    timer_set_period(REV_CNT_TIMER, 65535);
    timer_one_shot_mode(REV_CNT_TIMER);
    timer_set_oc_mode(REV_CNT_TIMER, TIM_OC4, TIM_OCM_PWM2);
-   timer_enable_oc_output(REV_CNT_TIMER, TIM_OC4);
+   timer_enable_oc_output(REV_CNT_TIMER, TIM_OC4); //OC4 is connected to ADC trigger
    timer_enable_preload(REV_CNT_TIMER);
    timer_direction_up(REV_CNT_TIMER);
    timer_generate_event(REV_CNT_TIMER, TIM_EGR_UG);
@@ -345,10 +345,10 @@ static void InitResolverMode()
    //while (!(ADC_SR(ADC1) & ADC_SR_JEOC));
 
    int cos = adc_read_injected(ADC1, 1);
-   int sin = adc_read_injected(ADC1, 2);
+   int sin = adc_read_injected(ADC1, 3);
    adc_set_injected_offset(ADC1, 1, cos);
-   adc_set_injected_offset(ADC1, 2, sin);
-   adc_set_injected_offset(ADC1, 3, cos);
+   adc_set_injected_offset(ADC1, 2, cos);
+   adc_set_injected_offset(ADC1, 3, sin);
    adc_set_injected_offset(ADC1, 4, sin);
    adc_enable_external_trigger_injected(ADC1, ADC_CR2_JEXTSEL_TIM3_CC4);
    seenNorthSignal = true;
@@ -381,7 +381,9 @@ static uint16_t GetAngleResolver()
    if (state)
    {
       gpio_clear(GPIOD, GPIO2);
-      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, 40 /*Param::GetInt(Param::delay)*/);
+      /* The phase delay of the 3-pole filter, amplifier and resolver is 96µs.
+         That is 40µs after the falling edge of the exciting square wave */
+      timer_set_oc_value(REV_CNT_TIMER, TIM_OC4, 40);
       timer_set_counter(REV_CNT_TIMER, 0);
       timer_enable_counter(REV_CNT_TIMER);
       state = false;
@@ -390,13 +392,11 @@ static uint16_t GetAngleResolver()
    else
    {
       gpio_set(GPIOD, GPIO2);
-      int cos = adc_read_injected(ADC1, 1) + adc_read_injected(ADC1, 3);
-      int sin = adc_read_injected(ADC1, 2) + adc_read_injected(ADC1, 4);
+      int cos = adc_read_injected(ADC1, 1) + adc_read_injected(ADC1, 2);
+      int sin = adc_read_injected(ADC1, 3) + adc_read_injected(ADC1, 4);
       angle = SineCore::Atan2(cos, sin);
-      //s32fp arctan = FP_DIV(angle, FP_FROMFLT(5.689));
-      //Param::SetDig(Param::sin, sin);
-      //Param::SetDig(Param::cos, cos);
-      //Param::SetFlt(Param::angle, arctan);
+      //Param::SetInt(Param::sin, sin);
+      //Param::SetInt(Param::cos, cos);
       state = true;
       uint16_t diffPos = angle - lastAngle;
       uint16_t diffNeg = lastAngle - angle;

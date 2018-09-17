@@ -45,7 +45,7 @@
 #define CAT_CHARGER  "Charger"
 #define CAT_COMM     "Communication"
 
-#define VER 3.96
+#define VER 4.05
 
 enum _modes
 {
@@ -185,6 +185,7 @@ enum _canio
     VALUE_ENTRY(fstat,       "Hz"    ) \
     VALUE_ENTRY(speed,       "rpm"   ) \
     VALUE_ENTRY(amp,         "dig"   ) \
+    VALUE_ENTRY(angle,       "°"     ) \
     VALUE_ENTRY(pot,         "dig"   ) \
     VALUE_ENTRY(pot2,        "dig"   ) \
     VALUE_ENTRY(potnom,      "%"     ) \
@@ -206,5 +207,7 @@ enum _canio
     VALUE_ENTRY(dout_prec,   ""      ) \
     VALUE_ENTRY(dout_dcsw,   ""      ) \
     VALUE_ENTRY(tm_meas,     "us"    ) \
-    VALUE_ENTRY(angle,     "°"    ) \
+
+/*    VALUE_ENTRY(sin,     "°"    ) \
+    VALUE_ENTRY(cos,     "°"    ) \*/
 
